@@ -2,7 +2,7 @@
 
 /**************************************************************************************************************
  Code for making Minimum/Maximum/Avg/Median Intensity Projections.
- Last Modified 2014/09/23 by Jamie Boyd
+ Last Modified 2025/06/13 by Jamie Boyd
  
  ***************************************************************************************************************/
 // Structure to pass data to each ProjectThread
@@ -99,7 +99,7 @@ template <typename T> void doProjectX(T *srcWaveStart, T *destWaveStart, UInt8 p
                 }
                 break;
             case 3: // Median projection
-                T *bufferStart = (T*) NewPtr (ColumnsToDo * sizeof(T));
+                T *bufferStart = (T*) WMNewPtr (ColumnsToDo * sizeof(T));
                 T *bufferPos;
                 // loop through YZ locations filling a buffer for calculating median
                 for (destWaveEnd = destWave + tPoints; destWave < destWaveEnd; destWave++, srcWave += toNextYZ){
@@ -108,7 +108,7 @@ template <typename T> void doProjectX(T *srcWaveStart, T *destWaveStart, UInt8 p
                     }
                     *destWave = medianT (ColumnsToDo, bufferStart);
                 }
-                DisposePtr ((Ptr)bufferStart);
+                WMDisposePtr ((Ptr)bufferStart);
                 break;
         }
     }
@@ -190,7 +190,7 @@ template <typename T> void doProjectY(T *srcWaveStart, T *destWaveStart, UInt8 p
                 }
                 break;
             case 3: // median proj
-                T *bufferStart = (T*)NewPtr(rowsToDo * sizeof(T));
+                T *bufferStart = (T*)WMNewPtr(rowsToDo * sizeof(T));
                 T *bufferPos;
                 for (lastLayer = srcWave + (tLayers * xSize * ySize); srcWave < lastLayer; srcWave += toNextLayer){
                     // loop through columns (x) in this layer
@@ -202,7 +202,7 @@ template <typename T> void doProjectY(T *srcWaveStart, T *destWaveStart, UInt8 p
                         *destWave = medianT (rowsToDo, bufferStart);
                     }
                 }
-                DisposePtr ((Ptr)bufferStart);
+                WMDisposePtr ((Ptr)bufferStart);
                 break;
         }
         
@@ -272,7 +272,7 @@ template <typename T> void doProjectZ(T *srcWaveStart, T *destWaveStart, UInt8 p
                 }
                 break;
             case 3: // median projection
-                T *bufferStart = (T*) NewPtr (layersToDo * sizeof(T));
+                T *bufferStart = (T*) WMNewPtr (layersToDo * sizeof(T));
                 T *bufferPos;
                 for (destWaveEnd = destWave + tPoints; destWave < destWaveEnd; destWave++, srcWave += toNextXY){
                     for (lastLayer= srcWave + (layersToDo * toNextLayer), bufferPos = bufferStart; srcWave < lastLayer; srcWave += toNextLayer, bufferPos++){
@@ -280,7 +280,7 @@ template <typename T> void doProjectZ(T *srcWaveStart, T *destWaveStart, UInt8 p
                     }
                     *destWave = medianT (layersToDo, bufferStart);
                 }
-                DisposePtr ((Ptr)bufferStart);
+                WMDisposePtr ((Ptr)bufferStart);
                 break;
         }
         
@@ -424,11 +424,8 @@ int ProjectSpecFrames (ProjectSpecFramesParamsPtr p){
 	
 	int result =0;	// The error returned from various Wavemetrics functions
 	waveHndl inPutWaveH = NIL, outPutWaveH = NIL;	// Handles to the input and output waves
-#if XOP_TOOLKIT_VERSION < 600
-    int inPutWaveState = 0, outPutWaveState = 0; // the original state of the 2 waves
-#endif
     int inPutWaveType, outPutWaveType; //  Wavetypes numeric codes for things like 32 bit floating point, 16 bit int, etc
-	DimSizeInt inPutDimensions,outPutDimensions;	// number of numDimensions in input and output waves
+	int inPutDimensions,outPutDimensions;	// number of numDimensions in input and output waves
 	CountInt inPutDimensionSizes[MAX_DIMENSIONS+1], outPutDimensionSizes[MAX_DIMENSIONS+1];	// an array used to hold the width, height, layers, and chunk sizes
 	CountInt inPutWaveOffset, outPutWaveOffset;	//offset in bytes from begnning of handle to a wave to the actual data - size of headers, units, etc.
 	char* srcWaveStart, *destWaveStart;	// Pointers to start of data in the inut and output waves. Need to use char for these to use WM function to get data offset
@@ -508,26 +505,14 @@ int ProjectSpecFrames (ProjectSpecFramesParamsPtr p){
 		p->result= result;
 		return result;
 	}try{
-#if XOP_TOOLKIT_VERSION < 600
-		inPutWaveState = HGetState(inPutWaveH);
-		HLock(inPutWaveH);
-		outPutWaveState = HGetState(outPutWaveH);
-		HLock(outPutWaveH);
-#endif
         // Get the offsets to the data in the input
 		if (result = MDAccessNumericWaveData(inPutWaveH, kMDWaveAccessMode0, &inPutWaveOffset))
 			throw result;
         srcWaveStart = (char*)(*inPutWaveH) + inPutWaveOffset;
 		if (result = MDAccessNumericWaveData(outPutWaveH, kMDWaveAccessMode0, &outPutWaveOffset))
 			throw result;
-		destWaveStart = (char*)(*outPutWaveH + outPutWaveOffset);
+		destWaveStart = (char*)(*outPutWaveH) + outPutWaveOffset;
     }catch (int result){
-#if XOP_TOOLKIT_VERSION < 600
-        // reset output wave handle
-        HSetState((Handle)outPutWaveH, outPutWaveState);
-        //reset input wave handle
-        HSetState((Handle)inPutWaveH, inPutWaveState);
-#endif
         // set results to error and return
         p->result= result;
         return result;
@@ -554,7 +539,7 @@ int ProjectSpecFrames (ProjectSpecFramesParamsPtr p){
     }
     // make an array of parameter structures
     nThreads = gNumProcessors;
-    ProjectThreadParamsPtr paramArrayPtr= (ProjectThreadParamsPtr)NewPtr (nThreads * sizeof(ProjectThreadParams));
+    ProjectThreadParamsPtr paramArrayPtr= (ProjectThreadParamsPtr)WMNewPtr (nThreads * sizeof(ProjectThreadParams));
     for (iThread = 0; iThread < nThreads; iThread++){
         paramArrayPtr[iThread].inPutWaveType = inPutWaveType;
         paramArrayPtr[iThread].inPutDataStartPtr = srcWaveStart;
@@ -569,21 +554,8 @@ int ProjectSpecFrames (ProjectSpecFramesParamsPtr p){
         paramArrayPtr[iThread].ti=iThread; // number of this thread, starting from 0
         paramArrayPtr[iThread].tN =nThreads; // total number of threads
     }
-    
-#ifdef __MWERKS__
-    // Metrowerks only code goes here - OS 9 MPServices
-    UInt32 message =1; // a rather boring message, but all needed info will be passed in gTaskData
-    for(iThread = 0; iThread < nThreads; iThread++ ) {
-        gTaskData[iThread].params = &paramArrayPtr [iThread];
-        gTaskData[iThread].process = &ProjectThread;
-        MPNotifyQueue(gTaskData[iThread].requestQueue, (void *)message, NULL, NULL);
-    }
-    /* wait for tasks to finish */
-    for (iThread = 0; iThread < nThreads; iThread ++)
-        MPWaitOnQueue (gTaskData[iThread].resultQueue, (void **)&message, NULL, NULL, kDurationForever);
-#else // pthreads on OS X and Windows
     // make an array of pthread_t
-    pthread_t* threadsPtr =(pthread_t*)NewPtr(nThreads * sizeof(pthread_t));
+    pthread_t* threadsPtr =(pthread_t*)WMNewPtr(nThreads * sizeof(pthread_t));
     // create the threads
     for (iThread = 0; iThread < nThreads; iThread++){
         pthread_create (&threadsPtr[iThread], NULL, ProjectThread, (void *) &paramArrayPtr[iThread]);
@@ -593,16 +565,9 @@ int ProjectSpecFrames (ProjectSpecFramesParamsPtr p){
         pthread_join (threadsPtr[iThread], NULL);
     }
     // free memory for pThreads Array
-    DisposePtr ((Ptr)threadsPtr);
-#endif
+    WMDisposePtr ((Ptr)threadsPtr);
     // Free paramaterArray memory
-    DisposePtr ((Ptr)paramArrayPtr);
-#if XOP_TOOLKIT_VERSION < 600
-    // reset output wave handle
-    HSetState((Handle)outPutWaveH, outPutWaveState);
-    //reset input wave handle
-    HSetState((Handle)inPutWaveH, inPutWaveState);
-#endif
+    WMDisposePtr ((Ptr)paramArrayPtr);
     WaveHandleModified(outPutWaveH); // Inform Igor that we have changed the output wave.
     // set results to what should be 0 and return
     p->result= result;
@@ -616,7 +581,7 @@ int ProjectAllFrames (ProjectAllFramesParamsPtr p){
 	int result =0;	// The error returned from various Wavemetrics functions
 	waveHndl inPutWaveH, outPutWaveH; // Handles to the input and output waves
 	int waveType; //  Wavetypes numeric codes for things like 32 bit floating point, 16 bit int, etc
-	DimSizeInt numDimensions;	// number of numDimensions in input and output waves
+	int numDimensions;	// number of numDimensions in input and output waves
 	CountInt inPutDimensionSizes[MAX_DIMENSIONS+1], outPutDimensionSizes[MAX_DIMENSIONS+1];	// an array used to hold the width, height, layers, and chunk sizes
 	UInt16 outPutPathLen;	// Length of the path to the target folder (output path - wave name)
 	DataFolderHandle inPutDFHandle=NULL, outPutDFHandle=NULL;	// Handle to the datafolder where we will put the output wave
@@ -666,7 +631,7 @@ int ProjectAllFrames (ProjectAllFramesParamsPtr p){
 		outPutDimensionSizes [2] = 0;
 		outPutDimensionSizes [3] = 0;
 		// If outPutPath is empty string, we are overwriting existing wave
-		outPutPathLen = GetHandleSize (p->outPutPath);
+		outPutPathLen = WMGetHandleSize (p->outPutPath);
 		if (outPutPathLen == 0){
 			if (overWrite == NO_OVERWITE) throw result = OVERWRITEALERT;
 			outPutWaveH = inPutWaveH;
@@ -708,12 +673,12 @@ int ProjectAllFrames (ProjectAllFramesParamsPtr p){
                 throw result;
 		}
 		if (p->outPutPath)
-			DisposeHandle(p->outPutPath);
+			WMDisposeHandle(p->outPutPath);
 		p->result = result;
 		return result;
 	}catch (int (result)){
 		if (p->outPutPath)
-			DisposeHandle(p->outPutPath);
+			WMDisposeHandle(p->outPutPath);
 		p->result= result;
 		return result;
 	}

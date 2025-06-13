@@ -1,7 +1,7 @@
 #include "twoPhoton.h"
 /***********************************************************************************************************************
 Code for Kalman averaging
-Last Modified 2014/09/23 by Jamie Boyd
+Last Modified 2015/06/13 by Jamie Boyd
 ***********************************************************************************************************************/
 // Structure to pass data to each KalmanThread
 // Last Modified Feb 21 2010 by Jamie Boyd
@@ -137,6 +137,7 @@ void* KalmanThread (void* threadarg){
 		break;
 	}
 	if (result != 0) throw result;
+    return 0;
 }
 
 /****************************************************************************************************************
@@ -156,7 +157,7 @@ int KalmanAllFrames(KalmanAllFramesParamsPtr p)
     int inPutWaveState, outPutWaveState;
 #endif
     int inPutWaveType;	// Wavemetrics numeric code for data type of wave
-	DimSizeInt inPutDimensions;		// The number of dimensions used in the input wave
+	int inPutDimensions;		// The number of dimensions used in the input wave
 	CountInt inPutOffset, outPutOffset; //offset in bytes from begnning of handle to a wave to the actual data - size of headers, units, etc.
 	CountInt inPutDimensionSizes[MAX_DIMENSIONS+1];	// An array used to hold the sizes of each dimension of the input wave
 	UInt16 outPutPathLen; //Length of the path to the target folder (output path:wave name)
@@ -185,7 +186,7 @@ int KalmanAllFrames(KalmanAllFramesParamsPtr p)
 		// Save z Size as we will be resizing dimensions array
 		zSize = inPutDimensionSizes [2];
 		// If outPutPath is empty string, we are overwriting existing wave
-		outPutPathLen = GetHandleSize (p->outPutPath);
+		outPutPathLen = WMGetHandleSize (p->outPutPath);
 		if (outPutPathLen == 0){
 			if (overWrite == NO_OVERWITE) throw result = OVERWRITEALERT;
 			outPutWaveH = inPutWaveH;
@@ -216,17 +217,6 @@ int KalmanAllFrames(KalmanAllFramesParamsPtr p)
 		p -> result = result;
 		return (result);	// XFUNC error code.
 	}try{
-#if XOP_TOOLKIT_VERSION < 600
-        //lock the handles for input and  output waves.
-		inPutWaveState = HGetState(inPutWaveH);
-		HLock(inPutWaveH);
-		if (isOverWriting){
-			outPutWaveState = inPutWaveState;
-		}else{
-			outPutWaveState = HGetState(outPutWaveH);
-			HLock(outPutWaveH);
-		}
-#endif
         //Get data offsets for the 2 waves (1 wave, if overwriting)
 		if (result = MDAccessNumericWaveData(inPutWaveH, kMDWaveAccessMode0, &inPutOffset))
 			throw result;
@@ -240,10 +230,6 @@ int KalmanAllFrames(KalmanAllFramesParamsPtr p)
 			outPutDataStartPtr =  (char*)(*outPutWaveH) + outPutOffset;
 		}
 	}catch (int result){
-#if XOP_TOOLKIT_VERSION < 600
-        HSetState((Handle)outPutWaveH, outPutWaveState);
-		HSetState((Handle)inPutWaveH, inPutWaveState);
-#endif
         p -> result = result;				// XFUNC error code
 		return (result);
 	}
@@ -251,7 +237,7 @@ int KalmanAllFrames(KalmanAllFramesParamsPtr p)
     // multiprocessor initialization
     // make an array of parameter structures
     nThreads =num_processors();
-    KalmanThreadParamsPtr paramArrayPtr= (KalmanThreadParamsPtr)NewPtr (nThreads * sizeof(KalmanThreadParams));
+    KalmanThreadParamsPtr paramArrayPtr= (KalmanThreadParamsPtr)WMNewPtr (nThreads * sizeof(KalmanThreadParams));
     for (iThread = 0; iThread < nThreads; iThread++){
         paramArrayPtr[iThread].inPutWaveType = inPutWaveType;
         paramArrayPtr[iThread].inPutDataStartPtr = inPutDataStartPtr;
@@ -265,20 +251,8 @@ int KalmanAllFrames(KalmanAllFramesParamsPtr p)
         paramArrayPtr[iThread].ti=iThread; // number of this thread, starting from 0
         paramArrayPtr[iThread].tN =nThreads; // total number of threads
     }
-#ifdef __MWERKS__
-    // Metrowerks only code goes here - OS 9 MPServices
-    UInt32 message =1; // a rather boring message, but all needed info will be passed in gTaskData
-    for(iThread = 0; iThread < nThreads; iThread++ ) {
-        gTaskData[iThread].params = &paramArrayPtr [iThread];
-        gTaskData[iThread].process = &KalmanThread;
-        MPNotifyQueue(gTaskData[iThread].requestQueue, (void *)message, NULL, NULL);
-    }
-    /* wait for tasks to finish */
-    for (iThread = 0; iThread < nThreads; iThread ++)
-        MPWaitOnQueue (gTaskData[iThread].resultQueue, (void **)&message, NULL, NULL, kDurationForever);
-#else // pthreads on OS X and Windows
     // make an array of pthread_t
-    pthread_t* threadsPtr =(pthread_t*)NewPtr(nThreads * sizeof(pthread_t));
+    pthread_t* threadsPtr =(pthread_t*)WMNewPtr(nThreads * sizeof(pthread_t));
     // create the threads
     for (iThread = 0; iThread < nThreads; iThread++){
         pthread_create (&threadsPtr[iThread], NULL, KalmanThread, (void *) &paramArrayPtr[iThread]);
@@ -288,14 +262,9 @@ int KalmanAllFrames(KalmanAllFramesParamsPtr p)
         pthread_join (threadsPtr[iThread], NULL);
     }
     // free memory for pThreads Array
-    DisposePtr ((Ptr)threadsPtr);
-#endif
+    WMDisposePtr ((Ptr)threadsPtr);
     // Free paramaterArray memory
-    DisposePtr ((Ptr)paramArrayPtr);
-#if XOP_TOOLKIT_VERSION < 600
-    // need to reset outPut wave handle here
-    HSetState((Handle)outPutWaveH, outPutWaveState);
-#endif
+    WMDisposePtr ((Ptr)paramArrayPtr);
     if (isOverWriting){	//then collapsing a 3D wave to 2 D
         inPutDimensionSizes [0] = -1;
         inPutDimensionSizes [1] = -1;
@@ -303,10 +272,6 @@ int KalmanAllFrames(KalmanAllFramesParamsPtr p)
         inPutDimensionSizes [3] = 0;
         result = MDChangeWave (outPutWaveH, -1, inPutDimensionSizes);
     }
-#if XOP_TOOLKIT_VERSION < 600
-    //reset inPut handle
-    HSetState((Handle)inPutWaveH, inPutWaveState);
-#endif
     WaveHandleModified(outPutWaveH);			// Inform Igor that we have changed output wave
     p -> result = result;				// // XFUNC error code will be 0
     return (result);
@@ -331,7 +296,7 @@ int KalmanSpecFrames(KalmanSpecFramesParamsPtr p)
 #if XOP_TOOLKIT_VERSION < 600
     int inPutWaveState, outPutWaveState;
 #endif
-    DimSizeInt inPutDimensions,outPutDimensions;	// number of dimensions in input and output waves
+    int inPutDimensions,outPutDimensions;	// number of dimensions in input and output waves
 	CountInt inPutDimensionSizes[MAX_DIMENSIONS+1], outPutDimensionSizes[MAX_DIMENSIONS+1];	// an array used to hold the width, height, layers, and chunk sizes
 	CountInt inPutOffset, outPutOffset;	//offset in bytes from begnning of handle to a wave to the actual data - size of headers, units, etc.
 	CountInt startLayer, endLayer, layersToDo;  //vaiables for iterating through the data.
@@ -382,24 +347,12 @@ int KalmanSpecFrames(KalmanSpecFramesParamsPtr p)
 		p -> result = result;
 		return (result);	// XFUNC error code.
 	}try{
-#if XOP_TOOLKIT_VERSION < 600
-        //lock the handles for input and  output waves.
-		inPutWaveState = HGetState(inPutWaveH);
-		HLock(inPutWaveH);
-		outPutWaveState = HGetState(outPutWaveH);
-		HLock(outPutWaveH);
-#endif
         //Get data offsets for the 2 waves
 		if (result = MDAccessNumericWaveData(inPutWaveH, kMDWaveAccessMode0, &inPutOffset)) throw result;
 		inPutDataStartPtr = (char*)(*inPutWaveH) + inPutOffset;
 		if (result = MDAccessNumericWaveData(outPutWaveH, kMDWaveAccessMode0, &outPutOffset))throw result;
 		outPutDataStartPtr =  (char*)(*outPutWaveH) + outPutOffset;
 	}catch (int result){
-#if XOP_TOOLKIT_VERSION < 600
-        //reset handles
-		HSetState((Handle)outPutWaveH, outPutWaveState);
-		HSetState((Handle)inPutWaveH, inPutWaveState);
-#endif
 		p -> result = result;	// XFUNC error code
 		return (result);
 	}
@@ -407,7 +360,7 @@ int KalmanSpecFrames(KalmanSpecFramesParamsPtr p)
     // make an array of parameter structures
     nThreads =gNumProcessors;
     if (inPutDimensionSizes [2] < nThreads) nThreads = inPutDimensionSizes [2];
-    KalmanThreadParamsPtr paramArrayPtr= (KalmanThreadParamsPtr)NewPtr (nThreads * sizeof(KalmanThreadParams));
+    KalmanThreadParamsPtr paramArrayPtr= (KalmanThreadParamsPtr)WMNewPtr (nThreads * sizeof(KalmanThreadParams));
     for (iThread = 0; iThread < nThreads; iThread++){
         paramArrayPtr[iThread].inPutWaveType = inPutWaveType;
         paramArrayPtr[iThread].inPutDataStartPtr = inPutDataStartPtr;
@@ -421,20 +374,8 @@ int KalmanSpecFrames(KalmanSpecFramesParamsPtr p)
         paramArrayPtr[iThread].ti=iThread; // number of this thread, starting from 0
         paramArrayPtr[iThread].tN =nThreads; // total number of threads
     }
-#ifdef __MWERKS__
-    // Metrowerks only code goes here - OS 9 MPServices
-    UInt32 message =1; // a rather boring message, but all needed info will be passed in gTaskData
-    for(iThread = 0; iThread < nThreads; iThread++ ) {
-        gTaskData[iThread].params = &paramArrayPtr [iThread];
-        gTaskData[iThread].process = &KalmanThread;
-        MPNotifyQueue(gTaskData[iThread].requestQueue, (void *)message, NULL, NULL);
-    }
-    /* wait for tasks to finish */
-    for (iThread = 0; iThread < nThreads; iThread ++)
-        MPWaitOnQueue (gTaskData[iThread].resultQueue, (void **)&message, NULL, NULL, kDurationForever);
-#else // pthreads on OS X and Windowa
     // make an array of pthread_t
-    pthread_t* threadsPtr =(pthread_t*)NewPtr(nThreads * sizeof(pthread_t));
+    pthread_t* threadsPtr =(pthread_t*)WMNewPtr(nThreads * sizeof(pthread_t));
     // create the threads
     for (iThread = 0; iThread < nThreads; iThread++){
         pthread_create (&threadsPtr[iThread], NULL, KalmanThread, (void *) &paramArrayPtr[iThread]);
@@ -444,15 +385,9 @@ int KalmanSpecFrames(KalmanSpecFramesParamsPtr p)
         pthread_join (threadsPtr[iThread], NULL);
     }
     // free memory for pThreads Array
-    DisposePtr ((Ptr)threadsPtr);
-#endif
+    WMDisposePtr ((Ptr)threadsPtr);
     // Free paramaterArray memory
-    DisposePtr ((Ptr)paramArrayPtr);
-#if XOP_TOOLKIT_VERSION < 600
-    //reset handles in reverse order
-    HSetState((Handle)outPutWaveH, outPutWaveState);
-    HSetState((Handle)inPutWaveH, inPutWaveState);
-#endif
+    WMDisposePtr ((Ptr)paramArrayPtr);
     // Inform Igor that we have changed the output wave.
     WaveHandleModified(outPutWaveH);
     p -> result = result;				// XFUNC error code
@@ -474,7 +409,7 @@ int KalmanWaveToFrame (KalmanWaveToFrameParamsPtr p)
     int inPutWaveState;
 #endif
     int inPutWaveType; //  Wavetypes numeric codes for things like 32 bit floating point, 16 bit int, etc
-    DimSizeInt inPutDimensions;	// number of dimensions in input and output waves
+    int inPutDimensions;	// number of dimensions in input and output waves
 	CountInt inPutDimensionSizes[MAX_DIMENSIONS+1];	// an array used to hold the width, height, layers, and chunk sizes
 	CountInt inPutOffset;	//offset in bytes from begnning of handle to a wave to the actual data - size of headers, units, etc.
 	char *inPutDataStartPtr;
@@ -500,26 +435,17 @@ int KalmanWaveToFrame (KalmanWaveToFrameParamsPtr p)
 		p -> result = result;
 		return (result);	// XFUNC error code.
 	}try{
-#if XOP_TOOLKIT_VERSION < 600
-        //lock the handle for input wave.
-		inPutWaveState = HGetState(inPutWaveH);
-		HLock(inPutWaveH);
-#endif
         //Get data offset for the wave
 		if (result = MDAccessNumericWaveData(inPutWaveH, kMDWaveAccessMode0, &inPutOffset)) throw result;
 		inPutDataStartPtr = (char*)(*inPutWaveH) + inPutOffset;
 	}catch (int result){
-#if XOP_TOOLKIT_VERSION < 600
-		//reset handle
-		HSetState((Handle)inPutWaveH, inPutWaveState);
-#endif
         p -> result = result;	// XFUNC error code
 		return (result);
 	}
 		// multiprocessor initialization
 		// make an array of parameter structures
 		nThreads =gNumProcessors;
-		KalmanThreadParamsPtr paramArrayPtr= (KalmanThreadParamsPtr)NewPtr (nThreads * sizeof(KalmanThreadParams));
+		KalmanThreadParamsPtr paramArrayPtr= (KalmanThreadParamsPtr)WMNewPtr (nThreads * sizeof(KalmanThreadParams));
 		for (iThread = 0; iThread < nThreads; iThread++){
 			paramArrayPtr[iThread].inPutWaveType = inPutWaveType;
 			paramArrayPtr[iThread].inPutDataStartPtr = inPutDataStartPtr;
@@ -533,20 +459,8 @@ int KalmanWaveToFrame (KalmanWaveToFrameParamsPtr p)
 			paramArrayPtr[iThread].ti=iThread; // number of this thread, starting from 0
 			paramArrayPtr[iThread].tN =nThreads; // total number of threads
 		}
-#ifdef __MWERKS__
-    // Metrowerks only code goes here - OS 9 MPServices
-    UInt32 message =1; // a rather boring message, but all needed info will be passed in gTaskData
-    for(iThread = 0; iThread < nThreads; iThread++ ) {
-        gTaskData[iThread].params = &paramArrayPtr [iThread];
-        gTaskData[iThread].process = &KalmanThread;
-        MPNotifyQueue(gTaskData[iThread].requestQueue, (void *)message, NULL, NULL);
-    }
-    /* wait for tasks to finish */
-    for (iThread = 0; iThread < nThreads; iThread ++)
-        MPWaitOnQueue (gTaskData[iThread].resultQueue, (void **)&message, NULL, NULL, kDurationForever);
-#else // pthreads on OS X and Windowa
 		// make an array of pthread_t
-		pthread_t* threadsPtr =(pthread_t*)NewPtr(nThreads * sizeof(pthread_t));
+		pthread_t* threadsPtr =(pthread_t*)WMNewPtr(nThreads * sizeof(pthread_t));
 		// create the threads
 		for (iThread = 0; iThread < nThreads; iThread++){
 			pthread_create (&threadsPtr[iThread], NULL, KalmanThread, (void *) &paramArrayPtr[iThread]);
@@ -556,14 +470,9 @@ int KalmanWaveToFrame (KalmanWaveToFrameParamsPtr p)
 			pthread_join (threadsPtr[iThread], NULL);
 		}
 		// free memory for pThreads Array
-		DisposePtr ((Ptr)threadsPtr);
-#endif
+		WMDisposePtr ((Ptr)threadsPtr);
 		// Free paramaterArray memory
-		DisposePtr ((Ptr)paramArrayPtr);
-#if XOP_TOOLKIT_VERSION < 600
-    //reset inPut handle
-	HSetState((Handle)inPutWaveH, inPutWaveState);
-#endif
+		WMDisposePtr ((Ptr)paramArrayPtr);
 	// Redimension wave
 	inPutDimensionSizes [0] = -1;
 	inPutDimensionSizes [1] = -1;
@@ -714,11 +623,7 @@ int KalmanList (KalmanListParamsPtr p)
 	WVNAME inPutWaveName, outPutWaveName;	// C strings to hold names of input and output waves
 	DataFolderHandle inPutDFHandle, outPutDFHandle;	// Handles to datafolders of input and output waves
 	int inPutWaveType; //  Wavetypes numeric codes for things like 32 bit floating point, 16 bit int, etc
-#if XOP_TOOLKIT_VERSION < 600
-    int outPutWaveState; //locked or unlocked
-	int* inPutWaveStates;
-#endif
-    DimSizeInt inPutDimensions;	// number of numDimensions in input and output waves
+    int inPutDimensions;	// number of numDimensions in input and output waves
 	CountInt inPutDimensionSizes[MAX_DIMENSIONS+1];	// an array used to hold the width, height, layers, and chunk sizes
 	char* outPutDataStartPtr; // Pointer to start of output wave
 	Ptr* inPutDataStartPtrs; // Pointer to an array of pointers for starts of input data
@@ -731,9 +636,9 @@ int KalmanList (KalmanListParamsPtr p)
     UInt8 iThread, nThreads;
 	try {
 		// Check that input string exists
-		if (GetHandleSize (p->inPutList) == 0) throw result = NON_EXISTENT_WAVE;
+		if (WMGetHandleSize (p->inPutList) == 0) throw result = NON_EXISTENT_WAVE;
 		// If outPutPath is empty string, we are overwriting first wave in list with results
-		if (GetHandleSize (p->outPutPath) == 0){
+		if (WMGetHandleSize (p->outPutPath) == 0){
 			if (overWrite == NO_OVERWITE) throw result = OVERWRITEALERT;
 			isOverWriting = 1;
 		}else{ // Parse outPut path
@@ -749,7 +654,7 @@ int KalmanList (KalmanListParamsPtr p)
 		DFPATH tInPutPath; // temp datafolder path for each wave in array
 		DataFolderHandle tInPutDFHandle;
 		int tInPutWaveType; // temp value for wave type of each wave in the array
-		DimSizeInt tInPutDimensions;	// temp number of numDimensions for each wave in array
+		int tInPutDimensions;	// temp number of numDimensions for each wave in array
 		CountInt tInPutDimensionSizes[MAX_DIMENSIONS+1];	// temp width, height, layers, and chunk sizes for each wave in array
 		// get info for first wave in list
 		if (handleList [0] == NULL){
@@ -828,18 +733,8 @@ int KalmanList (KalmanListParamsPtr p)
 		p -> result = result;	// XFUNC error code
 		return (result);
 	}try{
-#if XOP_TOOLKIT_VERSION < 600
-        //lock the handles for input, output waves.
-		inPutWaveStates = (int*)NewPtr (numWaves * sizeof (int));
-		for (int iw = 0; iw < numWaves; iw++){
-			inPutWaveStates [iw] = HGetState(handleList[iw]);
-			HLock(handleList[iw]);
-		}
-		outPutWaveState = HGetState(outPutWaveH);
-		HLock(outPutWaveH);
-#endif
         // get offsets to data for input waves
-		inPutDataStartPtrs = (Ptr*) NewPtr (numWaves * sizeof (Ptr));
+		inPutDataStartPtrs = (Ptr*) WMNewPtr (numWaves * sizeof (Ptr));
 		for (int iw = 0; iw < numWaves; iw++){
 			if (result = MDAccessNumericWaveData(handleList[iw], kMDWaveAccessMode0, &waveOffset)) throw result;
 			*(inPutDataStartPtrs + iw) = (char*)(*handleList[iw]) + waveOffset;
@@ -852,17 +747,8 @@ int KalmanList (KalmanListParamsPtr p)
 			outPutDataStartPtr =  (char*)(*outPutWaveH) + waveOffset;
 		}
 	}catch (int result){
-#if XOP_TOOLKIT_VERSION < 600
-        // reset wave handle state
-		HSetState (outPutWaveH,outPutWaveState);
-		for (int iw = 0; iw < numWaves; iw++){
-			HSetState(handleList[iw], inPutWaveStates [iw]);
-		}
-		// free pointers for input wave states
-		DisposePtr ((char*)inPutWaveStates);
-#endif
         // free pointer for data starts
-		DisposePtr ((char*)inPutDataStartPtrs);
+		WMDisposePtr ((char*)inPutDataStartPtrs);
 		// set result
 		p -> result = result;	// XFUNC error code
 		return (result);
@@ -870,7 +756,7 @@ int KalmanList (KalmanListParamsPtr p)
 	/* multiprocessor init
 	Make an array of parameter structures */
 	nThreads = gNumProcessors;
-	KalmanListThreadParamsPtr paramArrayPtr= (KalmanListThreadParamsPtr)NewPtr(nThreads * sizeof(KalmanListThreadParams));
+	KalmanListThreadParamsPtr paramArrayPtr= (KalmanListThreadParamsPtr)WMNewPtr(nThreads * sizeof(KalmanListThreadParams));
 	for (iThread = 0; iThread < nThreads; iThread++){
 		paramArrayPtr[iThread].inPutWaveType = inPutWaveType;
 		paramArrayPtr[iThread].inPutDataStartPtrs = inPutDataStartPtrs;
@@ -881,20 +767,8 @@ int KalmanList (KalmanListParamsPtr p)
 		paramArrayPtr[iThread].ti=iThread; // number of this thread, starting from 0
 		paramArrayPtr[iThread].tN =nThreads; // total number of threads
 	}
-#ifdef __MWERKS__
-    // Metrowerks only code goes here - OS 9 MPServices
-    UInt32 message =1; // a rather boring message, but all needed info will be passed in gTaskData
-    for(iThread = 0; iThread < nThreads; iThread++ ) {
-        gTaskData[iThread].params = &paramArrayPtr [iThread];
-        gTaskData[iThread].process = &KalmanListThread;
-        MPNotifyQueue(gTaskData[iThread].requestQueue, (void *)message, NULL, NULL);
-    }
-    /* wait for tasks to finish */
-    for (iThread = 0; iThread < nThreads; iThread ++)
-        MPWaitOnQueue (gTaskData[iThread].resultQueue, (void **)&message, NULL, NULL, kDurationForever);
-#else // pthreads on OS X and Windows
-	// make an array of pthread_t
-	pthread_t* threadsPtr =(pthread_t*)NewPtr(nThreads * sizeof(pthread_t));
+    // make an array of pthread_t
+	pthread_t* threadsPtr =(pthread_t*)WMNewPtr(nThreads * sizeof(pthread_t));
 	// create the threads
 	for (iThread = 0; iThread < nThreads; iThread++){
 		pthread_create (&threadsPtr[iThread], NULL, KalmanListThread, (void *) &paramArrayPtr[iThread]);
@@ -904,10 +778,9 @@ int KalmanList (KalmanListParamsPtr p)
 		pthread_join (threadsPtr[iThread], NULL);
 	}
 	// free memory for pThreads Array
-	DisposePtr ((Ptr)threadsPtr);
-#endif
+	WMDisposePtr ((Ptr)threadsPtr);
     // Free paramaterArray memory
-	DisposePtr ((Ptr)paramArrayPtr);
+	WMDisposePtr ((Ptr)paramArrayPtr);
 	// Inform Igor that we have changed the wave.
 	WaveHandleModified(outPutWaveH);
 	// set result
@@ -998,12 +871,8 @@ int KalmanNext (KalmanNextParamsPtr p)
 	int result = 0;	// The error returned from various Wavemetrics functions
     waveHndl outPutWaveH = NULL; // handle to output wave
 	waveHndl inPutWaveH; // handle to input wave
-#if XOP_TOOLKIT_VERSION < 600
-    int outPutWaveState; //locked or unlocked
-	int inPutWaveState;
-#endif
     int inPutWaveType, outPutWaveType; //  Wavetypes numeric codes for things like 32 bit floating point, 16 bit int, etc
-	DimSizeInt inPutDimensions, outPutDimensions;	// number of numDimensions in input and output waves
+	int inPutDimensions, outPutDimensions;	// number of numDimensions in input and output waves
 	CountInt inPutDimensionSizes[MAX_DIMENSIONS+1];	// an array used to hold the width, height, layers, and chunk sizes
 	CountInt outPutDimensionSizes[MAX_DIMENSIONS+1];
     char* outPutDataStartPtr; // Pointer to start of output wave
@@ -1044,31 +913,19 @@ int KalmanNext (KalmanNextParamsPtr p)
 		p -> result = result;	// XFUNC error code
 		return (result);
 	}try {
-#if XOP_TOOLKIT_VERSION < 600
-        //lock the handles for input and  output waves.
-		inPutWaveState = HGetState(inPutWaveH);
-		HLock(inPutWaveH);
-		outPutWaveState = HGetState(outPutWaveH);
-		HLock(outPutWaveH);
-#endif
 		//Get data offset for the waves
 		if (result = MDAccessNumericWaveData(inPutWaveH, kMDWaveAccessMode0, &inPutOffset)) throw result;
 		inPutDataStartPtr = (char*)(*inPutWaveH) + inPutOffset;
         if (result = MDAccessNumericWaveData(outPutWaveH, kMDWaveAccessMode0, &outPutOffset)) throw result;
 		outPutDataStartPtr = (char*)(*outPutWaveH) + outPutOffset;
     }catch (int result){
-#if XOP_TOOLKIT_VERSION < 600
-        //reset handles
-		HSetState((Handle)outPutWaveH, outPutWaveState);
-		HSetState((Handle)inPutWaveH, inPutWaveState);
-#endif
 		p -> result = result;	// XFUNC error code
 		return (result);
     }
     // multiprocessor initialization
     // make an array of parameter structures
     nThreads =gNumProcessors;
-    KalmanNextThreadParamsPtr paramArrayPtr= (KalmanNextThreadParamsPtr)NewPtr (nThreads * sizeof(KalmanNextThreadParams));
+    KalmanNextThreadParamsPtr paramArrayPtr= (KalmanNextThreadParamsPtr)WMNewPtr (nThreads * sizeof(KalmanNextThreadParams));
     for (int iThread = 0; iThread < nThreads; iThread++){
         paramArrayPtr[iThread].inPutWaveType = inPutWaveType;
         paramArrayPtr[iThread].inPutDataStartPtr = inPutDataStartPtr;
@@ -1078,20 +935,8 @@ int KalmanNext (KalmanNextParamsPtr p)
         paramArrayPtr[iThread].ti=iThread; // number of this thread, starting from 0
         paramArrayPtr[iThread].tN =nThreads; // total number of threads
     }
-#ifdef __MWERKS__
-    // Metrowerks only code goes here - OS 9 MPServices
-    UInt32 message =1; // a rather boring message, but all needed info will be passed in gTaskData
-    for(iThread = 0; iThread < nThreads; iThread++ ) {
-        gTaskData[iThread].params = &paramArrayPtr [iThread];
-        gTaskData[iThread].process = &KalmanNextThread;
-        MPNotifyQueue(gTaskData[iThread].requestQueue, (void *)message, NULL, NULL);
-    }
-    /* wait for tasks to finish */
-    for (iThread = 0; iThread < nThreads; iThread ++)
-        MPWaitOnQueue (gTaskData[iThread].resultQueue, (void **)&message, NULL, NULL, kDurationForever);
-#else // pthreads on OS X and Windows
     // make an array of pthread_t
-    pthread_t* threadsPtr =(pthread_t*)NewPtr(nThreads * sizeof(pthread_t));
+    pthread_t* threadsPtr =(pthread_t*)WMNewPtr(nThreads * sizeof(pthread_t));
     // create the threads
     for (iThread = 0; iThread < nThreads; iThread++){
         pthread_create (&threadsPtr[iThread], NULL, KalmanNextThread, (void *) &paramArrayPtr[iThread]);
@@ -1101,15 +946,9 @@ int KalmanNext (KalmanNextParamsPtr p)
         pthread_join (threadsPtr[iThread], NULL);
     }
     // free memory for pThreads Array
-    DisposePtr ((Ptr)threadsPtr);
-#endif
+    WMDisposePtr ((Ptr)threadsPtr);
     // Free paramaterArray memory
-    DisposePtr ((Ptr)paramArrayPtr);
-#if XOP_TOOLKIT_VERSION < 600
-    //reset handles in reverse order
-    HSetState((Handle)outPutWaveH, outPutWaveState);
-    HSetState((Handle)inPutWaveH, inPutWaveState);
-#endif
+    WMDisposePtr ((Ptr)paramArrayPtr);
 	result = MDChangeWave (outPutWaveH, -1, outPutDimensionSizes); // should never give error, and nothing to do if it does
 	WaveHandleModified(outPutWaveH);			// Inform Igor that we have changed the input wave.
 	p -> result = result;				// // XFUNC error code will be 0
