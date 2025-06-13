@@ -3,31 +3,10 @@ twoPhoton.h -- equates for new version of twoPhoton XOP conditionally updated to
 and now working on toolkit 7
 Last Modified 2016/10/13 by Jamie Boyd
 */
-#include "XOPStandardHeaders.h"			// Include ANSI headers, Mac headers, IgorXOP.h, XOP.h and XOPSupport.h
-#include "ParseWavePath.h"              // Utility to parse strings into data folder paths and wave names
-#include "XOPResources.h"				// Contains definition of XOP_TOOLKIT_VERSION
+
 
 #ifndef TWOPHOTON_H_
 #define TWOPHOTON_H_
-
-
-// conditional defines for old toolkit, so we can keep Igor 5 and Igor 6 versions on same codebase
-#if XOP_TOOLKIT_VERSION < 600
-typedef long PSInt;				// Pointer-sized int - an int that may hold a pointer
-typedef long BCInt;				// A byte count. Can exceed 2^31-1 when running 64-bits.
-typedef long IndexInt;			// An index used to index off of a pointer. Also used to hold a wave point number. Can exceed 2^31-1 when running 64-bits.
-typedef long CountInt;			// A count that should be 32 bits in a 32-bit app and 64-bits in a 64-bit app such as the size of a wave dimension.
-typedef long SInt32;
-typedef unsigned long UInt32;
-typedef unsigned char UInt8;
-typedef unsigned short UInt16;
-typedef long int DimSizeInt;
-#if XOP_TOOLKIT_VERSION < 509
-typedef int XOPIORecResult;
-#endif
-#else
-typedef int DimSizeInt;
-#endif
 
 /* twoPhoton custom error codes */
 #define OLD_IGOR 1 + FIRST_XOP_ERR
@@ -64,55 +43,8 @@ typedef int DimSizeInt;
 //preprocessor macro to swap 2 values
 #define SWAP(a,b) temp=(a);(a)=(b);(b)=temp
 
-// Threading platform-dependent globals,includes, and macros
-extern UInt8 gNumProcessors;
-#ifdef __MWERKS__
-#define kMPStackSize 0 // use default stack size
-#define kMPTaskOptions 0 // use no options
-static inline int num_processors(){
-	return MPProcessors();
-}
-typedef struct {
-	MPTaskID TaskID;
-	MPQueueID requestQueue;
-	MPQueueID resultQueue;
-	void* params; //pointer to a task-specific data structure (can use same struct for pThreads, I think)
-	void* (*process) (void*) ; // pointer to the ask-specific function to process the data, (can use same function for pThreads, I think)
-} sTaskData, *sTaskDataPtr;
-extern sTaskDataPtr gTaskData; // pointer to an array of task data structures used to pass info to threads
-extern MPQueueID gNotificationQueue; // notification queue to pass messages to all threads
-/* prototype for MPservices function */
-OSStatus MPthreadCall (void*);
-#endif
-// include pThreads library on Windows
-#ifdef  _WINDOWS_
-// include pThreads library on Windows
-#include "pthread.h"
-#include "sched.h"
-#include "semaphore.h"
-// an array of pthread_t for pthreads on Windows
-extern pthread_t* gThreadsPtr;
-static inline int num_processors(){
-	SYSTEM_INFO info;
-	GetSystemInfo(&info);
-	return info.dwNumberOfProcessors;
-}
-#endif
-// include native pThreads library on OSX
-#ifdef __GNUC__
-#include <pthread.h>
-#include <sys/types.h>
-#include <sys/sysctl.h>
-// an array of pthread_t for pthreads on OS X
-extern pthread_t* gThreadsPtr;
-static inline int num_processors()
-{
-	int np = 1;
-	size_t length = sizeof( np );
-	sysctlbyname("hw.ncpu", &np, &length, NULL, 0);
-	return np;
-}
-#endif
+
+
 
 // Structure definitions. All structures passed to Igor are two-byte aligned
 #if XOP_TOOLKIT_VERSION < 600

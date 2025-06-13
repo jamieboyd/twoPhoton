@@ -10,14 +10,7 @@ Last Modified:
 
 // globals for multithreading
 UInt8 gNumProcessors;
-#ifdef __MWERKS__
-sTaskDataPtr gTaskData; // pointer to an array of task data structures used to pass info to threads
-MPQueueID gNotificationQueue; // notification queue to pass messages to all threads
-#else // pthreads on OS X and Windows
-// pointer to an array of pthread task data structures
-// Not used, as we don't have resident threads for pThreads yet
-pthread_t* gThreadsPtr;
-#endif
+
 
 /*	RegisterFunction()
 Igor calls this at startup time to find the address of the
@@ -130,52 +123,7 @@ HOST_IMPORT int
 		return EXIT_FAILURE;
 	}
 
-	// make some resident threads for processing
 	gNumProcessors = num_processors();
-#ifdef __MWERKS__
-	gTaskData = (sTaskDataPtr)NewPtrClear (gNumProcessors * sizeof(sTaskData));
-	MPCreateQueue(&gNotificationQueue);
-	for(UInt8 iThread = 0; iThread < gNumProcessors; iThread++ ) {
-		MPCreateQueue(&gTaskData[iThread].requestQueue);
-		MPCreateQueue(&gTaskData[iThread].resultQueue);
-		MPCreateTask(MPthreadCall, &gTaskData[iThread], kMPStackSize, gNotificationQueue, NULL, NULL, kMPTaskOptions, &gTaskData[iThread].TaskID);
-	}
-#else // pthreads on OS X and Windows
-	// haven't got around to making resident threads for pThreads. We make them and join them every time
-
-#endif
 	SetXOPResult(0L);
 	return EXIT_SUCCESS;
 }
-
-/****************************************************************************************************************
-Multiprocessing "worker functions". Each thread will be running a copy of one of these functions.
-Main thread notifies the worker threads when they have work to do.
-Worker functions get a pointer to a structure contining a pointer to their share of the data to process,
-and a pointer to the right function to process the data. Worker functions call the processing function,
-and notify the main thread when they are done */
-#ifdef __MWERKS__
-OSStatus MPthreadCall (void *parameter) {
-	OSErr theErr = noErr;
-	Boolean finished;
-	UInt32 message;
-	/* Get a pointer to this task's Task data structure, which contains a pointer to a task-specific
-	paramaeter struct and a pointer to a task-specific function */
-	sTaskDataPtr p = (sTaskDataPtr)parameter;
-	finished = false;
-	while (!finished) {
-		theErr = MPWaitOnQueue(p->requestQueue, (void **)&message, NULL, NULL, kDurationForever);
-		if (theErr == noErr ) {
-			/* Call task-specific function with the pointer to task-specific struct */
-			p->process ((void*) p->params);
-			/* Notify queue that this task is finished */
-			theErr = noErr;
-			MPNotifyQueue( p->resultQueue, (void *) theErr, NULL, NULL);
-		}else{
-			finished = true;
-		}
-	}
-	/* Task is finished now */
-	return (theErr);
-}
-#endif
