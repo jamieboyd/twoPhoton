@@ -11,7 +11,7 @@
 // The constants are designed to be modifable by the user. Or you could just save a preferences file......
 // Names of NI boards, as set by NI MAX utility
 strconstant kNQimageBoard ="PCI6110"
-strconstant kNQephysBoard ="PCI6036"
+strconstant kNQephysBoard ="PCIe6321"
 // Constants for focus connection
 strconstant kNQStageProc = "Null"//"MS2000"
 strconstant kNQFocusPort = "COM3"

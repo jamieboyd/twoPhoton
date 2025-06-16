@@ -1,8 +1,7 @@
-/*	twoPhotonWinCustom.rc -- resources for twoPhoton on Windows
+/*	twoPWinCustom.rc -- resources for twoP on Windows
 
-This file is compiled by the resource compiler and creates XOP-specific
-resources that IGOR looks for in an XOP module.
-Last Modified 2016/11/19 by Jamie Boyd
+	This file is compiled by the resource compiler and creates XOP-specific
+	resources that IGOR looks for in an XOP module.
 */
 
 #include "XOPResources.h"			// Defines XOP-specific symbols.
@@ -10,199 +9,55 @@ Last Modified 2016/11/19 by Jamie Boyd
 /* Custom error messages */
 1100 STR#
 BEGIN
-	"The twoP XOP requires Igor Pro 6.20 or later.\0",
-	"One of the input waves does not exist.\0",
-	"The input wave needs to have exactly 3 dimensions.\0",
-	"The output wave needs to have 2 or 3 dimensions.\0",
-	"The data types of the waves need to be the same.\0",
-	"The dimensions of the waves need to be the same.\0",
-	"An invalid frame in the output wave was specified.\0",
-	"An invalid range of input frames was specified.\0",
-	"The output wave needs to have exactly 2 dimensions.\0",
-	"The convolution kernel must be a 2D single precision floating point wave of odd x and y dimensions.\0",
-	"The input wave needs to have 2 or 3 dimensions.\0",
-	"An input string is missing or is invalid.\0",
-	"The scaling factor specified does not divide evenly into the image width.\0",
-	"The Down Sample Type was not recognized. Allowed types are 1 = average, 2 = sum, 3 = max, 4 = median.\0",
-	"Procedure Aborted.\0",
-	"Destination wave already exists and can not be overwritten.\0",
-	"This function does not work for text waves.\0",
-	"Can not project along the specified dimensions. Allowed dimensions are 0 for X, 1 for Y, and 2 for Z.\0",
-	"This function only works with 16 bit integers or 32 bit floating points waves.\0",
-	"The output wave needs to have exactly 3 dimensions.\0",
-	"One of the waves specified in the input list does not exist.\0"
-	"A symmetric convolution kernel must be a 1D single precision floating point wave of odd length.\0",
+	"twoP requires Igor Pro 6.20 or later.\0",	// OLD_IGOR
+	"Wave does not exist.\0",							// NON_EXISTENT_WAVE
+	"This function requires a 3D wave.\0",				// NEEDS_3D_WAVE
 
 	"\0"							// NOTE: NULL required to terminate the resource.
 END
 
-1101 STR#
-BEGIN
-	"-1\0",							// -1 means we don't want to add a menu item via STR# 1101. We add it via the XMI1 reource.
-	"---\0",						// IGOR ignores item 2 because item 1 is -1.
-	"twoPhoton\0",			// Name of XOP's help file.
-
-	"\0"							// NOTE: NULL required to terminate the resource.
-END
-
-1100 XOPI							// XOPI - Describes general XOP properties to IGOR. 
+1100 XOPI							// XOPI - Describes general XOP properties to IGOR.
 BEGIN
 	XOP_VERSION,					// Version number of host XOP system.
 	DEV_SYS_CODE,					// Code for development system used to make XOP.
-	0,								// Obsolete - set to zero.
-	0,								// Obsolete - set to zero.
+	XOP_FEATURE_FLAGS,				// Tells Igor about XOP features
+	XOPI_RESERVED,					// Reserved - must be zero.
 	XOP_TOOLKIT_VERSION				// XOP Toolkit version.
 END
 
-1100 XOPF							// Describes functions added by XOP to IGOR.
+1100 XOPF							// Describes functions that the XOP adds to IGOR.
 BEGIN
-	"KalmanAllFrames\0",					// Function name.
-	F_WAVE | F_THREADSAFE | F_EXTERNAL,			// Function category,
-	NT_FP64,			// Return value type.
-		WAVE_TYPE,		// Wave to be averaged
-		HSTRING_TYPE	// output wavemname
-		NT_FP64,		// multiplier
-		NT_FP64,		// overwrite
-		0,				// NOTE: 0 required to terminate list of parameter types.
+	"WAGetWaveInfo\0",				// Function name.
+	F_WAVE | F_EXTERNAL,			// Function category,
+	HSTRING_TYPE,					// Return value type.
+		WAVE_TYPE,					// First parameter type.
+		0,							// End of parameters.
 
-	"KalmanSpecFrames\0",			// Function name.
-	F_WAVE | F_THREADSAFE | F_EXTERNAL,			// Function category,
+	"WAFill3DWaveDirectMethod\0",	// Function name.
+	F_WAVE | F_EXTERNAL,			// Function category,
 	NT_FP64,						// Return value type.
-		WAVE_TYPE,	// wave to be averaged
-		NT_FP64,	// first input frame
-		NT_FP64,	// last input frame
-		WAVE_TYPE,	// wave to get results of the averaging
-		NT_FP64,	// outPut frame
-		NT_FP64,	// multiplier
-		0,							// NOTE: 0 required to terminate list of parameter types.
+		WAVE_TYPE,					// First parameter type.
+		0,							// End of parameters.
 
-	"KalmanWaveToFrame\0",			// Function name.
-	F_WAVE | F_THREADSAFE | F_EXTERNAL,			// Function category,
-	NT_FP64,					/* return value type */			
-		WAVE_TYPE,		/* The wave to be averaged */
-		NT_FP64,		/* multiplier */
-		0,
+	"WAFill3DWavePointMethod\0",	// Function name.
+	F_WAVE | F_EXTERNAL,			// Function category,
+	NT_FP64,						// Return value type.
+		WAVE_TYPE,					// First parameter type.
+		0,							// End of parameters.
 
-	"KalmanList\0",
-	F_WAVE | F_THREADSAFE | F_EXTERNAL,			// Function category,
-	NT_FP64,
-		HSTRING_TYPE,
-		HSTRING_TYPE,
-		NT_FP64,
-		NT_FP64,
-		0,
+	"WAFill3DWaveStorageMethod\0",	// Function name.
+	F_WAVE | F_EXTERNAL,			// Function category,
+	NT_FP64,						// Return value type.
+		WAVE_TYPE,					// First parameter type.
+		0,							// End of parameters.
 
-	"KalmanNext\0",
-	F_WAVE | F_THREADSAFE | F_EXTERNAL,			// Function category,
-	NT_FP64,
-		WAVE_TYPE,
-		WAVE_TYPE,
-		NT_FP64,
-		0,
+	"WAModifyTextWave\0",			// Function name.
+	F_WAVE | F_EXTERNAL,			// Function category,
+	NT_FP64,						// Return value type.
+		WAVE_TYPE,					// First parameter type.
+		HSTRING_TYPE,				// Second parameter type.
+		HSTRING_TYPE,				// Third parameter type.
+		0,							// End of parameters.
 
-	"ProjectAllFrames\0",
-	F_WAVE | F_THREADSAFE | F_EXTERNAL,			// Function category,
-	NT_FP64,
-		WAVE_TYPE,
-		HSTRING_TYPE,
-		NT_FP64,
-		NT_FP64,
-		NT_FP64
-		0,
-
-	"ProjectSpecFrames\0",
-	F_WAVE | F_THREADSAFE | F_EXTERNAL,			// Function category,
-	NT_FP64,
-		WAVE_TYPE,
-		NT_FP64,
-		NT_FP64,
-		WAVE_TYPE,
-		NT_FP64,
-		NT_FP64,
-		NT_FP64
-		0,
-
-	"ProjectXSlice\0",
-	F_WAVE | F_THREADSAFE | F_EXTERNAL,			// Function category,
-	NT_FP64,
-		WAVE_TYPE,
-		WAVE_TYPE,
-		NT_FP64,
-		0,
-
-	"ProjectYSlice\0",
-	F_WAVE | F_THREADSAFE | F_EXTERNAL,			// Function category,
-	NT_FP64,
-		WAVE_TYPE,
-		WAVE_TYPE,
-		NT_FP64,
-		0,
-
-	"ProjectZSlice\0",
-	F_WAVE | F_THREADSAFE | F_EXTERNAL,			// Function category,
-	NT_FP64,
-		WAVE_TYPE,
-		WAVE_TYPE,
-		NT_FP64,
-		0,
-
-	"SwapEven\0"
-	F_WAVE | F_THREADSAFE | F_EXTERNAL,			// Function category,
-	NT_FP64,
-		WAVE_TYPE,
-		0,
-
-	"DownSample\0"
-	F_WAVE | F_THREADSAFE | F_EXTERNAL,			// Function category,
-	NT_FP64,
-		WAVE_TYPE,
-		NT_FP64,
-		NT_FP64,
-		0,
-
-	"Decumulate\0"
-	F_WAVE | F_THREADSAFE | F_EXTERNAL,			// Function category,
-	NT_FP64,
-		WAVE_TYPE,
-		NT_FP64,
-		NT_FP64,
-		0,
-
-	"TransposeFrames\0"
-	F_WAVE | F_THREADSAFE | F_EXTERNAL,			// Function category,
-	NT_FP64,
-		WAVE_TYPE,
-		0,
-
-	"ConvolveFrames\0",
-	F_WAVE | F_THREADSAFE | F_EXTERNAL,			// Function category,
-	NT_FP64,
-		WAVE_TYPE,
-		HSTRING_TYPE,
-		NT_FP64,
-		WAVE_TYPE,
-		NT_FP64,
-		0,
-
-	"SymConvolveFrames\0",
-	F_WAVE | F_THREADSAFE | F_EXTERNAL,			// Function category,
-	NT_FP64,
-		WAVE_TYPE,
-		HSTRING_TYPE,
-		NT_FP64,
-		WAVE_TYPE,
-		NT_FP64,
-		0,
-
-	"MedianFrames\0",
-	F_WAVE | F_THREADSAFE | F_EXTERNAL,			// Function category,
-	NT_FP64,
-		WAVE_TYPE,
-		HSTRING_TYPE,
-		NT_FP64,
-		NT_FP64,
-		0,
-
-	"\0"								// NOTE: NULL required to terminate the resource.
+	"\0"							// NOTE: NULL required to terminate the resource.
 END
-

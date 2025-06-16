@@ -3,12 +3,6 @@
 #include "XOPStandardHeaders.h"
 #include "XOPResources.h"				// Contains definition of XOP_TOOLKIT_VERSION
 
-#if XOP_TOOLKIT_VERSION < 600
-typedef long SInt32;
-typedef unsigned long UInt32;
-typedef unsigned char UInt8;
-typedef unsigned short UInt16;
-#endif
 
 // typedefs for paramater string handling
 typedef char DFPATH [MAXCMDLEN + 1];

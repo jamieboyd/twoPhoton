@@ -28,30 +28,30 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 //
 
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION 1, 0, 0, 1
-PRODUCTVERSION 6, 2, 0, 1
-FILEFLAGSMASK 0x3fL
+ FILEVERSION 1,0,1,1
+ PRODUCTVERSION 6,2,0,1
+ FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
-FILEFLAGS 0x1L
+ FILEFLAGS 0x1L
 #else
-FILEFLAGS 0x0L
+ FILEFLAGS 0x0L
 #endif
-FILEOS 0x40004L
-FILETYPE 0x2L
-FILESUBTYPE 0x0L
+ FILEOS 0x40004L
+ FILETYPE 0x2L
+ FILESUBTYPE 0x0L
 BEGIN
     BLOCK "StringFileInfo"
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "Comments", "twoPhoton is an Igor Pro extension.\0"
-            VALUE "CompanyName", "Jamie Boyd\0"
-            VALUE "FileDescription", "twoPhoton is an Igor Pro extension.\0"
-            VALUE "FileVersion", "1, 0, 0, 1\0"
-            VALUE "InternalName", "twoPhoton\0"
-            VALUE "LegalCopyright", "Copyright 1997-2016\0"
-            VALUE "OriginalFilename", "twoPhoton.xop\0"
-            VALUE "ProductName", "Igor Pro twoPhoton\0"
+            VALUE "Comments", "twoP is an Igor Pro extension.\0"
+            VALUE "CompanyName", "WaveMetrics\0"
+            VALUE "FileDescription", "twoP is an Igor Pro extension.\0"
+            VALUE "FileVersion", "1, 0, 1, 1\0"
+            VALUE "InternalName", "twoP\0"
+            VALUE "LegalCopyright", "Copyright 1997-2017\0"
+            VALUE "OriginalFilename", "twoP.xop\0"
+            VALUE "ProductName", "Igor Pro twoP\0"
             VALUE "ProductVersion", "6, 2, 0, 1\0"
         END
     END
