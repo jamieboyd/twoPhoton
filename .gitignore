@@ -13,7 +13,6 @@
 # Compiled Dynamic libraries
 *.so
 *.dylib
-*.dll
 
 # Fortran module files
 *.mod
@@ -31,7 +30,6 @@
 *.app
 *.com
 *.class
-*.dll
 
 # Packages 
 *.7z
