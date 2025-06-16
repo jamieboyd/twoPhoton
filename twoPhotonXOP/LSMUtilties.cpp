@@ -94,25 +94,23 @@ where every other line is scanned from the opposite direction.
 typedef struct SwapEvenParams
 waveHndl w1; // input wave
 Last Modified 2014/09/23 by Jamie Boyd */
-int SwapEven (SwapEvenParamsPtr p){
-
-	int result = 0;	// The error returned from various Wavemetrics functions
+extern "C" int SwapEven (SwapEvenParamsPtr p){
+	waveHndl wavH = NULL;		// handle to the input wave
 	int waveType; //  Wavetypes numeric codes for things like 32 bit floating point, 16 bit int, etc
-	DimSizeInt numDimensions;	// number of dimensions in input and output waves
+	int numDimensions;	// number of dimensions in input and output waves
 	CountInt dimensionSizes[MAX_DIMENSIONS+1];	// an array used to hold the width, height, layers, and chunk sizes
-	BCInt dataOffset;	//offset in bytes from begnning of handle to a wave to the actual data - size of headers, units, etc.
+	IndexInt dataOffset;	//offset in bytes from begnning of handle to a wave to the actual data - size of headers, units, etc.
 	CountInt lineLen;	// The length of each line in the image
 	CountInt numLines;	// The number of lines in the file
-	waveHndl wavH;		// handle to the input wave
-#if XOP_TOOLKIT_VERSION < 600
-	int hState;		// the original state of the input wave, locked or unlocked
-#endif
+	
+	int result;	// The error returned from various Wavemetrics functions
+	
 	char* dataStartPtr;	// Pointer to start of data in input wave. Need to use char for these to use WM function to get data offset
 
 	try {
 		// Get handle to input wave. Make sure it exists.
 		wavH = p->w1;
-		if (wavH == NIL)
+		if (wavH == NULL)
 			throw result = NON_EXISTENT_WAVE;
 		// Get wave data type.
 		waveType = WaveType(wavH);
@@ -136,19 +134,10 @@ int SwapEven (SwapEvenParamsPtr p){
 		p -> result = result;				// // XFUNC error code
 		return (result);
 	}try {
-#if XOP_TOOLKIT_VERSION < 600
-		//Save handle's state and make sure it is locked
-		hState = HGetState(wavH);
-		HLock(wavH);
-#endif
 		// Get the offsets to the data in the wave
 		if (result = MDAccessNumericWaveData(wavH, kMDWaveAccessMode0, &dataOffset))
 			throw result;
 	}catch (int result){
-#if XOP_TOOLKIT_VERSION < 600
-		//reset handle
-		HSetState((Handle)wavH, hState);
-#endif
 		p -> result = result;
 		return (result);				// XFUNC error code.
 	}
@@ -164,18 +153,6 @@ int SwapEven (SwapEvenParamsPtr p){
 		paramArrayPtr[iThread].ti=iThread; // number of this thread, starting from 0
 		paramArrayPtr[iThread].tN =nThreads; // total number of threads
 	}
-#ifdef __MWERKS__
-	// Metrowerks only code goes here - OS 9 MPServices
-	UInt32 message =1; // a rather boring message, but all needed info will be passed in gTaskData
-	for(iThread = 0; iThread < nThreads; iThread++ ) {
-		gTaskData[iThread].params = &paramArrayPtr [iThread];
-		gTaskData[iThread].process = &SwapEvenThread;
-		MPNotifyQueue(gTaskData[iThread].requestQueue, (void *)message, NULL, NULL);
-	}
-	/* wait for tasks to finish */
-	for (iThread = 0; iThread < nThreads; iThread ++)
-		MPWaitOnQueue (gTaskData[iThread].resultQueue, (void **)&message, NULL, NULL, kDurationForever);
-#else // pthreads on OS X and Windowa
 	// make an array of pthread_t
 	pthread_t* threadsPtr =(pthread_t*)NewPtr(nThreads * sizeof(pthread_t));
 	// create the threads
@@ -188,13 +165,8 @@ int SwapEven (SwapEvenParamsPtr p){
 	}
 	// free memory for pThreads Array
 	DisposePtr ((Ptr)threadsPtr);
-#endif
 	// Free paramaterArray memory
 	DisposePtr ((Ptr)paramArrayPtr);
-#if XOP_TOOLKIT_VERSION < 600
-	//reset handle
-	HSetState((Handle)wavH, hState);
-#endif
 	WaveHandleModified(wavH);			// Inform Igor that we have changed the input wave.
 	p -> result = result;				// // XFUNC error code will be 0
 	return (result);							
