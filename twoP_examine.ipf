@@ -2660,7 +2660,7 @@ End
 //******************************************************************************************************
 // Sets first and last colors to Min/Max of data, then calls Apply Image settings procedure for selected channel
 // Last Modified:
-//  2017/09/06 by Jamie Boyd - modified for unsigned data, and generally cleaned up
+//  2017/09/07 by Jamie Boyd - modified for unsigned data, and generally cleaned up
 Function NQ_LUTtoDataProc(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 

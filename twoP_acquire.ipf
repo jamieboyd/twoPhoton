@@ -3546,7 +3546,7 @@ Function NQ_MakeEPhysWaves (s)
 			// add channels
 			For (theChannel = 1; theChannel < 3; theChannel +=1)
 				if ((s.ePhysChans) & theChannel)	// Then the current channel is selected
-					NewFIFOChan/W/u NIDAQePhysFifo, $"ep" + num2str (theChannel), 0, 0.00241,-10,10,"V"
+					NewFIFOChan/W NIDAQePhysFifo, $"ep" + num2str (theChannel), 0, 0.00241,-10,10,"V"
 					eDataWave_Path += "ep" + num2str (theChannel) + ","
 				endif
 			endfor
@@ -3706,7 +3706,8 @@ end
 // Starts the ephys board ready to scan, waiting for image board, or starts ePhys scan if doing ephys alone
 // sets input trigger to waveform generator or, for ePhys alone,  sends scan start to RTSI
 //  returns 1 if an error ocurred, else 0
-// Last Modified 2013/07/29 by Jamie Boyd
+// last Modified:
+// 2017/08/31 by Jamie Boyd-input triggering for ephys with imaging
 Function NQ_doEphysInit (s)
 	STRUCT NQ_ScanStruct &s
 	
@@ -3715,7 +3716,8 @@ Function NQ_doEphysInit (s)
 	string errFuncStr
 	//sprintf errFuncStr, "NQ_ScanEnd(3, %s)",  s.ScanMode
 	//sprintf endFuncStr, "NQ_ScanEnd(0, %s)",  s.ScanMode
-
+	abortonRTE
+	print s.ePhysPath
 	try
 		if (s.ScanMode == kePhysOnly)
 			if (s.inPutTrigger)
@@ -4335,17 +4337,7 @@ Function NQ_ScanInit (s)
 				doalert 0,  "Function \"NQ_ScanInit\" was not expecting a scan Mode of \"" + num2str (s.ScanMode) + "\"."
 				abortonvalue 1, 12
 		Endswitch				
-		// If  not waiting for trigger, open the shutter and select trigger for wave form gen start
-		if (s.inPutTrigger == 0)
-			// Open up the shutter. Pugged into digital line 0 on the Image Board
-			NVAR shutterTaskNum = root:packages:twoP:Acquire:shutterTaskNum
-			NidaqError =fDAQmx_DIO_Write (s.ImageBoard, shutterTaskNum, (kNQshutterOpen))
-			abortonvalue NidaqError, 9 
-			// wait a few milliseconds while shutter opens before continuing
-			if (kNQshutterDelay > 0)
-				Sleep/c=-1/S kNQshutterDelay
-			endif
-		endif
+	
 		// Start up the waveform generator that actually starts everything going
 		string scanWavesList
 		If (s.ScanMode == kLineScan)
@@ -4360,6 +4352,22 @@ Function NQ_ScanInit (s)
 		else
 			DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/Strt=1 scanWavesList;abortOnRTE
 		endif
+		
+	//BMB edit	 - moved from above scanWavesList definitions
+	// If  not waiting for trigger, open the shutter and select trigger for wave form gen start
+		if (s.inPutTrigger == 0)
+			// Open up the shutter. Pugged into digital line 0 on the Image Board
+			NVAR shutterTaskNum = root:packages:twoP:Acquire:shutterTaskNum
+
+			NidaqError =fDAQmx_DIO_Write (s.ImageBoard, shutterTaskNum, (kNQshutterOpen))
+
+			abortonvalue NidaqError, 9 
+			// wait a few milliseconds while shutter opens before continuing
+			if (kNQshutterDelay > 0)
+				Sleep/c=-1/S kNQshutterDelay
+			endif
+		endif
+	//BMB edit
 		
 	catch
 		printf  "The \"NQ_ScanInit\" function failed at position %d. The Error message was:\r%s\r", errPos, fDAQmx_ErrorString()
@@ -5097,6 +5105,9 @@ Function  NQ_ScanEnd (scanMode, ScanIsAbort)
 			endif
 		endif
 		// Make sure controls will be set properly when user switches to examine side of things
+		if (scanMode > 0)
+			GUIPTabClick ("twoP_Controls", "AcquireExamineTab", "Examine")
+		endif
 		NQ_Adjust_Examine_Controls (curScan)
 		NVAR PercentComplete = root:packages:twoP:Acquire:PercentComplete
 		PercentComplete = 0
@@ -6405,3 +6416,36 @@ ThreadSafe Function NQ_LiveChanThread (AcqWave, displayWave, mergeWave, histWave
 	killdatafolder dfrInit
 	return 0
 end
+
+Function setGalvoByCursor()
+	String info
+	Variable xPoint,yPoint,dX,dY,pixPerVolt
+	
+	info = CsrInfo(A,"twoPscanGraph#GCH1")
+	xPoint = str2num(StringByKey("YPOINT",info,":",";")) // columns
+	yPoint = str2num(StringByKey("POINT",info,":",";"))  //rows
+	
+	NVAR xStartVolts = root:Packages:twoP:Acquire:xStartVolts
+	NVAR xEndVolts = root:Packages:twoP:Acquire:xEndVolts
+	NVAR yStartVolts = root:Packages:twoP:Acquire:yStartVolts
+	NVAR yEndVolts = root:Packages:twoP:Acquire:yEndVolts
+	
+	pixPerVolt = 500/3
+	NVAR ppmXcrop = root:Packages:twoP:Acquire:xPixSize
+	NVAR ppmYcrop = root:Packages:twoP:Acquire:yPixSize
+	
+	//closer to 200 nm/pixel is probably more accurate with a 100 micron field of view 
+	variable ppmX = 200e-9 // nm/pixel  this needs o be empirically measured
+	variable ppmY = 200e-9
+	
+	dX = round((xStartVolts - (-1.5))*pixPerVolt + xPoint)
+	dY = round((yStartVolts - (-1.5))*pixPerVolt + yPoint)
+	
+		
+	NVAR xStepSize = root:Packages:MS2000:xStepSize
+	NVAR yStepSize = root:Packages:MS2000:yStepSize
+	
+	xStepSize = dX*ppmXcrop - 250*ppmX
+	yStepSize = dY*ppmYcrop - 250*ppmY
+	print xStepSize,yStepSize
+End Function
