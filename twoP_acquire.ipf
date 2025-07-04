@@ -121,6 +121,18 @@ Function NQ_MakeAcquireFolder (overWrite)
 			Doalert 0,AlertStr
 		endif
 		// X and Y voltages and backups for reverting- set based on constants defining full scale
+		
+		
+		•variable/G root:Packages:twoP:Acquire:xStartVoltsFS
+•variable/G root:Packages:twoP:Acquire:yStartVoltsFS
+•variable/G root:Packages:twoP:Acquire:xEndVoltsFS
+•variable/G root:Packages:twoP:Acquire:yEndVoltsFS
+•variable/G root:Packages:twoP:Acquire:pixWidthFS
+•variable/G root:Packages:twoP:Acquire:pixHeightFS
+		
+		
+		
+		variable/G root:Packages:twoP:Acquire:xStartVoltsFS
 		variable/G root:Packages:twoP:Acquire:xStartVolts =SelectNumber (hasPrefs, kNQxVoltStart, thePrefs.xVoltStart)
 		NVAR xStartVolts = root:Packages:twoP:Acquire:xStartVolts
 		variable/G root:Packages:twoP:Acquire:xStartVoltsBU =xStartVolts
@@ -267,7 +279,7 @@ Function NQ_MakeAcquireFolder (overWrite)
 			sprintf AlertStr, "The specified ePhys board, \"%s\", is not present in the system.\r", imageBoard
 			Doalert 0,AlertStr
 		endif
-		variable/G root:packages:twoP:acquire:ePhysSampFreq= 	SelectNumber (hasPrefs, kNQePhysSampFreq, thePrefs.ePhysSampFreq)
+		variable/G root:packages:twoP:acquire:ePhysSampFreq= SelectNumber (hasPrefs, kNQePhysSampFreq, thePrefs.ePhysSampFreq)
 		nChans = SelectNumber (hasPrefs, 1, thePrefs.nEphysChans)
 		make/t/o/n = ((nChans), 5)  root:packages:twoP:Acquire:ePhysChansList
 		make/o/n = (nChans, 5)  root:packages:twoP:Acquire:ePhysChansListSel

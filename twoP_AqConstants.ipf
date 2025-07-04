@@ -1,6 +1,6 @@
 #pragma rtGlobals=3
 #pragma IgorVersion = 6.2
-#pragma version = 2.1 // Last modified 207/09/06 by Jamie Boyd
+#pragma version = 2.1 // Last modified 2025/07/02 by Jamie Boyd
 
 // This procedure file hold constants/includes that are acquisition settings
 // unique to each twoP setup, plus ways to save settings in and load them from a preferences file
@@ -22,7 +22,7 @@ constant kNQshutterOpen = 0
 constant kNQshutterDelay = 5e-03
 // constants for pixel full size
 constant kNQvPix = 500
-constant kNQhPix = 500
+constant kNQhPix = 500  
 // constants for voltage full size, and for inverting scan
 constant kNQxVoltStart = -7.5
 constant kNQxVoltEnd= 7.5
@@ -110,7 +110,7 @@ Structure TwoPPrefsStruct
 	float shutterDelay		// delay in seconds from when shutter opens to when scan starts
 	// stage
 	char stageProc[32]	// name of stage encoder procedure, MS200, e.g.
-	char stagePort[32]	// serial port to use with the stage encoder, COM1, e.g., or USB device name
+	char stagePort[32]	// serial port to use with the stage encoder, COM1, e.g.,
 	
 	// ePhys stuff
 	char ePhysBoard [32]	 // name of the DAQ board used, as configured with MAX
@@ -264,7 +264,18 @@ break
 End
 
 
+function/s twoP_ListBoards()
 
+	string aBoard, boards=fDAQmx_DeviceNames()
+	variable iBoard, nBoards = itemsinList(boards, ";")
+	string outStr = ""
+	for (iBoard=0;iBoard < nBoards;iBoard +=1)
+		aBoard = stringFromList (iBoard, boards,";")
+		DAQmx_DeviceInfo /DEV=aBoard
+		outStr += aBoard + ": " + S_NIProductType + ": " + S_NIDeviceCategory + ";"
+	endfor
+	return outStr
+end
 
 
 Function NQ_PrefsSetBoardName (pa) : PopupMenuControl
@@ -277,7 +288,7 @@ Function NQ_PrefsSetBoardName (pa) : PopupMenuControl
 			elseif (cmpStr (pa.CtrlName, "ePhysBoardPopMenu") ==0)
 				SVAR boardName =  root:packages:twoP:acquire:ePhysBoard
 			endif
-			boardName = pa.popStr
+			boardName = stringfromlist (0, pa.popStr, ":")
 			break
 		case -1: // control being killed
 			break
