@@ -6,6 +6,7 @@
 #include "twoP_examine"
 #include "twoPex_export"
 #include "Stages"
+#include "multiROI"
 	
 STATIC CONSTANT kImageFifoSize = 1e05
 STATIC CONSTANT kImageFifoTransfer = 1e04
@@ -34,7 +35,7 @@ Menu "Macros"
 		submenu "Acquire"
 			"Reset the NI Boards",/Q,  NQ_ResetBoards (1)
 			"Reset Acquire Globals",/Q, NQ_ResetAcquire ()
-			"Zero the Galvos", /Q, NQ_ZeroGalvos()
+			"Zero the Galvos", /Q, twoP_ZeroGalvos()
 		end
 	end
 end 
@@ -50,11 +51,10 @@ End
 
 //******************************************************************************************************
 // Sets the output voltage on the galvos to 0
-// Last Modified 2014/08/07 by Jamie Boyd
-function NQ_ZeroGalvos()	
+// Last Modified 2025/07/07 by Jamie Boyd - isolating code that calls into NIDAQtools
+function twoP_ZeroGalvos()
 	SVAR imageboard = root:Packages:twoPhoton:acquire:imageBoard
-	fDAQmx_WriteChan(imageBoard, 0, 0, -10, 10)
-	fDAQmx_WriteChan(imageBoard, 1, 0, -10, 10)
+	NQ_ZeroGalvos (imageBoard)
 end
 
 //******************************************************************************************************
@@ -2616,6 +2616,7 @@ End
 // Sets Counters used for triggers to low state. The default state, inexplicably, is high
 // It's worth noting that every time the boards are reset, a  pulse will be sent on the output pins of the counters
 // Last Modified:
+
 // 2017/09/06 by Jamie Boyd added threadgroup release for threads
 // 2015/04/13 by Jamie Boyd for Nidaqmx
 Function NQ_ResetBoards (FullReset)
@@ -4290,7 +4291,7 @@ Function NQ_ScanInit (s)
 		// Set counter 1  to make the LineGate - it is low during data collection portion of the line, high during turnaround/flyback
 		
 			errPos=1
-			DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={s.PixWidth-1, (s.PixWidthTotal - (s.PixWidth-1))} /IDLE=1 /NPLS=0/TBAS="/" + s.ImageBoard + "/ao/SampleClock" /Rate=1e06 1; ABORTONRTE
+			DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={s.PixWidth-1, (s.PixWidthTotal - (s.PixWidth-1))} /IDLE=1 /NPLS=0/TBAS="/" + s.ImageBoard + "/ao/SampleClock" /Rate=(1/s.PixTime); ABORTONRTE
 			// output the line gate to the normal counter1 output pin
 			errPos=2
 			NidaqError = fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/Ctr1InternalOutput", "/" + s.ImageBoard + "/ctr1Out", 0); AbortOnValue NidaqError,errPos

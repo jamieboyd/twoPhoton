@@ -283,14 +283,14 @@ Function NQ_SubStacks2Stack (basename, startStack, endStack, startFrame, endFram
 	
 	variable doChans=  NumberByKey("ImChans", startStackNoteStr , ":", "\r")
 	if (doChans&1)
-		make/w/o/n= (xSize, ySize, numStacks)$"root:twoP_Scans:" + outPutName +":" + outPutName + "_ch1"
+		make/w/u/o/n= (xSize, ySize, numStacks)$"root:twoP_Scans:" + outPutName +":" + outPutName + "_ch1"
 		WAVE ch1Wave = $"root:twoP_Scans:" + outPutName +":" + outPutName + "_ch1"
 		SetScale /P X, xPos, xDelta  , "m" , ch1wave
 		SetScale /P Y, yPos, yDelta  , "m" , ch1wave
 		SetScale /P Z, zPos, zDelta  , "m" , ch1wave
 	endif
 	if (doChans&2)
-		make/w/o/n= (xSize, ySize, numStacks)$"root:twoP_Scans:" + outPutName +":" + outPutName + "_ch2"
+		make/w/u/o/n= (xSize, ySize, numStacks)$"root:twoP_Scans:" + outPutName +":" + outPutName + "_ch2"
 		WAVE ch2Wave = $"root:twoP_Scans:" + outPutName +":" + outPutName + "_ch2"
 		SetScale /P X, xPos, xDelta  , "m" , ch2wave
 		SetScale /P Y, yPos, yDelta  , "m" , ch2wave
@@ -469,7 +469,7 @@ Function NQ_fourDdoneMarkingButtonProc(ba) : ButtonControl
 			if (doChans&1)
 				WAVE ch1Old =  $"root:twoP_Scans:" + curScan + ":" + curscan + "_ch1"
 				Rename ch1Old, ch1Old
-				make/w/n=((newXSize), (newYSize), (zSize)) $"root:twoP_Scans:" + curScan + ":" + curscan + "_ch1"
+				make/w/u/n=((newXSize), (newYSize), (zSize)) $"root:twoP_Scans:" + curScan + ":" + curscan + "_ch1"
 				WAVE ch1New =  $"root:twoP_Scans:" + curScan + ":" + curscan + "_ch1"
 				SetScale/P X (newXPos), (xPixsize), "m" , ch1New
 				SetScale/P Y (newYPos), (yPixsize), "m" , ch1New
@@ -482,7 +482,7 @@ Function NQ_fourDdoneMarkingButtonProc(ba) : ButtonControl
 				WAVE ch2Old = $"root:twoP_Scans:" + curScan + ":" + curscan + "_ch2"
 				redimension/n= ((xSIZE), (Ysize), (zsize)) ch2Old
 				Rename ch2Old, ch2Old
-				make/w/n=((newXSize), (newYSize), (zSize)) $"root:twoP_Scans:" + curScan + ":" + curscan + "_ch2"
+				make/w/u/n=((newXSize), (newYSize), (zSize)) $"root:twoP_Scans:" + curScan + ":" + curscan + "_ch2"
 				WAVE ch2New =  $"root:twoP_Scans:" + curScan + ":" + curscan + "_ch2"
 				SetScale/P X (newXPos), (xPixsize), "m" , ch2New
 				SetScale/P Y (newYPos), (yPixsize), "m" , ch2New

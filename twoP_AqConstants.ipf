@@ -10,6 +10,9 @@
 // The following constants will be loaded into global variables if a preferences file is not found and loaded.
 // The constants are designed to be modifable by the user. Or you could just save a preferences file......
 // Names of NI boards, as set by NI MAX utility
+
+
+
 strconstant kNQimageBoard ="PCI6110"
 strconstant kNQephysBoard ="PCIe6321"
 // Constants for focus connection
@@ -159,7 +162,7 @@ Structure twoPTrigStruct
 	char boardName [32]	// name of NI board generating this trigger
 	uChar ctrNum		// number of counter, from 0 to max number of counters (2-4)
 	char outPutPin [32]	// name of output pin, /ctr0Out, or PFI12, e.g.
-	char startSignal [128] // signal tha starts the counter
+	char startSignal [128] // signal that starts the counter
 	uchar polarity		// 0 for low-to-high, 1 for high-to-low
 	float duration			// duration in seconds
 EndStructure

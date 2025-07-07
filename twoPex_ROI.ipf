@@ -73,6 +73,11 @@ Function NQexROI_add (able)
 	Button ROILoadButton, win =twoP_Controls,disable =able, pos={9,409},size={44,20},proc=NQ_RoiLoadProc,title="Load"
 	Button ROISaveButton, win =twoP_Controls,disable =able,pos={56,409},size={44,20},proc=NQ_ROISaveProc,title="Save"
 	Button ROISetFolderButton, win =twoP_Controls,disable =able,pos={103,410},size={68,20},proc=NQ_ROIsetPathProc,title="Set Folder"
+	
+	//BMB edit
+	Button NMultiROIButton, win=twoP_Controls,disable=able,pos={279,410},size={55,20},proc=NMultiROIButtonProc,title="MultiROI"
+	//BMB edit
+	
 	TitleBox ROIImpathtitle, win =twoP_Controls,disable =able,pos={172,411},size={197,20}
 	TitleBox ROIImpathtitle,win =twoP_Controls,variable= root:packages:twoP:examine:ROIimPath
 	// List box for displaying ROIs
@@ -126,7 +131,7 @@ Function NQexROI_add (able)
 	SetVariable ROIMatchSetVar,win =twoP_Controls,fSize=10
 	SetVariable ROIMatchSetVar,win =twoP_Controls,value= root:Packages:twoP:examine:ROIScanMatchStr
 	// Add "ROI" controls to database
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI","Button ROILoadButton 0;Button ROISaveButton 0;Button ROISetFolderButton 0;Titlebox ROIImpathtitle 0;",applyAbleState=0)
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI","Button ROILoadButton 0;Button ROISaveButton 0;Button ROISetFolderButton 0;Titlebox ROIImpathtitle 0;Button NMultiROIButton 0;",applyAbleState=0)
 	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI","Listbox ROIListBox 0;Button ROIDuplButton 0;Button RoiNewbutton 0;Button RoiDelbutton 0;",applyAbleState=0)
 	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI","Setvariable RoiNameSetVar 0;PopupMenu RoiColorPopup 0;Button ROINudgeButton 0;",applyAbleState=0)
 	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI","Popupmenu ROIonWindowPopup 0;Popupmenu ROIDrawPopup 0;Button ROIAvgButton 0;Checkbox ROICheck1 0;",applyAbleState=0)
@@ -1885,3 +1890,20 @@ Function ROI_Multi (): GraphMarquee
 	ModifyGraph zColor [0]={colorwave,*,*,Rainbow}
 end
 
+//***********************************************************************************
+//Button procedure for executing NMultiROI function - DSI image plot.
+//Added Oct 11 017 by Ben Murphy-Baum
+
+Function NMultiROIButtonProc(ba) : ButtonControl
+	STRUCT WMButtonAction &ba
+
+	switch( ba.eventCode )
+		case 2: // mouse up
+//			NMultiROI()
+			break
+		case -1: // control being killed
+			break
+	endswitch
+
+	return 0
+End
