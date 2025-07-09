@@ -23,6 +23,7 @@ strconstant kNQFocusPort = "COM3"
 // Note that  the digital lines will be set high when the computer is turned on
 constant kNQshutterOpen = 0
 constant kNQshutterDelay = 5e-03
+
 // constants for pixel full size
 constant kNQvPix = 500
 constant kNQhPix = 500  
@@ -71,7 +72,6 @@ constant kNQMaxChans = 4
 
 // *********************************************************************************************************************************
 //*******************************************Structures for saving/loading preferences*****************************************
-constant kTwoPPrefsVers = 100 // Preferences structure version number. 100 means 1.00.
 
 // *********************************************************************************************************************************
 // Global preferences. For now, the name of the last preferences file used. Other things?
@@ -83,7 +83,7 @@ EndStructure
 
 // *********************************************************************************************************************************
 // Main Preferences. Includes settings for image scans, ePhys, triggers, and voltage output 
-Structure TwoPPrefsStruct
+Structure TwoPPrefsStruct_old
 	uint32 version		// Preferences structure version number. 100 means 1.00.
 	// image stuff
 	char imageBoard [32] // name of imaging board
@@ -125,47 +125,8 @@ Structure TwoPPrefsStruct
 EndStructure
 
 
-//**********************************************************************************************************************
-// The scaling and offset of each objective is represented by this structure
-// Last modified 2015/04/23
-Structure twoPObjStruct
-	uChar objName [32]
-	float xScal
-	float yScal
-	float xOffset
-	float yOffset
-EndStructure
 
-	
 
-// **************************************************************************************************************
-// each analog input channel is represented by this structure
-// Last Modified 2015/04/28 by Jamie Boyd
-Structure twoPChanStruct
-	char chanName [32]	// name of channel, for wave naming purposes
-	uChar aiChan			// input channel, from 0 to max number of channels (15)
-	char aToDtype[8]		// Analog input mode for the channel, can be Diff, PDIF, RSE, or NRSE 
-						// (differential, pseudodifferential, referenced single-ended, or non-referenced single-ended)
-						// Differential is typical, USB devices may need referenced single-ended, S-series devices (like pci-6110) may require pseudo-differential
-	float vMin			// minimum expected value,used for scaling and for pre-digitizing amplification
-	float vMax			// maximum expected value, used for scaling and for pre-digitizing amplification
-	float scaling				// scaling applied AFTER A/D conversion, use to fill 16 bit int wave range, or for floating point, wave, make scaling nice
-	float offset			// offset applied AFTER A/D conversion, used to fit data into unsigned waves, e.g.
-EndStructure
-
-// **************************************************************************************************************
-// each output trigger is represented by this structure
-// lots of flexibility for which device is used, and for configuring the trigger
-// Last Modified 2015/04/24 by Jamie Boyd
-Structure twoPTrigStruct
-	char trigName [32]	// name of trigger, for user's convenience
-	char boardName [32]	// name of NI board generating this trigger
-	uChar ctrNum		// number of counter, from 0 to max number of counters (2-4)
-	char outPutPin [32]	// name of output pin, /ctr0Out, or PFI12, e.g.
-	char startSignal [128] // signal that starts the counter
-	uchar polarity		// 0 for low-to-high, 1 for high-to-low
-	float duration			// duration in seconds
-EndStructure
 
 
 Structure twoPVoutStruct
@@ -267,35 +228,8 @@ break
 End
 
 
-function/s twoP_ListBoards()
-
-	string aBoard, boards=fDAQmx_DeviceNames()
-	variable iBoard, nBoards = itemsinList(boards, ";")
-	string outStr = ""
-	for (iBoard=0;iBoard < nBoards;iBoard +=1)
-		aBoard = stringFromList (iBoard, boards,";")
-		DAQmx_DeviceInfo /DEV=aBoard
-		outStr += aBoard + ": " + S_NIProductType + ": " + S_NIDeviceCategory + ";"
-	endfor
-	return outStr
-end
 
 
-Function NQ_PrefsSetBoardName (pa) : PopupMenuControl
-	STRUCT WMPopupAction &pa
 
-	switch( pa.eventCode )
-		case 2: // mouse up
-			if (cmpStr (pa.ctrlName, "ImageBoardPopMenu") ==0)
-				SVAR boardName = root:packages:twoP:acquire:imageBoard
-			elseif (cmpStr (pa.CtrlName, "ePhysBoardPopMenu") ==0)
-				SVAR boardName =  root:packages:twoP:acquire:ePhysBoard
-			endif
-			boardName = stringfromlist (0, pa.popStr, ":")
-			break
-		case -1: // control being killed
-			break
-	endswitch
-	return 0
-End
 
+stringfromlist (0, pa.popStr, ":")
