@@ -135,7 +135,7 @@ Structure twoPVoutStruct
 	uchar chan			// number of channel , typically 0 or 1
 EndStructure
 
-Function NQ_OtherScanSettingsProc(ba) : ButtonControl
+//Function NQ_OtherScanSettingsProc(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 
 	switch( ba.eventCode )
