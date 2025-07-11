@@ -1,9 +1,10 @@
 ﻿#pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2025/07/09 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2025/07/10 by Jamie Boyd.
 #pragma IgorVersion = 7
 
+#include "GUIPControls"
 
 constant kTwoPPrefsVers = 110 // Preferences structure version number
 
@@ -159,7 +160,6 @@ Function twoP_PrefsSetBoardName (pa) : PopupMenuControl
 	endswitch
 	return 0
 End
-
 
 
 // **************************************************************************************************************
@@ -363,27 +363,25 @@ End
 
 
 // **************************************************************************************************************
-// Calls twoP_PrefsLoad with chosen file
-// Last modified 2025/07/09 by Jamie Boyd 
-Function twoP_PrefsLoadPopmenuProc(pa) : PopupMenuControl
-	STRUCT WMPopupAction &pa
-
-	switch( pa.eventCode )
-		case 2: // mouse up
-			twoP_PrefsLoad (pa.popStr)
-			break
-		case -1: // control being killed
-			break
-	endswitch
-	return 0
-End
+//Ensures that the path to saved preferences file is set to the twoPhoton user procedures file. 
+// Last modified 2025/07/10 by Jamie Boy
+Function twoP_PrefsMakePath ()
+	pathinfo twoPPrefsPath
+	if (V_Flag == 0)
+		newPath/C/Q/Z twoPPrefsPath SpecialDirPath("Igor Pro User Files" , 0, 0, 0) + "User Procedures:twoPhoton"
+		PathInfo twoPPrefsPath
+		if (V_flag == 0)
+			DoAlert 0, "Igor could not find twoPhoton folder in User Procedures folder."
+			return 1
+		endif
+	endif
+end
 
 // **************************************************************************************************************
-// loads a preferences file and MAKES and sets global variables and loads ipf for stage procedure
-// Last modified 2025/07/09 by Jamie Boyd 
-Function twoP_PrefsLoad (prefsFileName)
-	string prefsFileName
-	// we make, not just reference, the global variables and waves that we use here
+//Makes global variables for preferences in acquire folder. Most of these are directly used by twoP acquire 
+// Last modified 2025/07/10 by Jamie Boyd 
+Function twoP_PrefsMakeGlobals ()
+	// make data folder
 	if (!(DataFolderExists ("root:packages:twoP:acquire")))
 		if (!(DataFolderExists ("root:packages:twoP")))
 			if (!(DataFolderExists ("root:packages")))
@@ -393,66 +391,26 @@ Function twoP_PrefsLoad (prefsFileName)
 		endif
 		newDataFolder root:packages:twoP:acquire
 	endif
-	String/G root:packages:twoP:acquire:LoadedPrefsName = prefsFileName
+	String/G root:packages:twoP:acquire:LoadedPrefsName = ""
 	String/G root:Packages:twoP:Acquire:newPrefsName= ""
-	// make a prefs struct and fil it from chosen prefs file
-	Struct twoPPrefsStruct thePrefs
-	LoadPackagePreferences /P=twoPPrefsPath "twoPhoton", prefsFileName + ".bin", 0, thePrefs
-	if (V_Flag)
-		doalert 0, "Preferences were not loaded, error = " + num2str (V_Flag)
-		SVAR prefsName =  root:packages:twoP:acquire:LoadedPrefsName
-		prefsName = "PREFS NOT LOADED"
-		return 1
-	endif
-	if (thePrefs.version != kTwoPPrefsVers)
-		print thePrefs.version
-		doAlert 0, "this preferences file version, " + num2str (thePrefs.version) + ",  is not right for this copy of the twoPhoton procedures."
-		return 1
-	endif
-	//imaging stuff
-	String/G root:packages:twoP:acquire:ImageBoard = thePrefs.imBoardName
-	SVAR imBoard = root:packages:twoP:acquire:ImageBoard
-	string alertStr
-	if (WhichListItem(imBoard, fdaQmx_DeviceNames(), ";") < 0)
-		sprintf AlertStr, "The specified imaging board, \"%s\", is not present in the system.\r", imBoard
-		Doalert 0,AlertStr
-	endif
-	DAQmx_DeviceInfo /DEV=imBoard
-	string/G root:packages:twoP:acquire:imageBoardClass = S_NIDeviceCategory
-	SVAR boardClass = root:packages:twoP:acquire:imageBoardClass
+	Variable/G root:packages:twoP:acquire:pixWidthFS =0
+	Variable/G root:packages:twoP:acquire:pixHeightFS =0
+	Variable/G root:packages:twoP:acquire:xStartVoltsFS =0
+	Variable/G root:packages:twoP:acquire:xEndVoltsFS =0
+	Variable/G root:packages:twoP:acquire:yStartVoltsFS =0
+	Variable/G root:packages:twoP:acquire:YEndVoltsFS =0
+	// timing
+	Variable/G root:packages:twoP:acquire:pixTime = 0
+	Variable/G root:packages:twoP:acquire:DutyCycle = 0
+	Variable/G root:packages:twoP:acquire:ScanHeadDelay = 0
+	Variable/G root:packages:twoP:acquire:flybackProp =0
+	Variable/G root:packages:twoP:acquire:minLiveFrameTime =0
+	//IMage board
+	String/G root:packages:twoP:acquire:ImageBoard = ""
+	string/G root:packages:twoP:acquire:imageBoardClass =""
 	String/G root:packages:twoP:acquire:imageGains = ""
-	SVAR boardGains = root:packages:twoP:acquire:imageGains
-	strswitch (boardClass)
-		case "E Series DAQ":
-			boardGains = "0.05;0.5;5;10"
-			break
-		case "S Series DAQ":
-			boardGains = "0.2;0.5;1;2;5;10"
-			break
-		case "X Series DAQ":
-			boardGains = "1;2;5;10"
-			break
-		default:
-			boardGains = "10"
-			break
-	endswitch
-	// image full scale
-	Variable/G root:packages:twoP:acquire:pixWidthFS = thePrefs.pixFullScale[0]
-	Variable/G root:packages:twoP:acquire:pixHeightFS = thePrefs.pixFullScale[1]
-	Variable/G root:packages:twoP:acquire:xStartVoltsFS = thePrefs.voltsFullScale [0]
-	Variable/G root:packages:twoP:acquire:xEndVoltsFS = thePrefs.voltsFullScale [1]
-	Variable/G root:packages:twoP:acquire:yStartVoltsFS = thePrefs.voltsFullScale [2]
-	Variable/G root:packages:twoP:acquire:yEndVoltsFS = thePrefs.voltsFullScale [3]
-	// Timing
-	Variable/G root:packages:twoP:acquire:pixTime = thePrefs.pixTime
-	Variable/G root:packages:twoP:acquire:dutyCycle = thePrefs.dutyCycle
-	Variable/G root:packages:twoP:acquire:flybackProp =thePrefs.flybackProp
-	Variable/G root:packages:twoP:acquire:scanHeadDelay = thePrefs.scanHeadDelay
-	Variable/G root:packages:twoP:acquire:minLiveFrameTime = thePrefs.minLiveFrameTime
-	//image Channels
-	variable iChan, numChans = thePrefs.numImChans
-	make/t/o/n = (numChans, 6)  root:packages:twoP:Acquire:imChanList
-	make/o/n = (numChans, 6)  root:packages:twoP:Acquire:imChanSelList
+	make/t/o/n = (1, 6)  root:packages:twoP:Acquire:imChanList
+	make/o/n = (1, 6)  root:packages:twoP:Acquire:imChanSelList
 	WAVE/t chanList = root:packages:twoP:Acquire:imChanList
 	WAVE chanSelList =  root:packages:twoP:Acquire:imChanSelList
 	SetDimlabel 1,0, ai_chan chanList
@@ -469,18 +427,14 @@ Function twoP_PrefsLoad (prefsFileName)
 	chanList [*] [0] = num2str(p) // ao channel numbers
 	chanList [*] [4] = num2str (1) // scaling = 1
 	chanList [*] [5] = num2str (0) // offset = 0
-	for (iChan = 0; iChan < numChans; iChan +=1)
-		chanList[iChan] [1] = thePrefs.imageChans[iChan].chanName
-		chanList[iChan] [2] = thePrefs.imageChans[iChan].aToDtype
-		chanList[iChan] [3] = num2str(thePrefs.imageChans[iChan].inputScaling)
-		chanList [iChan] [4] = num2str (thePrefs.imageChans[iChan].scaling)
-		chanList [iChan] [5] = num2Str (thePrefs.imageChans[iChan].offset)
-	endfor
+	chanList[0] [1] = "CHAN_NAME"
+	chanList[0] [2] = "A2D_TYPE"
+	chanList[0] [3] = "INPUT_RANGE"
+	chanList [0] [4] ="SCALING"
+	chanList [0] [5] = "OFFSET"
 	String/G root:Packages:twoP:Acquire:selImageChanList = ""
-	//Objective scaling
-	variable iObj,  numObjs = thePrefs.numObjs
-	make/o/t/n = (numObjs, 5)  root:packages:twoP:acquire:objWave
-	make/o/n = (numObjs, 5)  root:packages:twoP:acquire:objSelWave
+	make/o/t/n = (1, 5)  root:packages:twoP:acquire:objWave
+	make/o/n = (1, 5)  root:packages:twoP:acquire:objSelWave
 	WAVE/t objWave = root:packages:twoP:acquire:objWave
 	WAVE objSelWave =  root:packages:twoP:acquire:objSelWave
 	SetDimlabel 1,0, Objective objWave
@@ -489,64 +443,24 @@ Function twoP_PrefsLoad (prefsFileName)
 	SetDimlabel 1,3, X_Offset objWave
 	SetDimlabel 1,4, Y_Offset chanList
 	objSelWave = 2 // editable
-	for (iObj =0; iObj < numObjs; iObj +=1)
-		objWave [iObj] [0] = thePrefs.objList[iObj].objName
-		objWave [iObj] [1] =  num2str (thePrefs.objList[iObj].xScal)
-		objWave [iObj] [2] = num2str(thePrefs.objList[iObj].yScal)
-		objWave [iObj] [3] = num2str (thePrefs.objList[iObj].xOffset)
-		objWave [iObj] [4] = num2str (thePrefs.objList[iObj].yOffset)
-	endfor
-	string/G root:Packages:twoP:Acquire:curObj =ObjWave [0] [0]
+	objWave [0] [0] = "OBJ_NAME"
+	objWave [0] [1] =  "X_SCAL"
+	objWave [0] [2] ="Y_SCAL"
+	objWave [0] [3] = "X_OFFSET"
+	objWave [0] [4] = "Y_OFFSET"
+	string/G root:Packages:twoP:Acquire:curObj = ""
 	variable/G root:packages:twoP:Acquire:CurObjNum =0
-	//Stage
-	String/G root:packages:twoP:acquire:StageProc = thePrefs.stageProc
-	String/G root:packages:twoP:acquire:StagePort = thePrefs.stagePort
-	SVAR stageProc = root:packages:twoP:acquire:StageProc
-	SVAR stagePort = root:packages:twoP:acquire:StagePort
-	// start Stage
-	Execute/P/Q/Z "INSERTINCLUDE \"" + "Stages\""
-	Execute/P/Q/Z "INSERTINCLUDE \"" + stageProc + "_Stage\""
-	Execute/P/Q/Z "COMPILEPROCEDURES "
-	sprintf alertStr, "StageStartStage(%s, thePort = %s) ", stageProc, stagePort
-	execute/P/Q/Z alertStr
-	// shutter
-	Variable/G root:Packages:twoP:Acquire:shutterOpenLevel = thePrefs.shutterOpenLevel
-	NVAR shutterOPenLevel=root:Packages:twoP:Acquire:shutterOpenLevel
-	Variable/G root:Packages:twoP:Acquire:shutterDelay = thePrefs.shutterDelay
-	DAQmx_DIO_Config /DEV=imBoard/Dir=1/LGRP=1  "/" + imBoard + "/port0/line0"
-	Variable/G root:packages:twoP:Acquire:shutterTaskNum = V_DAQmx_DIO_TaskNumber
-	fDAQmx_DIO_Write(imBoard, V_DAQmx_DIO_TaskNumber, (!shutterOPenLevel))
-	// ePhys
-	String/G root:Packages:twoP:Acquire:ePhysBoard = thePrefs.ephysBoardName
-	SVAR ePhysBoard = root:packages:twoP:acquire:ePhysBoard
-	if ((cmpStr (ePhysBoard,"None") != 0) && (WhichListItem(ePhysBoard, fdaQmx_DeviceNames(), ";") < 0))
-		sprintf AlertStr, "The specified ePhys board, \"%s\", is not present in the system.\r", ePhysBoard
-		Doalert 0,AlertStr
-	endif
-	DAQmx_DeviceInfo /DEV=ePhysBoard
-	string/G root:packages:twoP:acquire:ePhysBoardClass = S_NIDeviceCategory
-	SVAR boardClass = root:packages:twoP:acquire:ePhysBoardClass
+	String/G root:packages:twoP:acquire:StageProc =""
+	String/G root:packages:twoP:acquire:StagePort = ""
+	Variable/G root:Packages:twoP:Acquire:shutterOpenLevel =0
+	Variable/G root:Packages:twoP:Acquire:shutterDelay = 0
+	Variable/G root:packages:twoP:Acquire:shutterTaskNum = 0
+	String/G root:Packages:twoP:Acquire:ePhysBoard = ""
+	string/G root:packages:twoP:acquire:ePhysBoardClass =""
 	String/G root:packages:twoP:acquire:ePhysGains = ""
-	SVAR boardGains = root:packages:twoP:acquire:ePhysGains
-	strswitch (boardClass)
-		case "E Series DAQ":
-			boardGains = "0.05;0.5;5;10"
-			break
-		case "S Series DAQ":
-			boardGains = "0.2;0.5;1;2;5;10"
-			break
-		case "X Series DAQ":
-			boardGains = "1;2;5;10"
-			break
-		default:
-			boardGains = "10"
-			break
-	endswitch
-	Variable/G root:Packages:twoP:Acquire:ePhysSampFreq =thePrefs.ePhysSampFreq
-	//ePhys channels
-	numChans = thePrefs.numEphysChans
-	make/t/o/n = (numChans, 6)  root:packages:twoP:Acquire:EphysChanList
-	make/o/n = (numChans, 6)  root:packages:twoP:Acquire:EphysChanSelList
+	Variable/G root:Packages:twoP:Acquire:ePhysSampFreq =0
+	make/t/o/n = (1, 6)  root:packages:twoP:Acquire:EphysChanList
+	make/o/n = (1, 6)  root:packages:twoP:Acquire:EphysChanSelList
 	WAVE/t chanList = root:packages:twoP:Acquire:EphysChanList
 	WAVE chanSelList =  root:packages:twoP:Acquire:EphysChanSelList
 	SetDimlabel 1,0, ai_chan chanList
@@ -555,6 +469,153 @@ Function twoP_PrefsLoad (prefsFileName)
 	SetDimlabel 1,3, Range chanList
 	SetDimlabel 1,4, scal chanList
 	SetDimlabel 1,5, offset chanList
+	chanSelList [*] [0] = 32 // check box for channel number is active
+	chanSelList [*] [1] = 2	 // channel name, editable
+	chanSelList [*] [2] = 0 // not editable -have to use popMenu for PDIFF,RSE, etc.
+	chanSelList [*] [3] = 0 // not editable -have to use popMenu for gains
+	chanSelList [*] [4,5] = 0 // scaling and offset not used for images
+	chanList [*] [0] = num2str(p) // ao channel numbers
+	chanList [0] [1] = "CHAN_NAME"
+	chanList [0] [2] = "A2D_TYPE"
+	chanList [0] [3] = "INPUT_RANGE"
+	chanList [0] [4] = "SCALING"
+	chanList [0] [5] ="OFFSET"
+	String/G root:Packages:twoP:Acquire:selEphysChanList = ""
+	Variable/G root:packages:twoP:acquire:Trig1Polarity =0
+	Variable/G  root:packages:twoP:acquire:Trig1Duration = 0
+	VAriable/G root:packages:twoP:acquire:Trig2Polarity = 0
+	Variable/G root:packages:twoP:acquire:Trig2Duration = 0
+end
+
+
+// **************************************************************************************************************
+// Calls twoP_PrefsLoad with chosen file
+// Last modified 2025/07/09 by Jamie Boyd 
+Function twoP_PrefsLoadPopmenuProc(pa) : PopupMenuControl
+	STRUCT WMPopupAction &pa
+
+	switch( pa.eventCode )
+		case 2: // mouse up
+			twoP_PrefsLoad (pa.popStr)
+			break
+		case -1: // control being killed
+			break
+	endswitch
+	return 0
+End
+
+
+// **************************************************************************************************************
+// loads a preferences file and sets global variables for stage procedure
+// Last modified 2025/07/09 by Jamie Boyd 
+Function twoP_PrefsLoad (prefsFileName)
+	string prefsFileName
+	// make sure path exists
+	twoP_PrefsMakePath ()
+	// make sure folder exists
+	if (!(DataFolderExists ("root:packages:twoP:acquire")))
+		twoP_PrefsMakeGlobals ()
+	endif
+	SVAR prefsName = root:packages:twoP:acquire:LoadedPrefsName
+	prefsName  = prefsFileName
+	// make a prefs struct and fill it from chosen prefs file
+	Struct twoPPrefsStruct thePrefs
+	LoadPackagePreferences /P=twoPPrefsPath "twoPhoton", prefsFileName + ".bin", 0, thePrefs
+	if (V_Flag)
+		doalert 0, "Preferences were not loaded, error = " + num2str (V_Flag)
+		prefsName = "PREFS NOT LOADED"
+		return 1
+	endif
+	if (thePrefs.version != kTwoPPrefsVers)
+		print thePrefs.version
+		doAlert 0, "this preferences file version, " + num2str (thePrefs.version) + ",  is not right for this copy of the twoPhoton procedures."
+		return 1
+	endif
+	//imaging stuff
+	SVAR imboard = root:packages:twoP:acquire:ImageBoard
+	imboard = thePrefs.imBoardName
+	// image full scale
+	NVAR pixWidthFS = root:packages:twoP:acquire:pixWidthFS
+	pixWidthFS = thePrefs.pixFullScale[0]
+	NVAR pixHeightFS=root:packages:twoP:acquire:pixHeightFS
+	pixHeightFS = thePrefs.pixFullScale[1]
+	NVAR xStartVoltsFS = root:packages:twoP:acquire:xStartVoltsFS 
+	xStartVoltsFS= thePrefs.voltsFullScale [0]
+	NVAR xEndVoltsFS = root:packages:twoP:acquire:xEndVoltsFS
+	xEndVoltsFS = thePrefs.voltsFullScale [1]
+	NVAR yStartVoltsFS= root:packages:twoP:acquire:yStartVoltsFS
+	yStartVoltsFS = thePrefs.voltsFullScale [2]
+	NVAR yEndVoltsFS =root:packages:twoP:acquire:yEndVoltsFS
+	yEndVoltsFS = thePrefs.voltsFullScale [3]
+	// Timing
+	NVAR pixTime = root:packages:twoP:acquire:pixTime
+	pixTime = thePrefs.pixTime
+	NVAR dutyCycle = root:packages:twoP:acquire:dutyCycle
+	dutyCycle = thePrefs.dutyCycle
+	NVAR flybackProp= root:packages:twoP:acquire:flybackProp
+	flybackProp =thePrefs.flybackProp
+	NVAR scanHeadDelay = root:packages:twoP:acquire:scanHeadDelay
+	scanHeadDelay = thePrefs.scanHeadDelay
+	NVAR minLiveFrameTime = root:packages:twoP:acquire:minLiveFrameTime
+	minLiveFrameTime = thePrefs.minLiveFrameTime
+	//image Channels
+	variable iChan, numChans = thePrefs.numImChans
+	WAVE/t chanList = root:packages:twoP:Acquire:imChanList
+	WAVE chanSelList =  root:packages:twoP:Acquire:imChanSelList
+	redimension/n=(numChans, 6) chanList, chanSelList
+	chanSelList [*] [0] = 32 // check box for channel number is active
+	chanSelList [*] [1] = 2	 // channel name, editable
+	chanSelList [*] [2] = 0 // not editable -have to use popMenu for PDIFF,RSE, etc.
+	chanSelList [*] [3] = 0 // not editable -have to use popMenu for gains
+	chanSelList [*] [4,5] = 0 // scaling and offset not used for images
+	chanList [*] [0] = num2str(p) // ao channel numbers
+	chanList [*] [4] = num2str (1) // scaling = 1
+	chanList [*] [5] = num2str (0) // offset = 0
+	for (iChan = 0; iChan < numChans; iChan +=1)
+		chanList[iChan] [1] = thePrefs.imageChans[iChan].chanName
+		chanList[iChan] [2] = thePrefs.imageChans[iChan].aToDtype
+		chanList[iChan] [3] = num2str(thePrefs.imageChans[iChan].inputScaling)
+		chanList [iChan] [4] = num2str (thePrefs.imageChans[iChan].scaling)
+		chanList [iChan] [5] = num2Str (thePrefs.imageChans[iChan].offset)
+	endfor
+	//Objective scaling
+	variable iObj,  numObjs = thePrefs.numObjs
+	WAVE/t objWave = root:packages:twoP:acquire:objWave
+	WAVE objSelWave =  root:packages:twoP:acquire:objSelWave
+	redimension/n = (numObjs, 5) objWave, objSelWave
+	objSelWave = 2 // editable
+	for (iObj =0; iObj < numObjs; iObj +=1)
+		objWave [iObj] [0] = thePrefs.objList[iObj].objName
+		objWave [iObj] [1] =  num2str (thePrefs.objList[iObj].xScal)
+		objWave [iObj] [2] = num2str(thePrefs.objList[iObj].yScal)
+		objWave [iObj] [3] = num2str (thePrefs.objList[iObj].xOffset)
+		objWave [iObj] [4] = num2str (thePrefs.objList[iObj].yOffset)
+	endfor
+	SVAR curObj = root:Packages:twoP:Acquire:curObj
+	curObj =ObjWave [0] [0]
+	NVAR CurObjNum = root:packages:twoP:Acquire:CurObjNum
+	CurObjNum =0
+	//Stage
+	SVAR StageProc =root:packages:twoP:acquire:StageProc
+	StageProc = thePrefs.stageProc
+	SVAR StagePort = root:packages:twoP:acquire:StagePort
+	StagePort = thePrefs.stagePort
+	// shutter
+	NVAR shutterOpenLevel = root:Packages:twoP:Acquire:shutterOpenLevel
+	shutterOpenLevel = thePrefs.shutterOpenLevel
+	NVAR shutterOPenLevel=root:Packages:twoP:Acquire:shutterOpenLevel
+	NVAR shutterDelay = root:Packages:twoP:Acquire:shutterDelay
+	shutterDelay = thePrefs.shutterDelay
+	// ephys
+	SVAR ephysBoardName= root:Packages:twoP:Acquire:ePhysBoard
+	ephysBoardName = thePrefs.ephysBoardName
+	NVAR ePhysSampFreq = root:Packages:twoP:Acquire:ePhysSampFreq
+	ePhysSampFreq =thePrefs.ePhysSampFreq
+	//ePhys channels
+	WAVE/t chanList = root:packages:twoP:Acquire:EphysChanList
+	WAVE chanSelList =  root:packages:twoP:Acquire:EphysChanSelList
+	numChans = thePrefs.numEphysChans
+	redimension/N = (numChans, 6)  chanList, chanSelList
 	chanSelList [*] [0] = 32 // check box for channel number is active
 	chanSelList [*] [1] = 2	 // channel name, editable
 	chanSelList [*] [2] = 0 // not editable -have to use popMenu for PDIFF,RSE, etc.
@@ -570,29 +631,141 @@ Function twoP_PrefsLoad (prefsFileName)
 	endfor
 	String/G root:Packages:twoP:Acquire:selEphysChanList = ""
 	// Triggers
-	Variable/G root:packages:twoP:acquire:Trig1Polarity =thePrefs.triggers[0].ctrNum.polarity
-	Variable/G  root:packages:twoP:acquire:Trig1Duration = thePrefs.triggers[0].duration
-	VAriable/G root:packages:twoP:acquire:Trig2Polarity = thePrefs.triggers[1].ctrNum.polarity
-	Variable/G root:packages:twoP:acquire:Trig2Duration =thePrefs.triggers[1].duration
-	NVAR polarity =  root:packages:twoP:acquire:Trig1Polarity
-	NVAR duration = root:packages:twoP:acquire:Trig1Duration
-	DAQmx_CTR_OutputPulse /DEV=ePhysBoard /SEC={duration, duration} /IDLE =(!polarity) /NPLS=1 /KEEP=1 /STRT=1/TRIG="/" + imBoard + "/ao/StartTrigger" 0
-	NVAR polarity =  root:packages:twoP:acquire:Trig2Polarity
-	NVAR duration = root:packages:twoP:acquire:Trig2Duration
-	DAQmx_CTR_OutputPulse /DEV=ePhysBoard /SEC={duration, duration} /IDLE =(!polarity) /NPLS=1 /KEEP=1 /STRT=1/TRIG="/" + imBoard + "/ao/StartTrigger" 1
+	NVAR Trig1Polarity = root:packages:twoP:acquire:Trig1Polarity
+	Trig1Polarity = thePrefs.triggers[0].ctrNum.polarity
+	NVAR Trig1Duration = root:packages:twoP:acquire:Trig1Duration
+	Trig1Duration = thePrefs.triggers[0].duration
+	NVAR Trig2Polarity= root:packages:twoP:acquire:Trig2Polarity
+	Trig2Polarity = thePrefs.triggers[1].ctrNum.polarity
+	NVAR Trig2Duration =root:packages:twoP:acquire:Trig2Duration
+	Trig2Duration =thePrefs.triggers[1].duration
+	doWindow/F Scan_Settings_Prefs
+	if (V_flag) // window exits
+		popUPmenu Trigger1PolarityPopMenu mode = (Trig1Polarity + 1)
+		popUPmenu Trigger2PolarityPopMenu mode = (Trig2Polarity + 1)
+		popUPmenu ShutterPolarityPopMenu mode = (shutterOpenLevel +1)
+	endif
+	return 0
 end
 
+// **************************************************************************************************************
+// calls function to check the vaidity of the loaded preference values
+// Last modified 2025/07/10 by Jamie Boyd
+Function twoP_PrefsCheckButtonProc(ba) : ButtonControl
+	STRUCT WMButtonAction &ba
 
-	//  Stage encoder initialization
-	SVAR theStageEncoder = root:packages:ChR:StageEncoder
-	SVAR thePort = root:packages:ChR:StagePort
-	theStageEncoder = thePrefs.stageProc
-	thePort = thePrefs.stagePort
-	Execute/P/Q  "Stage_StartStage (\"" + theStageEncoder + "\")"
-	// start a background task waiting for procedures to be loaded
-	NVAR PrefsLoaded=root:packages:ChR:PrefsLoaded
-	prefsLoaded = (prefsloaded | 3)
-	CtrlNamedBackground ChrPrefsInitTask, proc= ChR_PrefsAfterLoading, period=10, burst=0, start
+	switch( ba.eventCode )
+		case 2: // mouse up
+			twoP_PrefsTest()
+			break
+		case -1: // control being killed
+			break
+	endswitch
+
+	return 0
+End
+
+// **************************************************************************************************************
+// checks the vaidity of the loaded preference values by initializing NIDAQ tasks, loading stage procedure
+// also sets board gain strings which are not saved in preferences
+// Last modified 2025/07/10 by Jamie Boyd
+Function twoP_PrefsTest()
+	string tempStr
+	for (tempStr = fDAQmx_ErrorString (); CmpStr (tempStr, "") != 0;tempStr = fDAQmx_ErrorString ())  // clearNIDAQ error messgs
+	endfor
+	SVAR imBoard = root:packages:twoP:acquire:ImageBoard
+	if (WhichListItem(imBoard, fdaQmx_DeviceNames(), ";") < 0)
+		sprintf tempStr, "The specified imaging board, \"%s\", is not present in the system.\r", imBoard
+		Doalert 0, tempStr
+	else
+		DAQmx_DeviceInfo /DEV=imBoard
+		string/G root:packages:twoP:acquire:imageBoardClass = S_NIDeviceCategory
+		SVAR boardClass = root:packages:twoP:acquire:imageBoardClass
+		String/G root:packages:twoP:acquire:imageGains = ""
+		SVAR boardGains = root:packages:twoP:acquire:imageGains
+		strswitch (boardClass)
+			case "E Series DAQ":
+				boardGains = "0.05;0.5;5;10"
+				break
+			case "S Series DAQ":
+				boardGains = "0.2;0.5;1;2;5;10"
+				break
+			case "X Series DAQ":
+				boardGains = "1;2;5;10"
+				break
+			default:
+				boardGains = "10"
+				break
+		endswitch
+	endif
+	// load stage procedure and start Stage
+	SVAR stageProc = root:packages:twoP:acquire:StageProc
+	SVAR stagePort = root:packages:twoP:acquire:StagePort
+	Execute/P/Q/Z "INSERTINCLUDE \"" + "Stages\""
+	Execute/P/Q/Z "INSERTINCLUDE \"" + stageProc + "_Stage\""
+	Execute/P/Q/Z "COMPILEPROCEDURES "
+	sprintf tempStr, "StageStartStage(\"%s\", thePort = \"%s\") ", stageProc, stagePort
+	execute/P/Q/Z tempStr
+	// shutter task
+	NVAR shutterOPenLevel=root:Packages:twoP:Acquire:shutterOpenLevel
+	NVAR shutterDelay = root:Packages:twoP:Acquire:shutterDelay
+	NVAR taskNum =  root:packages:twoP:Acquire:shutterTaskNum
+	DAQmx_DIO_Config /DEV=imBoard/Dir=1/LGRP=1  "/" + imBoard + "/port0/line0"
+	tempStr = fDAQmx_ErrorString ()
+	if (cmpStr (tempStr, "") != 0)
+		doalert 0, "Digital configuration for shutter task failed" 
+		print tempStr
+	else
+		taskNum = V_DAQmx_DIO_TaskNumber
+		if (fDAQmx_DIO_Write(imBoard, V_DAQmx_DIO_TaskNumber, (!shutterOPenLevel)))
+			doalert 0, "Digital Out for shutter task failed" 
+			print fdaqmx_errorString()
+		endif
+	endif
+	// ephys board
+	SVAR ePhysBoard = root:packages:twoP:acquire:ePhysBoard
+	if ((cmpStr (ePhysBoard, "None") != 0) && (WhichListItem(ePhysBoard, fdaQmx_DeviceNames(), ";") == -1))
+		sprintf tempStr, "The specified ePhys board, \"%s\", is not present in the system.\r", ePhysBoard
+		Doalert 0,tempStr
+	else
+		DAQmx_DeviceInfo /DEV=ePhysBoard
+		SVAR BoardClass = root:packages:twoP:acquire:ePhysBoardClass
+		BoardClass = S_NIDeviceCategory
+		SVAR boardGains = root:packages:twoP:acquire:ePhysGains
+		strswitch (boardClass)
+			case "E Series DAQ":
+				boardGains = "0.05;0.5;5;10"
+				break
+			case "S Series DAQ":
+				boardGains = "0.2;0.5;1;2;5;10"
+				break
+			case "X Series DAQ":
+				boardGains = "1;2;5;10"
+				break
+			default:
+				boardGains = "10"
+				break
+		endswitch
+	endif
+	NVAR polarity =  root:packages:twoP:acquire:Trig1Polarity
+	NVAR duration = root:packages:twoP:acquire:Trig1Duration
+	fDAQmx_CTR_Finished(ePhysBoard, 0)
+	DAQmx_CTR_OutputPulse /DEV=ePhysBoard /SEC={duration, duration} /IDLE =(!polarity) /NPLS=1 /KEEP=1 /STRT=1/TRIG="/" + imBoard + "/ao/StartTrigger" 0
+	tempStr = fDAQmx_ErrorString ()
+	if (cmpStr (tempStr, "") != 0)
+		DoAlert 0, "COnfiguration for trigger 1 pulse failed"
+		print tempStr
+	endif
+	NVAR polarity =  root:packages:twoP:acquire:Trig2Polarity
+	NVAR duration = root:packages:twoP:acquire:Trig2Duration
+	fDAQmx_CTR_Finished(ePhysBoard, 0)
+	DAQmx_CTR_OutputPulse /DEV=ePhysBoard /SEC={duration, duration} /IDLE =(!polarity) /NPLS=1 /KEEP=1 /STRT=1/TRIG="/" + imBoard + "/ao/StartTrigger" 1
+	tempStr = fDAQmx_ErrorString ()
+	if (cmpStr (tempStr, "") != 0)
+		DoAlert 0, "COnfiguration for trigger 1 pulse failed"
+		print tempStr
+	endif
+end
 
 
 // **************************************************************************************************************
@@ -603,15 +776,7 @@ Function twoP_PrefsSave(ba) : ButtonControl
 
 	switch( ba.eventCode )
 		case 2: // mouse up
-			pathinfo twoPPrefsPath
-			if (V_Flag == 0)
-				newPath/C/Q/Z twoPPrefsPath SpecialDirPath("Igor Pro User Files" , 0, 0, 0) + "User Procedures:twoPhoton"
-				PathInfo twoPPrefsPath
-				if (V_flag == 0)
-					DoAlert 0, "Igor could not find twoPhoton folder in User Procedures folder."
-					return 1
-				endif
-			endif
+			twoP_PrefsMakePath ()
 			// make and fill a prefs struct
 			Struct TwoPPrefsStruct thePrefs
 			// version of prefs struct
@@ -732,9 +897,19 @@ End
 
 
 //******************************************************************************************************
-//Makescontrol panel for settins and preferences
+//Makescontrol panel for settings and preferences
 // last modified 2025/07/09 by Jamie Boyd
 Function twoP_PrefsMakePanel()
+	// make sure path exists
+	twoP_PrefsMakePath ()
+	// make sure folder exists
+	if (!(DataFolderExists ("root:packages:twoP:acquire")))
+		twoP_PrefsMakeGlobals ()
+	endif
+	DoWindow/F Scan_Settings_Prefs
+	if (V_flag)
+		return 0
+	endif
 	NewPanel /K=1/W=(376,54,692,603) as "Scan Settings and Preferences"
 	DoWindow/C Scan_Settings_Prefs
 	// Load Prefs
@@ -750,6 +925,9 @@ Function twoP_PrefsMakePanel()
 	Button SavePrefsButton,title="Save Prefs"
 	SetVariable savePrefsName,pos={80.00,523.00},size={113.00,18.00},title=" "
 	SetVariable savePrefsName,value=root:Packages:twoP:Acquire:newPrefsName
+	// Check Prefs
+	Button CheckPrefsButton,pos={230.00,522.00},size={77.00,20.00},proc=twoP_PrefsCheckButtonProc
+	Button CheckPrefsButton,title="Check Prefs"
 	// Tab control
 	GUIPTabNewTabCtrl ("Scan_Settings_Prefs", "PrefsTabCtrl", tabList="Image_Scaling;ePhys_Trigs;")
 	TabControl PrefsTabCtrl,pos={1.00,25.00},size={314.00,494.00},proc=GUIPTabProc
@@ -879,9 +1057,10 @@ Function twoP_PrefsMakePanel()
 	// Shutter
 	GroupBox ShutterGroup,pos={6.00,108.00},size={305.00,71.00},title="Shutter", disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "GroupBox ShutterGroup 0;")
-	PopupMenu ShutterPolarityPopMenu,pos={10.00,126.00},size={206.00,19.00},proc=twoPShutterPolarityPopMenuProc
+	NVAR shutterOpenLevel = root:packages:twoP:Acquire:shutterOpenLevel 
+	PopupMenu ShutterPolarityPopMenu,pos={10.00,126.00},size={206.00,19.00},proc=twoP_PrefsSetShutterPolarity
 	PopupMenu ShutterPolarityPopMenu,title="Shutter Opens when Output is"
-	PopupMenu ShutterPolarityPopMenu,mode=1,popvalue="Low",value=#"\"Low;High\"", disable=1
+	PopupMenu ShutterPolarityPopMenu,value=#"\"Low;High\"", mode = (shutterOpenLevel +1),popvalue=selectString (shutterOpenLevel, "Low", "High"), disable=1	
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "PopupMenu ShutterPolarityPopMenu 0;")
 	SetVariable shutterDelaySetVar,pos={12.00,149.00},size={176.00,18.00},proc=GUIPSIsetVarProc
 	SetVariable shutterDelaySetVar,title="Shutter Delay Time"
@@ -921,9 +1100,11 @@ Function twoP_PrefsMakePanel()
 	TitleBox TriggerTitle,title="Trigger Num             Polarity                      Duration"
 	TitleBox TriggerTitle,frame=0, disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "TitleBox TriggerTitle 0;")
+	NVAR Trig1Polarity = root:packages:twoP:acquire:Trig1Polarity
 	PopupMenu Trigger1PolarityPopMenu,pos={42.00,413.00},size={142.00,19.00},proc=twoP_PrefsSetTrigPolarity
 	PopupMenu Trigger1PolarityPopMenu,title="1              "
-	PopupMenu Trigger1PolarityPopMenu,mode=1,popvalue="Low-to-High",value=#"\"Low-to-High;High to Low\"", disable=1
+	PopupMenu Trigger1PolarityPopMenu,mode=(trig1Polarity + 1),popvalue=selectString (Trig1Polarity, "Low-to-High","High-to-Low")
+	PopupMenu Trigger1PolarityPopMenu,value=#"\"Low-to-High;High to Low\"", disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "PopupMenu Trigger1PolarityPopMenu 0;")
 	SetVariable Trig1DurationSetVar,pos={202.00,413.00},size={103.00,18.00},proc=GUIPSIsetVarProc
 	SetVariable Trig1DurationSetVar,title=" "
@@ -931,9 +1112,11 @@ Function twoP_PrefsMakePanel()
 	SetVariable Trig1DurationSetVar,format="%.2W1Ps"
 	SetVariable Trig1DurationSetVar,limits={-inf,inf,0.0001},value=root:Packages:twoP:Acquire:Trig1Duration, disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "SetVariable Trig1DurationSetVar 0;")
+	NVAR trig2Polarity = root:packages:twoP:acquire:Trig2Polarity
 	PopupMenu Trigger2PolarityPopMenu,pos={42.00,438.00},size={142.00,19.00},proc=twoP_PrefsSetTrigPolarity
 	PopupMenu Trigger2PolarityPopMenu,title="2              "
-	PopupMenu Trigger2PolarityPopMenu,mode=1,popvalue="Low-to-High",value=#"\"Low-to-High;High to Low\"", disable=1
+	PopupMenu Trigger2PolarityPopMenu, mode=(trig2Polarity + 1),popvalue=selectString (Trig2Polarity, "Low-to-High","High-to-Low")
+	PopupMenu Trigger2PolarityPopMenu,value=#"\"Low-to-High;High to Low\"", disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "PopupMenu Trigger2PolarityPopMenu 0;")
 	SetVariable Trig2DurationSetVar,pos={202.00,439.00},size={103.00,18.00},proc=GUIPSIsetVarProc
 	SetVariable Trig2DurationSetVar,title=" "

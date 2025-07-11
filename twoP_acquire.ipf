@@ -1,7 +1,7 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2025/07/09 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2025/07/10 by Jamie Boyd.
 #pragma IgorVersion = 7
 
 #include "twoP_Prefs"
@@ -10,7 +10,8 @@
 #include "twoP_examine"
 #include "twoPex_export"
 #include "Stages"
-	
+
+static constant kNQtBufferTime = 5
 STATIC CONSTANT kImageFifoSize = 1e05
 STATIC CONSTANT kImageFifoTransfer = 1e04
 STATIC CONSTANT kNQshutterOpen = 1
@@ -79,15 +80,24 @@ Function NQ_ResetAcquire ()
 end
 
 //******************************************************************************************************
-// Makes globals for acquire tab functions of the Nidaq Controls panel. Preferences file will make some of these
-// Last Modified 2016/10/12 by Jamie Boyd
+// Makes globals for acquire tab functions of the Nidaq Controls panel. 
+// Last Modified 2025/07/10 by Jamie Boyd - Preferences loading will make some of the variables
 Function NQ_MakeAcquireFolder (overWrite)
 	variable overWrite
 	
 	if (!(DataFolderExists ("root:packages:twoP:acquire")))
-		doAlert 0 , "A preferences file was not loaded so values can not be set. Loading default prefs, try again"
-		Execute/P/Q/Z "twoP_PrefsLoad (\"twoPPrefs_default\") "
-		return 1
+		pathinfo twoPPrefsPath
+		if (V_Flag == 0)
+			newPath/C/Q/Z twoPPrefsPath SpecialDirPath("Igor Pro User Files" , 0, 0, 0) + "User Procedures:twoPhoton"
+			PathInfo twoPPrefsPath
+			if (V_flag == 0)
+				DoAlert 0, "Igor could not find twoPhoton folder in User Procedures folder."
+				return 1
+			endif
+			if (twoP_PrefsLoad ("twoPPrefs_default"))
+				return 1
+			endif
+		endif
 	endif
 	// image sizes (and backups) for normal images, start at full scale
 	NVAR xStartVoltsFS = root:Packages:twoP:Acquire:xStartVoltsFS
@@ -243,7 +253,7 @@ Function NQ_MakeAcquireFolder (overWrite)
 	make/o/D root:packages:twoP:acquire:Scan_Coefs_Sym = {-7.4, -0.65, -0.13, 0.08, 0.17}
 	// Get experiment size
 	variable/G root:packages:twoP:acquire:expSize = NQ_GetExpSize ("root:")
-	
+	return 0
 end
 
 
@@ -382,11 +392,20 @@ end
 		NQ_ResetBoards (0)
 		
 		
-function/S twoP_listActiveChans ()
-	WAVE chanSelList = root:packages:twoP:acquire:imchanSelList
-	WAVE/t chanList = root:packages:twoP:acquire:imchanList
-
-	SVAR selChans = root:packages:twoP:acquire:selImageChanList
+function/S twoP_listActiveChans (type)
+	variable type
+	switch (type)
+	case 1:
+		WAVE chanSelList = root:packages:twoP:acquire:imChanSelList
+		WAVE/t chanList = root:packages:twoP:acquire:imChanList
+		SVAR selChans = root:packages:twoP:acquire:selImageChanList
+		break
+	case 2:
+		WAVE chanSelList = root:packages:twoP:acquire:ePhysChanSelList
+		WAVE/t chanList = root:packages:twoP:acquire:ePhyschanList
+		SVAR selChans = root:packages:twoP:acquire:selEphysChanList
+		break
+	endswitch
 
 	string aChan, outList = ""
 	variable iChan, nChans = dimsize (chanList, 0)
@@ -932,26 +951,30 @@ Function NQ_ScanChansPopMenuProc(pa) : PopupMenuControl
 		case 2: // mouse up
 			Variable popNum = pa.popNum
 			String popStr = pa.popStr
-			NVAR scanChans = root:Packages:twoP:Acquire:ScanChans
-			scanChans = popNum
+			SVAR selChans = root:packages:twoP:acquire:selImageChanList
+			if (FindListItem(popStr, selChans, ";") > -1)
+				selChans = sortList (removeFromList(popStr, selChans, ";"), ";")
+			else
+				selChans = sortList (addlistItem(popStr, selChans, ";"), ";")
+			endif
 			// update LiveMode scan String 
 			SVAR scanStr = root:packages:twoP:Acquire:LiveModeScanStr
-			scanStr = ReplaceNumberByKey("ImChans", scanStr, scanChans, ":", "\r")
-			string imchanDesc = ""
-			variable ii
-			for (ii =1; ii<3; ii+=1)
-				if (ii & scanChans)
-					imchanDesc += "ch" + num2str (ii) + ","
-				endif
-			endfor
-			scanStr = ReplaceStringByKey("imchanDesc", scanStr, imchanDesc, ":", "\r")
+			//@@@scanStr = ReplaceNumberByKey("ImChans", scanStr, scanChans, ":", "\r")
+//			string imchanDesc = ""
+//			variable ii
+//			for (ii =1; ii<3; ii+=1)
+//				if (ii & scanChans)
+//					imchanDesc += "ch" + num2str (ii) + ","
+//				endif
+//			endfor
+//			scanStr = ReplaceStringByKey("imchanDesc", scanStr, imchanDesc, ":", "\r")
 			//Remove channels on ScanGraph not present in current config
 			NVAR showCh1 = root:packages:twoP:examine:showCh1
 			NVAR showCh2 = root:packages:twoP:examine:showCh2
 			NVAR showMerge = root:packages:twoP:examine:showMerge
-			showCh1 *= (scanChans & 1)
-			showCh2 *=  (scanChans & 2)
-			showMerge *= ((scanChans & 1) && (scanChans & 2))
+//			showCh1 *= (scanChans & 1)
+//			showCh2 *=  (scanChans & 2)
+//			showMerge *= ((scanChans & 1) && (scanChans & 2))
 			string removeList="", subWinList = ChildWindowList("twoPscanGraph")
 			variable iRem, nRems
 			if ((!(showCh1)) && (WhichListItem("GCH1", subWInList, ";", 0,0) > -1))
@@ -999,17 +1022,19 @@ Function NQ_ephysAdjChansProc(pa) : PopupMenuControl
 End
 
 //******************************************************************************************************
-// Updates global variable for ephys channels when doing an ePhys only scan
-// Last Modified 2009/06/01 by Jamie Boyd
+// Updates global variable for ephys channels
+// Last Modified 2025/07/10 by Jamie Boyd - new channel selection method
 Function NQ_ephysChansProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 
 	switch( pa.eventCode )
 		case 2: // mouse up
-			Variable popNum = pa.popNum
-			String popStr = pa.popStr
-			NVAR ePhysChans =  root:Packages:twoP:Acquire:ePhysChans
-			ePhysChans = popNum
+			SVAR selChans = root:packages:twoP:acquire:selEphysChanList
+			if (FindListItem(pa.popStr, selChans, ";") > -1)
+				selChans = sortList (removeFromList(pa.popStr, selChans, ";"), ";")
+			else
+				selChans = sortList (addlistItem(pa.popStr, selChans, ";"), ";")
+			endif
 			break
 	endswitch
 	return 0
@@ -1343,9 +1368,10 @@ Function NQ_SModeTabControlproc (TC_Struct) : TabControl
 	STRUCT WMTabControlAction &tc_Struct
 	
 	
-	if (TC_Struct.eventCode ==-1)
+	if (TC_Struct.eventCode != 2)
 		return 0
 	endif
+	
 	string name = tc_Struct.ctrlName
 	variable tab = tc_Struct.tab
 	string tabWin = tc_Struct.win
@@ -1514,7 +1540,7 @@ Function NQ_SetTimes ()
 			elseif (TFrames * PixWidth * pixHeight > 2^24)
 				isCyclic =1
 				NVAR bufferSize = root:packages:twoP:acquire:tSeriesBufferSize
-				variable kNQtBufferTime = 2; bufferSize = round (kNQtBufferTime/FrameTime)  // @@@
+				bufferSize = round (kNQtBufferTime/FrameTime)
 				TFrames = round (TFrames / bufferSize) * bufferSize
 				SetVariable NumTSeriesFramesSetVar win = twoP_Controls, limits={0,inf,(bufferSize)}
 			else
@@ -1608,8 +1634,10 @@ Function NQ_SetTimes ()
 			break
 	endSwitch
 	// check ePhys situation
-	NVAR ePhysChans =  root:Packages:twoP:Acquire:ePhysAdjChans
-	if (ePhysChans > 0)
+	variable ePhysCHans =0
+	if ((scanMode == kTimeSeries) || (scanMode == kLineScan))
+		SVAR selChanList = root:packages:twoP:acquire:selEphysChanList
+		ePhysChans = itemsinlist (selChanList,";")
 		NVAR ePhysIsCyclic = root:packages:twoP:Acquire:ePhysisCyclic
 		NVAR ePhysFreq = root:Packages:twoP:Acquire:ePhysFreq
 		if (runTime *ePhysFreq > 2^24)
@@ -2715,7 +2743,7 @@ endStructure
 
 //******************************************************************************************************
 // Reads values appropriate for this scan into the scanStructure, s
-// Last Modified 2015/04/16 by Jamie Boyd
+// Last Modified 2025/07/10 by Jamie Boyd
 Function NQ_LoadScanStruct (s, doStage)
 	STRUCT NQ_ScanStruct &s
 	variable doStage // set if you wish to update stage positions.
