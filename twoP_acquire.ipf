@@ -99,7 +99,7 @@ Function NQ_MakeAcquireFolder (overWrite)
 			endif
 		endif
 	endif
-	// image sizes (and backups) for normal images, start at full scale
+	// image sizes (and backups) for normal images, start at full scale (some are alreadyy made by loading  twoPPrefs)
 	NVAR xStartVoltsFS = root:Packages:twoP:Acquire:xStartVoltsFS
 	variable/G root:Packages:twoP:Acquire:xStartVolts =  xStartVoltsFS
 	variable/G root:Packages:twoP:Acquire:xStartVoltsBU =xStartVoltsFS
@@ -137,7 +137,7 @@ Function NQ_MakeAcquireFolder (overWrite)
 	string/G root:Packages:twoP:Acquire:RunTimeStr // time in minutes and seconds calculated and then displayed on the acquire control panel
 	//ScanMode
 	variable/G root:packages:twoP:Acquire:ScanMode = kLiveMode // state of control panel
-	variable/G root:packages:twoP:Acquire:ScanStartMode = kLiveMode // state of control panel when scan was started
+	variable/G root:packages:twoP:Acquire:ScanStartMode = kLiveMode // state of control panel when scan was started, so it cant be changed
 	variable/G root:Packages:twoP:Acquire:FlyBackMode =0 // not using bi-directional scanning
 	// New Scan Name and Note
 	string/G root:Packages:twoP:Acquire:NewScanName = "Scan_000"		// name for new wave to be made by scanning operation
@@ -162,7 +162,7 @@ Function NQ_MakeAcquireFolder (overWrite)
 	setformula yImSize "abs(root:Packages:twoP:Acquire:yEndVolts - root:Packages:twoP:Acquire:yStartVolts) * str2num (root:packages:twoP:Acquire:ObjWave [root:packages:twoP:Acquire:curObjNum] [2])"
 	setformula yPixSize "root:packages:twoP:Acquire:yImSize/root:Packages:twoP:Acquire:PixHeight"
 	// line scan X size and pixel size
-	variable/G root:Packages:twoP:Acquire:LSImSize
+	variable/G root:Packages:twoP:Acquire:LSImSize 
 	variable/G root:Packages:twoP:Acquire:LSPixSize
 	// Set dependency formulas for LineScan pix size
 	NVAR LSImSize = root:Packages:twoP:Acquire:LSImSize
@@ -184,6 +184,8 @@ Function NQ_MakeAcquireFolder (overWrite)
 	variable/G root:Packages:twoP:Acquire:liveROIRatioCheck = 0
 	variable/g root:Packages:twoP:Acquire:LROIL, root:Packages:twoP:Acquire:LROIT // left, Top,  coordinates for the Live ROI
 	variable/g root:Packages:twoP:Acquire:LROIB, root:Packages:twoP:Acquire:LROIR // bottom, Right,  coordinates for the Live ROI
+	String/G root:Packages:twoP:Acquire:LiveROITopChan
+	String/G root:Packages:twoP:Acquire:LiveROIBottomChan
 	// Time series
 	variable/G root:Packages:twoP:Acquire:TSeriesFrames = 50
 	// @@@variable/G root:Packages:twoP:Acquire:ePhysAdjChans =0 // value for ephys chans to use when doing ePhys along with image scanning
@@ -204,32 +206,33 @@ Function NQ_MakeAcquireFolder (overWrite)
 	variable/G root:Packages:twoP:Acquire:ePhysOnlyTime = 30
 	// @@@variable/G root:Packages:twoP:Acquire:ePhysChans =1
 	// multiAq
-	variable/G root:packages:twoP:acquire:multiAqTimeMode =0
-	variable/G root:packages:twoP:acquire:multiAqPeriodNum = 10
-	string/G root:packages:twoP:acquire:multiAqPeriodPeriodStr = "0:20"
-	string/G root:packages:twoP:acquire:multiAqPeriodDelayStr = "0:00"
-	variable/G root:packages:twoP:acquire:multiAqPeriodPeriod=20 // 5 * 60
-	variable/G root:packages:twoP:acquire:multiAqPeriodDelay= 0 // 30 * 60
-	string/G root:packages:twoP:acquire:multiAqTimeToNextStr=""
-	variable/G root:packages:twoP:acquire:multiAqTimeToNext=20
-	variable/G root:packages:twoP:acquire:multiAqiAq =0
+	variable/G root:packages:twoP:acquire:multiAqTimeMode =0				// mode is periodic, from a wave of times, start from a trigger 
+	variable/G root:packages:twoP:acquire:multiAqiAq =0						// for counting acquisitions
 	variable/G root:packages:twoP:acquire:multiAqnAqs =0
-	string/G root:packages:twoP:Acquire:multiAqWaveWaveStr = ""
+	string/G root:packages:twoP:acquire:multiAqTimeToNextStr=""   			// time to next scan,counted down and displayed by background task
+	variable/G root:packages:twoP:acquire:MultiAqStartTime				// when scan was started
+	variable/G root:packages:twoP:acquire:MultiAqNextTime			// timeof next scan
+	// Period mode
+	string/G root:packages:twoP:acquire:multiAqPeriodPeriodStr = "0:20"	// User enters period and initial delay in time format hh:mm:ss, where hours are optional
+	string/G root:packages:twoP:acquire:multiAqPeriodDelayStr = "0:00"	// initial delay, 0 means start right away
+	variable/G root:packages:twoP:acquire:multiAqPeriodNum = 10			// number of scans for  period scanning
+	// Wave Mode
 	NewDataFolder/o root:packages:twoP:acquire:multiAqWaves
+	string/G root:packages:twoP:Acquire:multiAqWaveWaveStr = ""			//contains name of text wave with scan times in it.
+	// triggered mode
 	variable/G root:packages:twoP:acquire:multiAqTriggerNum = 10	
+
+		
+	
 	// Trigger Timing Values
 	variable/G root:packages:twoP:Acquire:trig1Check = 0
 	variable/G root:packages:twoP:Acquire:trig2Check = 0
 	variable/G root:Packages:twoP:Acquire:DelayFrames1 =0 // When doing a time series, the number of frames to delay before sending trigger stimulus on the ephysBoard counter 0 output pin.
 	variable/G root:Packages:twoP:Acquire:DelayFrames2 = 0 // When doing a time series, the number of frames to delay before sending  trigger stimulus on the ephysBoard counter 1 output pin.
-	variable/G root:Packages:twoP:Acquire:DelayFramesSec1 =0 // DelayFrames1 translated into seconds
-	variable/G root:Packages:twoP:Acquire:DelayFramesSec2 =0 // DelayFrames2 translated into seconds
 	variable/G root:Packages:twoP:Acquire:DelayLines1 =0	// When doing a LineScan, the number of lines to delay before sending  trigger stimulus on the ephysBoard counter 0 output pin.
 	variable/G root:Packages:twoP:Acquire:DelayLines2 = 0 // When doing a LineScan, the number of lines to delay before sending  trigger stimulus on the ephysBoard counter 1 output pin.
-	variable/G root:Packages:twoP:Acquire:DelayLinesSec1 = 0 // DelayLines1 translated into seconds
-	variable/G root:Packages:twoP:Acquire:DelayLinesSec2 = 0 // DelayLines2 translated into seconds
-	variable/G root:Packages:twoP:Acquire:DelaySecs1 =0	// When doing ePhys Only, the number of seconds to delay before sending  trigger stimulus on the ephysBoard counter 0 output pin.
-	variable/G root:Packages:twoP:Acquire:DelaySecs2 = 0 // When doing ePhys Only, the number of seconds to delay before sending  trigger stimulus on the ephysBoard counter 1 output pin.
+	variable/G root:Packages:twoP:Acquire:DelaySecs1 =0	//  the number of seconds to delay, corresponding to frames or lines selected above, or just plain seconds for ePhys
+	variable/G root:Packages:twoP:Acquire:DelaySecs2 = 0 //the number of seconds to delay, corresponding to frames or lines selected above, or just plain seconds for ePhy
 	//VoltagePulse Stuff
 	variable/G root:packages:twoP:Acquire:voltagePulseChans = 0
 	variable/G root:packages:twoP:acquire:VoltagePulseFreq = 10
@@ -338,19 +341,7 @@ end
 		variable/G root:Packages:twoP:Acquire:EphysFreq = kNQePhysSampFreq	 // the scanning frequency in Hz for the ePhys trace
 		variable/G root:Packages:twoP:Acquire:ePhysChans =1
 		// multiAq
-		variable/G root:packages:twoP:acquire:multiAqTimeMode =0
-		variable/G root:packages:twoP:acquire:multiAqPeriodNum = 10
-		string/G root:packages:twoP:acquire:multiAqPeriodPeriodStr = "0:20"
-		string/G root:packages:twoP:acquire:multiAqPeriodDelayStr = "0:00"
-		variable/G root:packages:twoP:acquire:multiAqPeriodPeriod=20 // 5 * 60
-		variable/G root:packages:twoP:acquire:multiAqPeriodDelay= 0 // 30 * 60
-		string/G root:packages:twoP:acquire:multiAqTimeToNextStr=""
-		variable/G root:packages:twoP:acquire:multiAqTimeToNext=20
-		variable/G root:packages:twoP:acquire:multiAqiAq =0
-		variable/G root:packages:twoP:acquire:multiAqnAqs =0
-		string/G root:packages:twoP:Acquire:multiAqWaveWaveStr = ""
-		NewDataFolder/o root:packages:twoP:acquire:multiAqWaves
-		variable/G root:packages:twoP:acquire:multiAqTriggerNum = 10
+			
 		// Trigger Timing Values
 		variable/G root:packages:twoP:Acquire:trig1Check = 0
 		variable/G root:packages:twoP:Acquire:trig2Check = 0
@@ -395,12 +386,12 @@ end
 function/S twoP_listActiveChans (type)
 	variable type
 	switch (type)
-	case 1:
+	case 1:  //1 for images
 		WAVE chanSelList = root:packages:twoP:acquire:imChanSelList
 		WAVE/t chanList = root:packages:twoP:acquire:imChanList
 		SVAR selChans = root:packages:twoP:acquire:selImageChanList
 		break
-	case 2:
+	case 2: // 2 for ephys
 		WAVE chanSelList = root:packages:twoP:acquire:ePhysChanSelList
 		WAVE/t chanList = root:packages:twoP:acquire:ePhyschanList
 		SVAR selChans = root:packages:twoP:acquire:selEphysChanList
@@ -420,25 +411,6 @@ function/S twoP_listActiveChans (type)
 	endfor
 	return outList
 end
-
-
-Function twoP_ScanChansPopMenuProc(pa) : PopupMenuControl
-	STRUCT WMPopupAction &pa
-
-	switch( pa.eventCode )
-		case 2: // mouse up
-			Variable popNum = pa.popNum
-			String popStr = pa.popStr
-			SVAR selChans = root:packages:twoP:acquire:selImageChanList
-			if (FindListItem(popStr, selChans, ";") > -1)
-				selChans = sortList (removeFromList(popStr, selChans, ";"), ";")
-			else
-				selChans = sortList (addlistItem(popStr, selChans, ";"), ";")
-			endif
-			break
-	endswitch
-	return 0
-End
 
 	
 //******************************************************************************************************
@@ -643,7 +615,7 @@ Function NQ_AddAcquireControls ()
 	// num frames
 	SetVariable NumTSeriesFramesSetVar, win = twoP_Controls, disable=1, pos={6,334},size={184,18},proc=NQ_SetTimesProc,title="Time Series Frames", disable =1
 	SetVariable NumTSeriesFramesSetVar, win = twoP_Controls, fSize=10,limits={0,inf,1},value=root:packages:twoP:Acquire:TSeriesFrames
-	// Scan to disk (not ready for prime-time just yet)
+	// Scan to disk (not ready for prime-time just yet - we can scan, we just don't have  agood way to examine it)
 //	CheckBox FIFOcheck win = twoP_Controls, disable=1,pos={195,335},size={79,14},title="Scan to Disk"
 //	CheckBox FIFOcheck win = twoP_Controls, variable= root:packages:twoP:Acquire:scanToDisk,proc=NQ_ScanToDiskCheckProc
 //	SetVariable FIFODirSetvar win = twoP_Controls, disable=1,pos={194,353},size={143,16},title="Directory", proc=NQ_FifoDirSetVarProc
@@ -942,7 +914,7 @@ Function NQ_ExpNoteProc(sva) : SetVariableControl
 End
 
 //******************************************************************************************************
-// Updates global variable for scan channels
+// Updates global variable for scan channels @@@@@@@@
 // Last Modified 2013/08/09 by Jamie Boyd
 Function NQ_ScanChansPopMenuProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
@@ -1004,18 +976,23 @@ Function NQ_ScanChansPopMenuProc(pa) : PopupMenuControl
 	return 0
 End
 
-//******************************************************************************************************
-// Updates global variable for ephys channels when used along with image scanning
-// Last Modified 2009/06/01 by Jamie
-Function NQ_ephysAdjChansProc(pa) : PopupMenuControl
+// *************************************************************************************************
+// sets strings for Top and Botttom channel names used in ratio for live rois
+// Last Modified 2025/07/10 by Jamie Boyd - new channel selection metho
+Function NQ_SetLiveChansPopMenuProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
-
 	switch( pa.eventCode )
 		case 2: // mouse up
+			if (cmpStr (pa.ctrlName, "LiveROIRatioTopPopMenu")==0)
+				SVAR chan=root:Packages:twoP:Acquire:LiveROItopChan
+			elseif (cmpStr (pa.ctrlName, "LiveROIRatioBottomPopMenu")==0)
+				SVAR chan=root:Packages:twoP:Acquire:LiveROIBottomChan
+			endif
+			chan = pa.popStr
 			Variable popNum = pa.popNum
 			String popStr = pa.popStr
-			NVAR ePhysChans =  root:Packages:twoP:Acquire:ePhysAdjChans
-			ePhysChans = popNum-1
+			break
+		case -1: // control being killed
 			break
 	endswitch
 	return 0
@@ -1041,7 +1018,7 @@ Function NQ_ephysChansProc(pa) : PopupMenuControl
 End
 
 //******************************************************************************************************
-// Opens the focus panel using the chosen focus procedure
+// Opens the microscope stage and focus panel using the chosen focus procedure
 // Last Modified2009/05/31 by Jamie Boyd
 Function NQ_OpenFocusPanel (ba) : ButtonControl
 	STRUCT WMButtonAction &ba
@@ -1063,7 +1040,7 @@ End
 
 //******************************************************************************************************
 //Makes the panel for displaying and changing additional scan settings
-// Last Modified Jun 04 2009 by Jamie Boyd
+// Last Modified 2025/07/11 by Jamie Boyd  - new preferences panel
 Function NQ_OtherScanSettingsProc(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 
@@ -1075,98 +1052,11 @@ Function NQ_OtherScanSettingsProc(ba) : ButtonControl
 			else
 				twoP_PrefsMakePanel()
 			endif
-//			
-//		
-//			NewPanel /K=1/W=(2,49,181,412) as "Other Scan Settings"
-//			DoWindow/C Other_Scan_Settings
-//			
-//			TabControl modeTabe win = Other_Scan_Settings,pos={4.00,26.00},size={311.00,520.00},proc=GUIPTabProc
-//			TabControl modeTabe win = Other_Scan_Settings, tabLabel(0)="Image_Scan",tabLabel(1)="ePhys_Trigs", value=0
-//
-//			PopupMenu ImageBoardPopMenu win = Other_Scan_Settings,pos={10.00,49.00},size={93.00,19.00},proc=NQ_PrefsSetBoardName,title="Image Device"
-//			PopupMenu ImageBoardPopMenu win = Other_Scan_Settings,mode=0,value= #"fDAQmx_DeviceNames()"
-//			TitleBox ImageBoardTitle win = Other_Scan_Settings,pos={108.00,53.00},size={42.00,15.00},frame=0
-//			TitleBox ImageBoardTitle win = Other_Scan_Settings,variable= root:Packages:twoP:Acquire:imageBoard
-//
-//			
-//			
-//			// image scan settings
-//			GroupBox imageGrp,pos={1,2},size={177,289},title="Image Scanning"
-//			SetVariable PixTimeSetVar,pos={9,37},size={141,16},title="Pixel Time"
-//			SetVariable PixTimeSetVar,format="%.3W1PSec"
-//			SetVariable PixTimeSetVar,limits={0,0,0},value= root:Packages:twoP:Acquire:PixTIme,noedit= 1
-//			SetVariable DutyCycleSetVar,pos={9,57},size={123,16},format="%g"
-//			SetVariable DutyCycleSetVar,limits={0,1,0.05},value= root:Packages:twoP:Acquire:DutyCycle
-//			SetVariable FlybackPropSetVar,pos={9,96},size={139,16},proc=NQ_SetTimesProc,title="FlyBack Ratio"
-//			SetVariable FlybackPropSetVar,limits={0.25,1,0.05},value= root:Packages:twoP:Acquire:FlybackProp
-//			SetVariable RotateSetvar,pos={9,116},size={165,16},proc=GUIPSIsetVarProc,title="ScanHead Delay "
-//			SetVariable RotateSetvar,format="%.2W1PSec", UserData = ";0;1;;"
-//			SetVariable RotateSetvar,limits={0,inf,2.5e-07},value= root:Packages:twoP:Acquire:ScanHeadDelay
-//			PopupMenu ImageGainPopup,pos={9,135},size={90,21},proc=NQ_ScanGainPopMenuProc,title="Scan Gain:"
-//			PopupMenu ImageGainPopup,mode=0,value= #"\"0.2: (+/- 50v);0.5: (+/- 20v);1: (+/- 10v);2: (+/- 5v);5: (+/- 2v);10: (+/- 1v);20: (+/- 0.5v);50: (+/- 0.2v)\""
-//			// set titleBox for gain to be equal to gain in global variable
-//			NVAR ScanGain = root:Packages:twoP:Acquire:ScanGain
-//			string GainStr
-//			sprintf GainStr, "%.1f: (+/- %.1f V)",ScanGain, (10/ScanGain)
-//			TitleBox ScanGainTitle,pos={102,139},size={44,13},title=GainStr,frame=0
-//			// Objectives list
-//			TitleBox ObjScalTitle,pos={20,164},size={123,13},title="Objective Scaling (m/Volt)"
-//			TitleBox ObjScalTitle,fSize=12,frame=0
-//			ListBox MagSettingsList,pos={8,180},size={165,86}
-//			ListBox MagSettingsList,listWave=root:Packages:twoP:Acquire:ObjWave
-//			ListBox MagSettingsList,selWave=root:Packages:twoP:Acquire:ObjSelWave
-//			ListBox MagSettingsList,mode= 1,selRow= 0
-//			Button AddObjectiveButton,pos={16,269},size={62,16},proc=NQ_AddObjProc,title="Add Obj."
-//			Button DeleteObjectiveButton,pos={81,269},size={74,16},proc=NQ_DeleteObjectiveProc,title="Delete Obj."
-//			// ePhys settings
-//			GroupBox ePhysGrp,pos={3,296},size={176,66},title="Electrophysiology"
-//			SetVariable EphysSampFreq,pos={10,315},size={137,16},proc=GUIPSIsetVarProc,title="Sampling Freq"
-//			SetVariable EphysSampFreq,format="%.2W1PHz"
-//			SetVariable EphysSampFreq,limits={0,inf,100},value= root:Packages:twoP:Acquire:EphysFreq
-//			PopupMenu EPhysGainPopup,pos={8,334},size={94,21},proc=NQ_ePhysGainPopMenuProc,title="ePhys Gain:"
-//			PopupMenu EPhysGainPopup,mode=0,value= #"\"0.5: (+/- 20v);1: (+/- 10v);10: (+/- 1v);100: (+/- 0.1v)\""
-//			// set titlebox for ePhysGain to correct value
-//			NVAR ePhysGain = root:Packages:twoP:Acquire:ePhysGain
-//			sprintf GainStr, "%.1f: (+/- %.1f V)",ePhysGain, (10/ePhysGain)
-//			TitleBox ePhysGainTitle,pos={104,338},size={67,13},frame =0, title=GainStr
-			break
-	endswitch
-	return 0
-End
- 
-//******************************************************************************************************
-// Updates the global variable and title box for scan gain when the popmenu is called
-// Last Modified 2009/06/01 by Jamie
-Function NQ_ScanGainPopMenuProc(pa) : PopupMenuControl
-	STRUCT WMPopupAction &pa
-
-	switch( pa.eventCode )
-		case 2: // mouse up
-			String popStr = pa.popStr
-			NVAR ScanGain = root:Packages:twoP:Acquire:ScanGain
-			ScanGain =  str2num (stringfromlist (0, popStr, ":"))
-			TitleBox ScanGainTitle,win=Other_Scan_Settings, title=popStr
 			break
 	endswitch
 	return 0
 End
 
-//******************************************************************************************************
-// Updates the global variable and titlebox for ePhys gain when the popmenu is called
-// Last Modified 2009/06/01 by Jamie Boyd
-Function NQ_ePhysGainPopMenuProc(pa) : PopupMenuControl
-	STRUCT WMPopupAction &pa
-
-	switch( pa.eventCode )
-		case 2: // mouse up
-			String popStr = pa.popStr
-			NVAR ScanGain = root:Packages:twoP:Acquire:ePhysGain
-			ScanGain =  str2num (stringfromlist (0, popStr, ":"))
-			TitleBox ePhysGainTitle, win=Other_Scan_Settings, title=popStr
-			break
-	endswitch
-	return 0
-End
 
 //******************************************************************************************************
 // Enables/Disables controls for setting Z variables, based on popmenu selection
@@ -1279,7 +1169,7 @@ End
 
 //******************************************************************************************************
 // Lists names of objectives from the listbox wave
-// Last Modified 2015/04/22 by Jamie B	oyd
+// Last Modified 2015/04/22 by Jamie Boyd
 Function/S NQ_Obj_ListObjs ()
 	
 	WAVE/T objWave =root:packages:twoP:acquire:objWave
@@ -1655,16 +1545,17 @@ Function NQ_SetTimes ()
 	//Set times for triggers
 	NVAR DelayFrames1 = root:Packages:twoP:Acquire:DelayFrames1
 	NVAR DelayFrames2 = root:Packages:twoP:Acquire:DelayFrames2
-	NVAR DelayFramesSecs1 = root:Packages:twoP:Acquire:DelayFramesSec1
-	NVAR DelayFramesSecs2 = root:Packages:twoP:Acquire:DelayFramesSec2
 	NVAR DelayLines1 = root:Packages:twoP:Acquire:DelayLines1
 	NVAR DelayLines2 = root:Packages:twoP:Acquire:DelayLines2
-	NVAR  DelayLinesSecs1 = root:Packages:twoP:Acquire:DelayLinesSec1
-	NVAR DelayLinesSecs2 = root:Packages:twoP:Acquire:DelayLinesSec2
-	DelayFramesSecs1 = DelayFrames1 * FrameTime
-	DelayFramesSecs2 = DelayFrames2 * FrameTime
-	DelayLinesSecs1 =  DelayLines1 * LineTime
-	DelayLinesSecs2 =  DelayLines2 * LineTime
+	NVAR DelaySecs1 = root:Packages:twoP:Acquire:DelaySecs1
+	NVAR DelaySecs2 = root:Packages:twoP:Acquire:DelaySecs2
+	if (scanMode == kTimeSeries)
+		DelaySecs1 = DelayFrames1 * FrameTime
+		DelaySecs2 = DelayFrames2 * FrameTime
+	elseif (ScanMode == kLineScan)
+		DelaySecs1 =  DelayLines1 * LineTime
+		DelaySecs2 =  DelayLines2 * LineTime
+	endif
 	// set run time string
 	SVAR runTimeStr = root:Packages:twoP:Acquire:RunTimeStr
 	if (scanMode ==kLiveMode)
@@ -2053,19 +1944,10 @@ Function NQ_ObjPopProc(pa) : PopupMenuControl
 		case 2: // mouse up
 			// set globals for chosen objective
 			SVAR curObj = root:packages:twoP:acquire:CurObj
-			NVAR curXscal = root:packages:twoP:curObjXscal
-			NVAR curXOffset = root:packages:twoP:curObjXOffset
-			NVAR curYscal = root:packages:twoP:curObjYscal
-			NVAR curYOffset = root:packages:twoP:curObjYOffset
 			WAVE/T ObjWave = root:packages:twoP:acquire:ObjWave
 			curObj = pa.popStr
 			NVAR curObjNum = root:packages:twoP:Acquire:CurObjNum
 			curObjNum = pa.popNum -1 // -1 for one, not zero based popNum
-			curXscal = str2num (ObjWave[pa.popNum-1] [1])
-			curYscal = str2num (ObjWave[pa.popNum-1] [2])
-			curXOffset = str2num (ObjWave[pa.popNum-1] [3])
-			curYOffset = str2num (ObjWave[pa.popNum-1] [4])
-			
 			break
 	endswitch
 	return 0
@@ -2252,7 +2134,7 @@ Function NQ_SetVoltagePulseChans ()
 end
 
 //******************************************************************************************************
-// Functins for voltage waves have not been updated since pre-2009, but they look O.K.
+// Functions for voltage waves have not been updated since pre-2009, but they look O.K.
 Function EditVoltageWavesProc(ctrlName) : ButtonControl
 	String ctrlName
 	
@@ -2663,7 +2545,13 @@ end
 //******************************************************************************************************
 // A structure to hold all the various globals so  that we can pass them easily between functions
 // Last Modified:
+// 2025/07/10 by Jamie Boyd - gonna make a smaller struct specific for each scanning mode, gonna try to break this monolith
 // 2016/11/15 by Jamie Boyd - added support for separate back ground tasks for each channel plus merge
+Structure NQ_ScanStruct_Live
+	
+
+endStructure
+
 Structure NQ_ScanStruct
 // general scan/run settings
 variable scanMode
@@ -3978,6 +3866,7 @@ End
 //******************************************************************************************************
 // Function called by the "Start Scan" Button.
 // Last Modified:
+// 2025/07/11 by Jamie Boyd
 // 2017/08/14  by Jamie Boyd - started adding ePhys stuff back in
 Function NQ_StartScan (ba) : ButtonControl
 	STRUCT WMButtonAction &ba
@@ -5499,58 +5388,10 @@ End
 //******************************************************************************************************
 // Sets times for periodic acquisition, namely, initial delay and perioid
 // Last modified Apr 02 2012 by Jamie Boyd
-Function NQ_MultiAqTimeSetVarProc(sva) : SetVariableControl
-	STRUCT WMSetVariableAction &sva
-
-	switch( sva.eventCode )
-		case 1: // mouse up
-		case 2: // Enter key
-		case 3: // Live update
-			string timeStr = sva.sVal
-			variable microSecs
-			NQ_MultiParseTimeStr (timeStr, microSecs)
-			if (cmpStr (sva.ctrlName, "MultiAqPeriodDelaySetVar") ==0)
-				SVAR timeStrG = root:packages:twoP:acquire:multiAqPeriodDelayStr
-				NVAR microSecsG = root:packages:twoP:acquire:multiAqPeriodDelay
-			elseif (cmpStr (sva.ctrlName, "MultAqPeriodPeriodSetVar") ==0)
-				SVAR timeStrG = root:packages:twoP:acquire:multiAqPeriodPeriodStr
-				NVAR microSecsG=root:packages:twoP:acquire:multiAqPeriodPeriod
-			endif
-			timeStrG = timeStr
-			microSecsG = microSecs
-			break
-	endswitch
-	return 0
-end
 
 //******************************************************************************************************
 // sets string to name of chosen wave or makes a new wave in the datafolder for timing waves
 // Last modified Apr 03 2012 by Jamie Boyd
-Function NQ_MultiWaveWavePopMenuProc(pa) : PopupMenuControl
-	STRUCT WMPopupAction &pa
-
-	switch( pa.eventCode )
-		case 2: // mouse up
-			SVAR TimingWaveStr = root:packages:twoP:Acquire:multiAqWaveWaveStr
-			string newTimingWaveStr = pa.popStr
-			if (cmpStr (newTimingWaveStr,"New Timing Wave") ==0)
-				newTimingWaveStr = ""
-				prompt newTimingWaveStr "New Timimg Wave:"
-				doprompt "Name for New Timing Wave", newTimingWaveStr
-				if (V_Flag == 1)
-					return 1
-				endif
-				newTimingWaveStr = CleanupName(newTimingWaveStr, 0 )
-				make/T/n = 0 $"root:packages:twoP:Acquire:multiAqWaves:" + newTimingWaveStr
-				WAVE newtimingwave = $"root:packages:twoP:Acquire:multiAqWaves:" + newTimingWaveStr
-				edit/k=1 newTimingWave as "Edit Timing Wave:" + newTimingWaveStr
-				Dowindow/C NewTimingWaveTable
-			endif
-			TimingWaveStr = newTimingWaveStr
-			break
-	endswitch
-	return 0
-end
 
 //******************************************************************************************************
 //puts up a table to edit the selected timing wave
@@ -5561,7 +5402,6 @@ Function NQ_MultiWaveEditButtonProc(ctrlName) : ButtonControl
 	SVAR TimingWaveStr = root:packages:twoP:Acquire:multiAqWaveWaveStr
 	WAVE newtimingwave = $"root:packages:twoP:Acquire:multiAqWaves:" + TimingWaveStr
 	edit/k=1 newTimingWave as "Edit Timing Wave:" + TimingWaveStr
-	Dowindow/C NewTimingWaveTable
 End
 
 //******************************************************************************************************
@@ -5573,67 +5413,61 @@ Function NQ_MultiWaveDeleteButtonProc(ctrlName) : ButtonControl
 	SVAR TimingWaveStr = root:packages:twoP:Acquire:multiAqWaveWaveStr
 	WAVE newtimingwave = $"root:packages:twoP:Acquire:multiAqWaves:" + TimingWaveStr
 	GUIPkilldisplayedwave (newtimingwave)
-	TimingWaveStr= stringfromlist (0, GUIPListObjs("root:packages:twoP:acquire:multiAqWaves",1, "*" , 0, ""), ";")
+	TimingWaveStr= ""
 End
 	
 //******************************************************************************************************
-// parses time strings into variables passed by reference
+// parses time strings into nicer time strings
 // If no colon, assume all is seconds. if 1 colon, assume seconds and minutes.
 // if 2 colons, hours, minutes, seconds
-// Last modified Apr 02 2012 by Jamie Boyd
-Function NQ_MultiParseTimeStr (timeStr, microSecs)
-	string &timeStr
-	variable &microSecs
+// Last modified 2025/07/11 by Jamie Boyd -  no more pass by reference.  Used sscanf
+Function/S NQ_MultiParseTimeStr (timeStr)
+	string timeStr
 	
-	variable timeStrLen = strlen (timeStr)
-	variable secs=0, AllSecs =0, mins=0, AllMins =0, hrs=0
-	variable colonPosMins, colonPosSecs = strsearch(timeStr, ":", timeStrLen-1, 1)
-	if (colonPosSecs == -1) // all seconds
-		AllSecs = str2num (timeStr)
-	else
-		AllSecs = str2num (timeStr [colonPosSecs +1, timeStrLen-1])
-		colonPosMins = strsearch(timeStr, ":", ColonPosSecs-1, 1)
-		if (colonPosMins == -1) // the remainder is minutes
-			AllMins = str2num (timeStr [0, ColonPosSecs-1])
-		else // hours as well
-			AllMins = str2num ( timeStr[colonPosMins +1, ColonPosSecs-1])
-			hrs = str2num (timeStr [0, ColonPosMins-1])
-		endif
-	endif
-	secs = mod (Allsecs, 60)
-	Allmins += floor (Allsecs/60)
-	mins = mod (AllMins, 60)
-	hrs += floor (AllMins/60)
-	microSecs = 1e06 * (3600 * hrs + 60 *mins + secs)
-	if (hrs > 0)
-		sprintf timeStr "%02d:%02d:%02d" hrs, mins, secs
-	else
-		sprintf timeStr "%02d:%02d" , mins, secs
-	endif
+	variable hours_in = 0, minutes_in= 0, seconds_in = 0
+	variable v1, v2, v3
+	sscanf timeStr, "%d:%d:%d", v1, v2, v3
+	switch (V_FLag)
+		case 0:
+			return ""
+			break
+		case 1:
+			seconds_in = v1
+			break
+		case 2:
+			minutes_in=V1
+			seconds_in = v2
+			break
+		case 3:
+			hours_in =v1
+			minutes_in=v2
+			seconds_in=v3
+		default:
+			return ""
+			break
+	endswitch
+	
+	variable secs_out = mod (seconds_in, 60)
+	variable mins_out = mod ((minutes_in + floor (seconds_in/60)), 60)
+	variable hours_out = hours_in + floor (minutes_in/60)
+	string timeOutStr
+	sprintf timeOutStr "%02d:%02d:%02d" hours_out, mins_out, secs_out
+	return timeOutStr
+end
+	
+
+//************************************************************************************************
+// reads equivalent seconds from a properly parsed time string
+// Last modified 2025/07/11 by Jamie Boyd -Made separate function to get seconds from time string
+function NQ_MultiReadTimeStr(timeStr)
+	string timeStr
+	
+	variable hrs = str2num(StringFromList(0, timeStr, ":"))
+	variable mins = str2num(StringFromList(1, timeStr, ":"))
+	variable secs = str2num(StringFromList(2, timeStr, ":"))
+	return (3600 * hrs + 60 *mins + secs)
 end
 
-//******************************************************************************************************
-// Converts microseconds into a string representation hrs:secs:mins
-// Last Modified Apr 02 2012 by Jamie Boyd
-Function/s NQ_MultiMSecs2Str (microSecs)
-	variable microSecs
-	
-	if (microSecs ==0)
-		return "SCANNING"
-	endif
-	variable AllSecs = microSecs/1e06,  secs=0, mins=0, AllMins =0, hrs=0
-	secs = mod (Allsecs, 60)
-	mins = floor (Allsecs/60)
-	mins = mod (Mins, 60)
-	hrs = floor (Mins/60)
-	string TimeStr
-	if (hrs)
-		sprintf timeStr "%02d:%02d:%02.1f", hrs, mins, secs
-	else
-		sprintf timeStr "%02d:%02.1f", mins, secs
-	endif
-	return timeStr
-end
 
 //******************************************************************************************************
 // Makes a series of waves in advance of doing the scanning, for increased speed
@@ -5727,7 +5561,7 @@ function NQ_MultiAqInit ()
 				// set initial time to next from first point
 				variable waveMS
 				string waveDelayStr = multiWave [0]
-				NQ_MultiParseTimeStr (waveDelayStr, waveMS)
+				//waveMS = NQ_MultiParseTimeStr (waveDelayStr)
 				timeToNext = waveMS
 				multiWave [0]= waveDelayStr
 				nAqs = numpnts (multiWave)
@@ -5774,65 +5608,86 @@ function NQ_MultiAqInit ()
 	return 0
 end
 
-//******************************************************************************************************
-//Background task for periodic acquisition
-// Last Modified 2015/04/13 by Jamie Boyd
-Function NQ_MultiBkg_Period (s)
-	STRUCT WMBackgroundStruct &s
-	
-	NVAR percentComplete = root:packages:twoP:Acquire:PercentComplete
-	if (percentComplete !=0) // currently scanning. Check again in a 10th of a second
-		s.nextRunTicks = ticks + 6
-	else // ready to go
-		STRUCT WMButtonAction ba
-		ba.eventcode = 2
-		ba.UserData = "Start"
-		NQ_StartScan (ba)
-		NVAR iAq = root:packages:twoP:acquire:multiAqiAq
-		NVAR nAqs = root:packages:twoP:acquire:multiAqnAqs
-		iAq += 1
-		if (iAq == nAqs)
-			SVAR timeStrG =root:packages:twoP:acquire:multiAqTimeToNextStr 
-			Setformula timeStrG ""
-			timeStrG = "Final Scan"
-			NQ_MultiAqReset ()
-			return 1
-		endif 
-	endif
-	return 0
-end
 
 //******************************************************************************************************
-//background task for acquisition from a list of times
+//background task for multi-acquisition
 // Last Modified 2015/04/13 by Jamie Boyd
-Function NQ_MultiBkg_Wave( s)
+Function NQ_MultiBkg( s)
 	STRUCT WMBackgroundStruct &s
 	
-	NVAR percentComplete = root:packages:twoP:Acquire:PercentComplete
-	if (percentComplete !=0) // currently scanning
-		s.nextRunTicks = ticks + 6
-	else // ready to go
-	
+	string tempStr
+	NVAR multiMode = root:packages:twoP:acquire:multiAqTimeMode
+	SVAR timeStrG =root:packages:twoP:acquire:multiAqTimeToNextStr 
 	
 	NVAR iAq = root:packages:twoP:acquire:multiAqiAq
-	SVAR waveStr = root:packages:twoP:acquire:multiAqWaveWaveStr
-	WAVE/T theWave = $"root:packages:twoP:Acquire:multiAqWaves:" + WaveStr
-	NVAR timeToNext =  root:Packages:twoP:Acquire:multiAqTimeToNext
-	// not currently scanning
-		STRUCT WMButtonAction ba
-		ba.eventcode = 2
-		ba.UserData = "Start"
-		NQ_StartScan (ba)
+	NVAR nAqs= root:packages:twoP:acquire:multiAqnAqs
+	// check if a scan is in progres
+	NVAR percentComplete = root:packages:twoP:Acquire:PercentComplete
+	if (percentComplete !=0) // currently scanning a wave.could also check start button 
+		sprintf tempStr,"SCANNING %d of %d", (iAq + 1), nAqs  // +1 for one based counting
+		timeStrG = tempStr
+		return 0
+	endif
+	if (iAq == nAqs)	// the scan end function will increment iAq, dont do it here
+		sprintf tempStr,"ALL %d SCANS DONE", nAqs
+		// clean up code here
+		return 0
+	endif
+	// For times from a wave, update count down, and maybe start a scan
+	if ((multiMode == kMultiUsePeriod) || (multiMode == kMultiUseWave))
+		NVAR MultiAqStartTime = root:packages:twoP:acquire:MultiAqStartTime				// when scan was started
+		NVAR MultiAqNextTime = root:packages:twoP:acquire:MultiAqNextTime			// timeof next scan
+		variable rSecs = MultiAqNextTime -  datetime
+		if (rSecs > 0)
+			sprintf tempStr, "Scan %d in %s.", iAq, NQ_MultiParseTimeStr (num2str (rSecs))
+		else
+			sprintf tempStr,"STARTING %d of %d", (iAq + 1), nAqs
+			WAVE maq_seconds= root:packages:twoP:acquire:multiAqWaves:maq_seconds
+			MultiAqNextTime = MultiAqStartTime + maq_seconds [iAq + 1]
+			STRUCT WMButtonAction ba
+			ba.eventcode = 2
+			ba.UserData = "Start"
+			NQ_StartScan (ba)
+		endif
+	elseif (multiMode ==kMultiUseTrigger)
+		   sprintf tempStr,"WAITING FOR TRIGGER %d of %d", iAq, nAqs
+	endif
+	timeStrG = tempStr
+
+	
+end
+	NVAR nextTime = root:packages:twoPhoton:acquire:MultiAqNextTime
+	if (dateTime > nextTime)
 		NVAR nAqs= root:packages:twoP:acquire:multiAqnAqs
+		if (iAq == nAqs)
+		NVAR startTime = root:packages:twoP:acquire:MultiAqStartTime
+		//nextTime = 
 		if (iAq + 1 == nAqs)
 			SVAR timeStrG =root:packages:twoP:acquire:multiAqTimeToNextStr 
 			Setformula timeStrG ""
 			timeStrG = "Final Scan"
 		endif
+		
+		
+				STRUCT WMButtonAction ba
+		ba.eventcode = 2
+		ba.UserData = "Start"
+		NQ_StartScan (ba)
 	endif
+	
+		WAVE maq_Period = root:packages:twoP:acquire:multiAqWaves:maq_Period
+		
+		NVAR startSecs = root:packages:twoPhoton:acquire:MultiAqStartTime
+	
+		
+	SVAR waveStr = root:packages:twoP:acquire:multiAqWaveWaveStr
+	WAVE/T theWave = $"root:packages:twoP:Acquire:multiAqWaves:" + WaveStr
+	NVAR timeToNext =  root:Packages:twoP:Acquire:multiAqTimeToNext
+	// not currently scanning
+		
 	string timeStr = theWave [iAq] // time to next scan
 	variable microSecs // will get microseconds to next scan 
-	NQ_MultiParseTimeStr (timeStr, microSecs)
+	//NQ_MultiParseTimeStr (timeStr, microSecs)
 	theWave [iAq] = timeStr
 	//timeToNext = max (0, (startTime + microSecs) -stopMSTimer (-2))
 	
@@ -6385,3 +6240,63 @@ Function setGalvoByCursor()
 	yStepSize = dY*ppmYcrop - 250*ppmY
 	print xStepSize,yStepSize
 End Function
+
+
+
+Function NQ_MultiWaveWavePopMenuProc(pa) : PopupMenuControl
+	STRUCT WMPopupAction &pa
+
+	switch( pa.eventCode )
+		case 2: // mouse up
+			SVAR TimingWaveStr = root:packages:twoP:Acquire:multiAqWaveWaveStr
+			string newTimingWaveStr = pa.popStr
+			if (cmpStr (newTimingWaveStr,"New Timing Wave") ==0)
+				newTimingWaveStr = ""
+				prompt newTimingWaveStr "New Timimg Wave:"
+				doprompt "Name for New Timing Wave", newTimingWaveStr
+				if (V_Flag == 1)
+					return 1
+				endif
+				newTimingWaveStr = CleanupName(newTimingWaveStr, 0 )
+				make/T/n = 0 $"root:packages:twoP:Acquire:multiAqWaves:" + newTimingWaveStr
+				WAVE newtimingwave = $"root:packages:twoP:Acquire:multiAqWaves:" + newTimingWaveStr
+				edit/k=1 newTimingWave as "Edit Timing Wave:" + newTimingWaveStr
+			else // selecting an existing wave
+				// need some validation here!
+				WAVE/T timingWave = $"root:packages:twoP:Acquire:multiAqWaves:" + pa.popStr
+				timingWave =  NQ_MultiParseTimeStr (timingWave)
+				variable iPnt,nPnts = numpnts (timingWave)
+				variable thisSecs, lastSecs = NQ_MultiReadTimeStr(timingWave [0])
+				for (iPnt =1; iPnt <  nPnts; iPnt +=1, lastSecs= thisSecs)
+					thisSecs = NQ_MultiReadTimeStr(timingWave [iPnt])
+					if (numtype (thisSecs) != 0)
+						doalert 0 , "The time wave is not of the right format."
+						TimingWaveStr = ""
+						return 0
+					endif
+					if (thisSecs < lastSecs)
+						doalert 0, "Time waves need to contain elapsed times from start, not interscan periods."
+						TimingWaveStr = ""
+						return 0
+					endif
+				endfor
+			endif
+			TimingWaveStr = newTimingWaveStr
+			break
+	endswitch
+	return 0
+end
+
+Function NQ_MultiAqTimeSetVarProc(sva) : SetVariableControl
+	STRUCT WMSetVariableAction &sva
+
+	switch( sva.eventCode )
+		case 1: // mouse up
+		case 2: // Enter key
+		case 3: // Live update
+			SVAR strinG = $"root:packages:twoP:acquire:" + sva.vname
+			strinG = NQ_MultiParseTimeStr (sva.sVal)
+			break
+	endswitch
+	return 0
+end
