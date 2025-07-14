@@ -260,125 +260,7 @@ Function NQ_MakeAcquireFolder (overWrite)
 end
 
 
-		
-		
-		
-		// copy focus step size to acquire globals
-		NVAR zStepSizeG = $"root:packages:" + kNQStageProc + ":" + "zStepSize"
-		variable/G root:packages:twoP:acquire:zStepSizeMin = 1e-07
-		
-		SVAR StageProc = root:Packages:twoP:Acquire:StageProc
-		
-
-		variable/G root:packages:twoP:Acquire:isCyclic = 0 // we need to set up a circular buffer scan because the # of points is greater than 2^24
-		variable/G root:packages:twoP:acquire:tSeriesBufferSize = 0
-		variable/G root:packages:twoP:Acquire:ePhysisCyclic = 0
-		variable/G root:packages:twoP:acquire:lScanBufferSize = 0
-		variable/G root:packages:twoP:acquire:ePhysBufferSize
-		// Scan and ePhys Gains
-		variable/G root:Packages:twoP:Acquire:ScanGain = kNQScanGain
-		variable/G root:Packages:twoP:Acquire:ePhysGain = kNQePhysGain
-		// Scan and ePhys channel Selection (in each case, 1 = chan 0, 2 =chan 1, 3=both channels. easily expanable for multiple channels
-		variable/G root:Packages:twoP:Acquire:ScanChans =1
-		// Errorhandler variable - 0 if user chose to continue following an error. 1 if user chose to halt execution
-		variable/G root:packages:twoP:Acquire:ErrVar
-
-		
-		// line scan X size and pixel size
-		variable/G root:Packages:twoP:Acquire:LSImSize
-		variable/G root:Packages:twoP:Acquire:LSPixSize
-		// Set dependency formulas for LineScan pix size
-		NVAR LSImSize = root:Packages:twoP:Acquire:LSImSize
-		NVAR LSPixSize = root:Packages:twoP:Acquire:LSPixSize
-		setformula LSImSize "abs(root:Packages:twoP:Acquire:LSEndVolts - root:Packages:twoP:Acquire:LSStartVolts) * str2num (root:packages:twoP:Acquire:ObjWave [root:packages:twoP:Acquire:curObjNum] [1])"
-		setformula LSPixSize "root:packages:twoP:Acquire:LSImSize/root:Packages:twoP:Acquire:LSWidth"
-		// Aspect ratio of image (horizontal pixel size/vertical pixel size) backwards to most definitions, I now realize. Also, doesn't take into account possibility of diiferent votage scaling for X and Y
-		variable/G root:Packages:twoP:Acquire:AspectRatio = 1
-		// globals for frame/line numbers for acquisition/averaging
-		// Live
-		string/G root:packages:twoP:Acquire:LiveModeScanStr
-		variable/G root:packages:twoP:acquire:nLiveFrames =1 // more than one frame acquired at once if frame time is too short, compared to constant at top of file
-		variable/G root:Packages:twoP:Acquire:LiveAvgCheck = 0
-		variable/G root:Packages:twoP:Acquire:numLiveAvgFrames = 3
-		variable/G root:packages:twoP:Acquire:LiveAvgPos
-		variable/G root:Packages:twoP:Acquire:liveROISecs = 30
-		variable/G root:Packages:twoP:Acquire:liveHistCheck
-		variable/G root:Packages:twoP:Acquire:liveROICheck = 0
-		variable/G root:Packages:twoP:Acquire:liveROIRatioCheck = 0
-		make/o/N= 0 root:Packages:twoP:Acquire:LroiWave_ch1	// some waves for doing Live ROIs
-		make/o/N= 0 root:Packages:twoP:Acquire:LroiWave_ch2
-		make/o/N= 0 root:Packages:twoP:Acquire:LroiWave_ratio
-		make/o/N=0 root:packages:twoP:acquire:LroiXwave
-		// left, Top, width, height coordinates for the Live ROI
-		variable/g root:Packages:twoP:Acquire:LROIL, root:Packages:twoP:Acquire:LROIT
-		variable/g root:Packages:twoP:Acquire:LROIB, root:Packages:twoP:Acquire:LROIR
-		// Time series
-		variable/G root:Packages:twoP:Acquire:TSeriesFrames = 50
-		variable/G root:Packages:twoP:Acquire:ePhysAdjChans =0 // value for ephys chans to use when doing ePhys along with image scanning
-		variable/G root:Packages:twoP:Acquire:scanToDisk =0
-		string/G root:Packages:twoP:Acquire:scanToDiskDir = ""
-		variable/G root:Packages:twoP:Acquire:scanToDiskFileRefNum
-		variable/G root:Packages:twoP:Acquire:ePhysToDiskFileRefNum
-		// Average
-		variable/G root:Packages:twoP:Acquire:numAverageFrames = 5
-		// Line Scan
-		variable/G root:Packages:twoP:Acquire:LSStartVoltage = kNQxVoltStart
-		variable/G root:Packages:twoP:Acquire:LSEndVoltage = kNQxVoltEnd	
-		variable/G root:Packages:twoP:Acquire:LSYVoltage	= 0
-		variable/G root:Packages:twoP:Acquire:LSStartVoltageBU = kNQxVoltStart
-		variable/G root:Packages:twoP:Acquire:LSEndVoltageBU=kNQxVoltEnd
-		variable/G root:Packages:twoP:Acquire:LSYVoltageBU = 0	
-		string/G root:Packages:twoP:Acquire:LSLinkWaveStr = "Don't Link" 	// Line Scan "link to wave" string
-		// Z stack
-		variable/G root:packages:twoP:acquire:zStepSize=1e-06
-		variable/G root:Packages:twoP:Acquire:NumZseriesFrames = 10		// Stores Number of frames to collect in the Z dimension for Z Series Exp.
-		variable/G root:Packages:twoP:Acquire:NumZseriesAvg = 3			// Number of frames to average for each z-position, i.e, Kalman averaging
-		variable/g root:Packages:twoP:Acquire:ZFirstZ =0
-		variable/g root:Packages:twoP:Acquire:ZLastZ =10e-6
-		variable/g root:Packages:twoP:Acquire:iiZseriesFrames// a global variable for counting z-series frames
-		// ePhys
-		variable/G root:Packages:twoP:Acquire:ePhysOnlyTime = 30
-		variable/G root:Packages:twoP:Acquire:EphysFreq = kNQePhysSampFreq	 // the scanning frequency in Hz for the ePhys trace
-		variable/G root:Packages:twoP:Acquire:ePhysChans =1
-		// multiAq
-			
-		// Trigger Timing Values
-		variable/G root:packages:twoP:Acquire:trig1Check = 0
-		variable/G root:packages:twoP:Acquire:trig2Check = 0
-		variable/G root:Packages:twoP:Acquire:DelayFrames1 =0 // When doing a time series, the number of frames to delay before sending trigger stimulus on the ephysBoard counter 0 output pin.
-		variable/G root:Packages:twoP:Acquire:DelayFrames2 = 0 // When doing a time series, the number of frames to delay before sending  trigger stimulus on the ephysBoard counter 1 output pin.
-		variable/G root:Packages:twoP:Acquire:DelayFramesSec1 =0 // DelayFrames1 translated into seconds
-		variable/G root:Packages:twoP:Acquire:DelayFramesSec2 =0 // DelayFrames2 translated into seconds
-		variable/G root:Packages:twoP:Acquire:DelayLines1 =0	// When doing a LineScan, the number of lines to delay before sending  trigger stimulus on the ephysBoard counter 0 output pin.
-		variable/G root:Packages:twoP:Acquire:DelayLines2 = 0 // When doing a LineScan, the number of lines to delay before sending  trigger stimulus on the ephysBoard counter 1 output pin.
-		variable/G root:Packages:twoP:Acquire:DelayLinesSec1 = 0 // DelayLines1 translated into seconds
-		variable/G root:Packages:twoP:Acquire:DelayLinesSec2 = 0 // DelayLines2 translated into seconds
-		variable/G root:Packages:twoP:Acquire:DelaySecs1 =0	// When doing ePhys Only, the number of seconds to delay before sending  trigger stimulus on the ephysBoard counter 0 output pin.
-		variable/G root:Packages:twoP:Acquire:DelaySecs2 = 0 // When doing ePhys Only, the number of seconds to delay before sending  trigger stimulus on the ephysBoard counter 1 output pin.
-		//VoltagePulse Stuff
-		variable/G root:packages:twoP:Acquire:voltagePulseChans = 0
-		variable/G root:packages:twoP:acquire:VoltagePulseFreq = 10
-		variable/G root:packages:twoP:acquire:VoltagePulseHeight = 1
-		variable/G root:packages:twoP:acquire:VoltagePulseX1 = 0
-		variable/G root:packages:twoP:acquire:VoltagePulseX2 = 5
-		variable/G root:packages:twoP:acquire:VoltagePulseY1 = 0
-		variable/G root:packages:twoP:acquire:VoltagePulseY2 = 0
-		string/G root:packages:twoP:acquire:VoltagePulseEditWave = ""
-		variable/G root:packages:twoP:acquire:VoltageAxis = 0
-		variable/G root:packages:twoP:acquire:VoltagelastCursor
-		variable/G root:packages:twoP:Acquire:VoltagePulseF1 =0
-		variable/G root:packages:twoP:Acquire:VoltagePulseF2 =1
-		make/o/n= 2 root:packages:twoP:Acquire:VoltagePulseDummyWave
-		// Exporting data after scan
-		variable/G root:packages:twoP:acquire:exportAfterScan =0
-		// Percent complete variable for scanning
-		variable/G root:packages:twoP:Acquire:PercentComplete
-		// Waves for fitting the sin expansion used in outputting the Galvo Signals
-		make/o/D root:packages:twoP:acquire:Scan_Coefs = {-7.4, -.65, -.13, -0.015}
-		make/o/D root:packages:twoP:acquire:Scan_Coefs_Sym = {-7.4, -0.65, -0.13, 0.08, 0.17}
-		// Get experiment size
-		variable/G root:packages:twoP:acquire:expSize = NQ_GetExpSize ("root:")
-		
+	
 		
 		NQ_ResetBoards (0)
 		
@@ -415,374 +297,424 @@ end
 	
 //******************************************************************************************************
 // Adds controls for the acquire functions to the Nidaq Controls panel
-// Last Modified 2015/04/16 by Jamie Boyd
+// 
+// Last Modified 2025/07/13 by Jamie Boyd
 Function NQ_AddAcquireControls ()
-	
+	DoWindow/F twoP_Controls
+	if (!(V_Flag))
+		return 1
+	endif
+	// Controls directly on Acquire tab
 	// Experiment size
-	ValDisplay expSizeDisp, win = twoP_Controls, disable =1, pos={4,23},size={334,14},title="Exp size",fSize=10
-	ValDisplay expSizeDisp, win = twoP_Controls, format="%.2W1PB",frame=2
-	ValDisplay expSizeDisp, win = twoP_Controls, limits={0,1e+09,0},barmisc={0,62},highColor= (0,0,0),lowColor= (0,0,0)
-	ValDisplay expSizeDisp, win = twoP_Controls, value= #"root:packages:twoP:acquire:expSize"
+	ValDisplay expSizeDisp,pos={5.00,23.00},size={334.00,14.00},title="Exp size"
+	ValDisplay expSizeDisp,fSize=12,format="%.2W1PB",frame=2
+	ValDisplay expSizeDisp,limits={0,3e+09,0},barmisc={0,62},highColor=(0,0,0),lowColor=(0,0,0)
+	ValDisplay expSizeDisp,value=#"root:packages:twoP:acquire:expSize"
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "ValDisplay expSizeDisp 0;")
-	// Image Size controls
-	// group box
-	GroupBox ImageSizeGrpBox win = twoP_Controls, disable =1, pos={3,39},size={336,124},title="Image Size",frame=0
+	// Image size controls
+	GroupBox ImageSizeGrpBox,pos={3.00,40.00},size={336.00,107.00}
+	GroupBox ImageSizeGrpBox,title="Image Size",frame=0
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "GroupBox ImageSizeGrpBox 0;")
-	// X pix and volts
-	SetVariable PixWidSetVar win = twoP_Controls, disable =1, pos={8,55},size={94,15},proc=NQ_SetTimesProc,title="X pix",fSize=10
-	SetVariable PixWidSetVar win = twoP_Controls, limits={2,INF,2},value= root:Packages:twoP:Acquire:PixWidth
-	SetVariable XStartSetVar win = twoP_Controls, disable =1 ,pos={117,55},size={105,15},proc=GUIPSIsetVarProc,title="X Start"
-	SetVariable XStartSetVar win = twoP_Controls,userdata=  "NQ_SetTimesProc;-10;10;autoInc;;",fSize=10, format="%.3W1PV"
-	SetVariable XStartSetVar win = twoP_Controls,limits={-INF,INF,0.1},value= root:Packages:twoP:Acquire:xStartVolts
-	SetVariable XEndSetVar win = twoP_Controls, disable =1, pos={233,55},size={99,15},proc=GUIPSIsetVarProc,title="X End"
-	SetVariable XEndSetVar win = twoP_Controls,userdata= "NQ_SetTimesProc;-10;10;autoInc;;",fSize=10,format="%.3W1PV"
-	SetVariable XEndSetVar win = twoP_Controls,limits={-INF,INF,0.1},value= root:Packages:twoP:Acquire:xEndVolts
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Setvariable PixWidSetVar 0;SetVariable XStartSetVar 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "SetVariable XEndSetVar 0;")
-	// Y Pix and volts
-	SetVariable YStartSetVar win = twoP_Controls, disable =1, pos={117,74},size={105,15},proc=GUIPSIsetVarProc,title="Y Start"
-	SetVariable YStartSetVar, win = twoP_Controls,userdata=  "NQ_SetTimesProc;-10;10;autoInc;;",fSize=10,format="%.3W1PV"
-	SetVariable YStartSetVar win = twoP_Controls,limits={-INF,INF,0.1},value= root:Packages:twoP:Acquire:yStartVolts
-	SetVariable YEndSetVar win = twoP_Controls, disable =1, pos={234,74},size={98,15},proc=GUIPSIsetVarProc,title="Y End"
-	SetVariable YEndSetVar win = twoP_Controls,userdata=  "NQ_SetTimesProc;-10;10;aoutoInc;;",fSize=10,format="%.3W1PV"
-	SetVariable YEndSetVar win = twoP_Controls,limits={-INF,INF,0.1},value= root:Packages:twoP:Acquire:yEndVolts
-	SetVariable PixHeightSetVar win = twoP_Controls, disable =1, pos={8,74},size={94,15},proc=NQ_SetTimesProc,title="Y Pix", fSize=10
-	SetVariable PixHeightSetVar win = twoP_Controls,limits={2,inf,2},value= root:Packages:twoP:Acquire:PixHeight
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Setvariable PixHeightSetVar 0;Setvariable YStartSetVar 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Setvariable YEndSetVar 0;")
-	// X and Y pix size Display
-	SetVariable xImSizeSetVar win = twoP_Controls, disable =1, pos={4,94},size={79,18},title=" ",fSize=12, format="X %.1W1Pm",frame=0
-	SetVariable xImSizeSetVar win = twoP_Controls,limits={0,inf,0},value= root:Packages:twoP:Acquire:xImSize,noedit= 1
-	SetVariable xPixSizeSetVar win = twoP_Controls, disable =1, pos={80,94},size={90,18},title=" ",fSize=12
-	SetVariable xPixSizeSetVar win = twoP_Controls,format="%.1W1Pm/pix",frame=0
-	SetVariable xPixSizeSetVar win = twoP_Controls,limits={0,inf,0},value= root:Packages:twoP:Acquire:xPixSize,noedit= 1
-	SetVariable YimSizeSetVar win = twoP_Controls, disable =1, pos={168,94},size={79,18},title=" ",fSize=12
-	SetVariable YimSizeSetVar win = twoP_Controls,format="Y %.1W1Pm",frame=0
-	SetVariable YimSizeSetVar win = twoP_Controls,limits={0,inf,0},value= root:Packages:twoP:Acquire:yImSize,noedit= 1
-	SetVariable yPixSizeSetVar win = twoP_Controls, disable =1, pos={245,94},size={89,18},title=" ",fSize=12
-	SetVariable yPixSizeSetVar win = twoP_Controls,format="%.1W1Pm/pix",frame=0
-	SetVariable yPixSizeSetVar win = twoP_Controls,limits={0,inf,0},value= root:Packages:twoP:Acquire:yPixSize,noedit= 1
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "SetVariable xImSizeSetVar 0;SetVariable xPixSizeSetVar 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "SetVariable YimSizeSetVar 0;SetVariable yPixSizeSetVar 0;")
-	// Full scale and revert scale
-	Button FullScaleButton win = twoP_Controls, disable =1, pos={6,115},size={31,16},proc=NQ_SetFullScaleProc,title="Full"
-	Button RevertScaleButton win = twoP_Controls, disable =1, pos={39,115},size={50,16},proc=NQ_RevertScaleProc,title="Revert"
-	PopupMenu RevertScalePopMenu win = twoP_Controls, disable =1, pos={91,113},size={76,20},proc=RevertSettingstoWaveProc,title="to Scan:"
-	PopupMenu RevertScalePopMenu win = twoP_Controls,mode=0,value= #"\"LiveWave;\\\\M1(-;\" + NQ_ListScans (\"1,2,4,\")"
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Button FullScaleButton 0;Button RevertScaleButton 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Popupmenu RevertScalePopMenu 0;")
-	// Aspect Ratio
-	SetVariable AspRatSetVar win = twoP_Controls, disable =1, pos={5,140},size={104,18},proc=NQ_AspectRatioProc,title="Aspect"
-	SetVariable AspRatSetVar win = twoP_Controls,fSize=12,format="%#.3G"
-	SetVariable AspRatSetVar, win = twoP_Controls, limits={0,inf,0.1},value= root:Packages:twoP:Acquire:AspectRatio
-	PopupMenu AspRatPopUp win = twoP_Controls, disable =1, pos={113,139},size={88,20},proc=NQ_AspRatPopUpProc,fSize=12
-	PopupMenu AspRatPopUp win = twoP_Controls,mode=6,popvalue="Vary Y Pix",value= #"\"Vary X Start;Vary X  End;Vary X Pix;Vary Y Start;Vary Y End;Vary Y Pix;Free\""
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "SetVariable AspRatSetVar 0;PopupMenu AspRatPopUp 0;")
-	// Objectives and channels
-	PopupMenu ObjPopUp win = twoP_Controls, disable =1, pos={224,113},size={50,20},proc=NQ_ObjPopProc,title="Obj:"
-	PopupMenu ObjPopUp win = twoP_Controls,mode=0,value= #"NQ_ListObjs()"
-	TitleBox CurObjTitle win = twoP_Controls, disable =1, pos={279,116},size={23,15},fSize=12,frame=0
-	TitleBox CurObjTitle win = twoP_Controls,variable= root:Packages:twoP:Acquire:CurObj
-	PopupMenu SelectPMTPopMenu win = twoP_Controls, disable =1, pos={223,139},size={66,20},proc=NQ_ScanChansPopMenuProc,title="Chan",fSize=12
-	PopupMenu SelectPMTPopMenu win = twoP_Controls, disable =1, mode=3,popvalue="1",value= #"\"1;2;1 & 2\""
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "PopupMenu ObjPopUp 0;TitleBox CurObjTitle 0;PopupMenu SelectPMTPopMenu 0;")
-	// Image appearance and scanMode tabControl
-	// Commands to make these controls appear in twoP_examine, as controls are shown on both tabs
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "PopUpMenu LUTpopUp 0;CheckBox LUTInvertCheck 0;Checkbox LUTChan1Check 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Checkbox LUTChan2Check 0;Setvariable LUTFirstValueSetVar 0;Checkbox LUTautoCheck 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Setvariable LUTLastValueSetVar 0;Button LUTtoDataButton 0;Checkbox LUT96check 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Slider LUTLastValSlider 0;Slider LUTFirstValSlider 0;Titlebox LUTBeforeFirstTitle 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Popupmenu LUTBeforeColorPopUp 0;Checkbox LUTBeforeUseFirstCheck 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Checkbox LUTBeforeUseColorCheck 0;Checkbox LUTBeforeUseTransCheck 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Titlebox LUTAfterLastTitle 0;Checkbox LUTAfterUseLastCheck 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Checkbox LUTAfterUseColorCheck 0;Popupmenu LUTAfterColorPopUp 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Checkbox LUTAfterUseTransCheck 0;")
-	// ScanMode tab Control (controls that are on the tabcontrol are listed below) 
-	TabControl SmodeTabControl win = twoP_Controls, disable =1, pos={3,294},size={337,149},proc=GUIPTabProc
-	TabControl SmodeTabControl win = twoP_Controls,help={"Selects one of 6 possible type of scans to perform."}
-	TabControl SmodeTabControl win = twoP_Controls,fSize=9,tabLabel(0)="Live",tabLabel(1)="T_Ser"
-	TabControl SmodeTabControl win = twoP_Controls,tabLabel(2)="Avg",tabLabel(3)="Lines"
-	TabControl SmodeTabControl win = twoP_Controls,tabLabel(4)="Z_ser",tabLabel(5)="ePhys"
-	TabControl SmodeTabControl win = twoP_Controls,tabLabel(6)="MultiAq",value= 0
-	GUIPTabNewTabCtrl ("twoP_Controls", "SmodeTabControl", TabList= "Live;T_Ser;Avg;Lines;Z_ser;ePhys;MultiAq;", UserFunc="NQ_SModeTabControlproc")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "TabControl SmodeTabControl 0;")
-	// Voltage pulse
-	GroupBox VoltageWaveGrpBox win = twoP_Controls, disable =1, pos={3,444},size={337,84},title="Voltage Pulse"
-	CheckBox Voltage1Check win = twoP_Controls, disable =1, pos={10,461},size={16,14},proc=NQ_VoltageCheckProc,title="", value= 0
-	PopupMenu VoltagePulse1Popup win = twoP_Controls, disable =1, pos={26,458},size={249,20},proc=NQ_VoltageWavePopMenuProc,title="1 Voltage Wave"
-	PopupMenu VoltagePulse1Popup win = twoP_Controls,mode=1,popvalue="No Voltage Pulse Waves",value= #"GUIPListObjs ((\"root:packages:twoP:acquire:VoltagePulseWaves\") , 1, \"*\", 0, \"\\M1(No Voltage Pulse Waves\")"
-	CheckBox Voltage2Check win = twoP_Controls, disable =1, pos={9,482},size={16,14},proc=NQ_VoltageCheckProc,title="",value= 0
-	PopupMenu VoltagePulse2Popup  win = twoP_Controls, disable =1, pos={26,479},size={249,20},proc=NQ_VoltageWavePopMenuProc,title="2 Voltage Wave"
-	PopupMenu VoltagePulse2Popup win = twoP_Controls, mode=1,popvalue="No Voltage Pulse Waves",value= #"GUIPListObjs ((\"root:packages:twoP:acquire:VoltagePulseWaves\") , 1, \"*\", 0, \"\\M1(No Voltage Pulse Waves\")"
-	PopupMenu VoltagePulsePopUp win = twoP_Controls, disable =1, pos={10,501},size={109,20},title="Vout",fSize=12
-	PopupMenu VoltagePulsePopUp win = twoP_Controls, mode=1,popvalue="on Start",value= #"\"on Start;on Trig 1;\""
-	Button EditVoltagePulseButton win = twoP_Controls, disable =1, pos={141,504},size={141,20},proc=EditVoltageWavesProc,title="Edit Voltage Waves"
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Groupbox VoltageWaveGrpBox 0;Checkbox Voltage1Check 0;Popupmenu VoltagePulse1Popup 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Checkbox Voltage2Check 0;Popupmenu VoltagePulse2Popup 0;Popupmenu VoltagePulsePopUp 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Button EditVoltagePulseButton 0;")
-	// Times
-	GroupBox TimesGrpBox  win = twoP_Controls, disable =1, pos={3,525},size={337,60},title="Times",fSize=9
-	SetVariable expTimeSetvar  win = twoP_Controls, disable =1, pos={8,543},size={137,15},title="Total",fSize=10
-	SetVariable expTimeSetvar  win = twoP_Controls, value= root:Packages:twoP:Acquire:RunTimeStr,noedit= 1
-	SetVariable FrameTimeSetVar  win = twoP_Controls, disable =1, pos={178,543},size={131,15},title="Frame",fSize=10
-	SetVariable FrameTimeSetVar  win = twoP_Controls,format="%.1W1Ps"
-	SetVariable FrameTimeSetVar  win = twoP_Controls,limits={-inf,inf,0},value= root:Packages:twoP:Acquire:FrameTime,noedit= 1
-	SetVariable LineTimeSetVar  win = twoP_Controls, disable =1, pos={11,562},size={134,15},title="Line",fSize=10
-	SetVariable LineTimeSetVar  win = twoP_Controls,format="%.2W1Ps"
-	SetVariable LineTimeSetVar  win = twoP_Controls,limits={-inf,inf,0},value= root:Packages:twoP:Acquire:LineTime,noedit= 1
-	CheckBox TurboCheck win = twoP_Controls, disable =1, pos={175,558},size={138,35},proc=NQ_TurboCheckProc,title="Bi-Directional Scan is OFF"
-	CheckBox TurboCheck win = twoP_Controls,help={"If On, data is collected on both directions of horizontal scan. If alternate lines of image are misaligned using Turbo, adjust  Scan Head Delay."}
-	CheckBox TurboCheck win = twoP_Controls,variable= root:Packages:twoP:Acquire:FlyBackMode,picture= ProcGlobal#lightSwitch_small
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Groupbox TimesGrpBox 0;Setvariable expTimeSetvar 0;Setvariable FrameTimeSetVar 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Setvariable LineTimeSetVar 0;Checkbox TurboCheck 0;")
-	// buttons to show other panels
-	Button aqShowScansButton win = twoP_Controls, disable =1, pos={4,591},size={49,18},proc=NQ_ShowScansProc,title="Scans"
-	Button aqShowTracesButton win = twoP_Controls, disable =1, pos={70,591},size={57,18},proc=NQ_showTracesProc,title="Traces"
-	Button ShowScanSettingsButton win = twoP_Controls, disable =1, pos={139,591},size={98,18},proc=NQ_OtherScanSettingsProc,title="More Settings"
-	Button showFocusPanelButton win = twoP_Controls, disable =1, pos={254,591},size={57,18},proc=NQ_OpenFocusPanel,title="Focus"
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire",  "Button aqShowScansButton 0;Button aqShowTracesButton 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Button ShowScanSettingsButton 0;Button ShowFocusPanelButton 0")
-	// Scan Name and Note
-	GroupBox ScanSettingsGrp win = twoP_Controls, disable =1, pos={3,612},size={337,48},title="Scan Name & Note Settings" ,frame=0
-	SetVariable AqScanNameSetVar win = twoP_Controls, disable =1, pos={7,625},size={186,15},proc=NQ_ScanNameProc,title="New Scan Name"
-	SetVariable AqScanNameSetVar win = twoP_Controls,help={"The scan created when you press \"Start Scan\" will have this name."}
-	SetVariable AqScanNameSetVar win = twoP_Controls,value= root:Packages:twoP:Acquire:NewScanName
-	CheckBox AqAutIncCheck win = twoP_Controls, disable =1, pos={217,625},size={52,14},proc=NQ_autincCheckProc,title="AutoInc"
-	CheckBox AqAutIncCheck win = twoP_Controls,help={"If checked, \"New Scan Name\" is given a numeric suffix and automatically incremented with every scan."}
-	CheckBox AqAutIncCheck win = twoP_Controls,variable= root:Packages:twoP:Acquire:AutincCheck
-	CheckBox AqOverWriteWarnCheck win = twoP_Controls, disable =1, pos={287,625},size={41,14},title="Warn"
-	CheckBox AqOverWriteWarnCheck win = twoP_Controls,help={"If checked, you will be warned if \"New Scan Name\" conflicts with an existing scan."}
-	CheckBox AqOverWriteWarnCheck win = twoP_Controls,variable= root:Packages:twoP:Acquire:overwriteWarnCheck
-	SetVariable ExpNoteSetVar win = twoP_Controls, disable =1, pos={7,643},size={328,15},proc=NQ_ExpNoteProc,title="Scan Note"
-	SetVariable ExpNoteSetVar win = twoP_Controls,value= root:Packages:twoP:Acquire:NewScanNote
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Groupbox ScanSettingsGrp 0;Setvariable aqScanNameSetVar 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Checkbox AqAutIncCheck 0;Checkbox AqOverWriteWarnCheck 0;Setvariable ExpNoteSetVar 0;")
-	// Start and scan end controls
-	PopupMenu AqExportAtScanEndPop win = twoP_Controls, disable =1, pos={7,661},size={151,20},proc=NQ_ExportAfterScanPopProc,title="At Scan end"
-	PopupMenu AqExportAtScanEndPop win = twoP_Controls, mode=1,popvalue="Do Nothing",value= #"\"Do Nothing;Save Experiment;Export Scan;Export and Delete Scan;Export and Delete Last Scan;\""
-	ValDisplay AqPercentCompleteDisplay win = twoP_Controls, disable =1, pos={4,683},size={227,25},fSize=12,frame=0
-	ValDisplay AqPercentCompleteDisplay win = twoP_Controls,  limits={0,100,0},barmisc={0,0},mode= 3
-	ValDisplay AqPercentCompleteDisplay win = twoP_Controls,value= #"root:packages:twoP:Acquire:PercentComplete"
-	CheckBox AqInPutTrigCheck win = twoP_Controls, disable =1, pos={232,682},size={50,24},title="Input\rtrigger"
-	CheckBox AqInPutTrigCheck win = twoP_Controls,variable= root:Packages:twoP:Acquire:inputTriggerCheck
-	Button AqStartButton win = twoP_Controls, disable =1, pos={287,684},size={51,24},proc=NQ_StartScan,title="Start "
-	Button AqStartButton win = twoP_Controls,help={"Starts or Aborts a Scan."},userdata=  "Start"
-	Button AqStartButton win = twoP_Controls,fSize=16,fStyle=1,fColor=(0,65535,0)
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Popupmenu AqExportAtScanEndPop 0;Valdisplay AqPercentCompleteDisplay 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Checkbox AqInPutTrigCheck 0;Button AqStartButton 0;")
-	// Controls on ScanMode TabControl
-	// Live Tab
-	CheckBox LiveAvgCheck win = twoP_Controls, disable =1, pos={7,334},size={95,14},title="Average Frames"
-	CheckBox LiveAvgCheck win = twoP_Controls,help={"if checked, the selected number of frames will be averaged during live scanning."}, fSize=10
-	CheckBox LiveAvgCheck win = twoP_Controls,variable= root:Packages:twoP:Acquire:LiveAvgCheck
-	SetVariable NumLiveAvgFramesSetVar win =  twoP_Controls, disable =1,pos={110,332},size={43,18},title=" "
-	SetVariable NumLiveAvgFramesSetVar win = twoP_Controls,fSize=12
-	SetVariable NumLiveAvgFramesSetVar win = twoP_Controls,limits={0,inf,1},value= root:Packages:twoP:Acquire:numLiveAvgFrames
-	CheckBox LiveROICheck win = twoP_Controls, disable =1 ,pos={6,356},size={59,14},title="Live ROI",fSize=10
-	CheckBox LiveROICheck win = twoP_Controls,variable= root:Packages:twoP:Acquire:liveROICheck
-	CheckBox LroiCheckRatio win = twoP_Controls, disable =1, pos={71,356},size={16,14},title="",fSize=12
-	CheckBox LroiCheckRatio win = twoP_Controls,variable= root:Packages:twoP:Acquire:liveROIRatioCheck
-	PopupMenu LROIRatPopUp win = twoP_Controls, disable =1, pos={88,353},size={105,20},proc=NQ_DROIPopMenuProc,title="Ratio"
-	PopupMenu LROIRatPopUp win = twoP_Controls,fSize=10
-	PopupMenu LROIRatPopUp win = twoP_Controls,mode=1,popvalue="Ch1/Ch2",value= #"\"Ch1/Ch2;Ch2/Ch1\""
-	SetVariable LiveRoiTimeSetVar win = twoP_Controls, disable=1, pos={199,356},size={64,16},proc=GUIPSIsetVarProc,title=" "
-	SetVariable LiveRoiTimeSetVar win = twoP_Controls,help={"If doing Live ROIs, this many seconds will be shown in the scrolling graph below."}
-	SetVariable LiveRoiTimeSetVar win = twoP_Controls,userdata=  ";0;30;;",fSize=10,format="%.0W1PSec"
-	SetVariable LiveRoiTimeSetVar win = twoP_Controls,limits={0,inf,1},value= root:Packages:twoP:Acquire:liveROISecs
-	CheckBox LiveHistCheck win = twoP_Controls, disable =1, pos={6,378},size={92,14},proc=NQ_LiveHistCheckProc,title="Live Histogram",fSize=10
-	CheckBox LiveHistCheck win = twoP_Controls,variable= root:Packages:twoP:Acquire:liveHistCheck
-	CheckBox FramesTrig1CheckLive win = twoP_Controls, disable =1, pos={6,401},size={16,14},title="",fSize=10, value= 0
-	SetVariable FramesTrig1SetVar win = twoP_Controls, disable =1, pos={24,401},size={128,15},proc=NQ_SetTimesProc,title="Trig1 on Frame"
-	SetVariable FramesTrig1SetVar win = twoP_Controls,userdata=  "NQ_TrigSecsFrameProc",fSize=10
-	SetVariable FramesTrig1SetVar win = twoP_Controls,limits={0,inf,1},value= root:Packages:twoP:Acquire:DelayFrames1
-	SetVariable FramesTrig1SecsSetvar win = twoP_Controls, disable =1, pos={156,401},size={65,15},proc=GUIPSIsetVarProc,title=" "
-	SetVariable FramesTrig1SecsSetvar win = twoP_Controls,userdata=  "NQ_TrigSecsProc;",fSize=10,format="%.2W0Ps"
-	SetVariable FramesTrig1SecsSetvar win = twoP_Controls, limits={0,inf,0},value= root:Packages:twoP:Acquire:DelayFramesSec1
-	CheckBox FramesTrig2CheckLive win = twoP_Controls, disable =1, pos={6,420},size={16,14},title="",fSize=10, value= 0
-	SetVariable FramesTrig2SetVar win = twoP_Controls, disable =1, pos={24,420},size={128,15},proc=NQ_SetTimesProc,title="Trig2 on Frame"
-	SetVariable FramesTrig2SetVar win = twoP_Controls,userdata=  "NQ_TrigSecsFrameProc",fSize=10
-	SetVariable FramesTrig2SetVar win = twoP_Controls,limits={0,inf,1},value= root:Packages:twoP:Acquire:DelayFrames2
-	SetVariable FramesTrig2SecsSetvar win = twoP_Controls, disable =1, pos={156,420},size={65,15},proc=GUIPSIsetVarProc,title=" "
-	SetVariable FramesTrig2SecsSetvar win = twoP_Controls,userdata=  "NQ_TrigSecsProc",fSize=10
-	SetVariable FramesTrig2SecsSetvar win = twoP_Controls,format="%.2W0Ps"
-	SetVariable FramesTrig2SecsSetvar win = twoP_Controls,limits={0,inf,0},value= root:Packages:twoP:Acquire:DelayFramesSec2
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Live", "Checkbox LiveAvgCheck 0;Setvariable NumLiveAvgFramesSetVar 0;Checkbox LiveROICheck 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Live", "Setvariable LiveRoiTimeSetVar 0;Checkbox LroiCheckRatio 0;Popupmenu LROIRatPopUp 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Live", "Checkbox LiveHistCheck 0;Checkbox FramesTrig1CheckLive 0;Setvariable FramesTrig1SetVar 0")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Live", "Setvariable FramesTrig1SecsSetvar 0;Checkbox FramesTrig2CheckLive 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Live", "Setvariable FramesTrig2SetVar 0;Setvariable FramesTrig2SecsSetvar 0;")
-	//  Time Series 
-	// num frames
-	SetVariable NumTSeriesFramesSetVar, win = twoP_Controls, disable=1, pos={6,334},size={184,18},proc=NQ_SetTimesProc,title="Time Series Frames", disable =1
-	SetVariable NumTSeriesFramesSetVar, win = twoP_Controls, fSize=10,limits={0,inf,1},value=root:packages:twoP:Acquire:TSeriesFrames
-	// Scan to disk (not ready for prime-time just yet - we can scan, we just don't have  agood way to examine it)
-//	CheckBox FIFOcheck win = twoP_Controls, disable=1,pos={195,335},size={79,14},title="Scan to Disk"
-//	CheckBox FIFOcheck win = twoP_Controls, variable= root:packages:twoP:Acquire:scanToDisk,proc=NQ_ScanToDiskCheckProc
-//	SetVariable FIFODirSetvar win = twoP_Controls, disable=1,pos={194,353},size={143,16},title="Directory", proc=NQ_FifoDirSetVarProc
-//	SetVariable FIFODirSetvar win = twoP_Controls,value= root:Packages:twoP:Acquire:scanToDiskDir
-	// trig 1
-	CheckBox FramesTrig1Check, win = twoP_Controls, disable =1, pos={6,401},size={16,14},title="",fSize=10,value= 0
-	SetVariable FramesTrig1SetVar, win = twoP_Controls, disable =1,pos={24,401},size={128,16},proc=NQ_SetTimesProc,title="Trig1 on Frame"
-	SetVariable FramesTrig1SetVar, win = twoP_Controls, userdata=  "NQ_TrigSecsFrameProc",fSize=10
-	SetVariable FramesTrig1SetVar, win = twoP_Controls, limits={0,inf,1},value= root:Packages:twoP:Acquire:DelayFrames1
-	SetVariable FramesTrig1SecsSetvar, win = twoP_Controls, disable=1,pos={156,401},size={65,15},proc=GUIPSIsetVarProc,title=" "
-	SetVariable FramesTrig1SecsSetvar, win = twoP_Controls, userdata=  "NQ_TrigSecsProc",fSize=10, format="%.2W0Ps"
-	SetVariable FramesTrig1SecsSetvar, win = twoP_Controls, limits={0,inf,0},value= root:Packages:twoP:Acquire:DelayFramesSec1
-	// trig 2
-	CheckBox FramesTrig2Check, win = twoP_Controls, disable=1, pos={6,420},size={16,14},title="",fSize=10,value= 0
-	SetVariable FramesTrig2SetVar, win = twoP_Controls, disable=1, pos={24,420},size={128,16},proc=NQ_SetTimesProc,title="Trig2 on Frame"
-	SetVariable FramesTrig2SetVar, win = twoP_Controls, userdata=  "NQ_TrigSecsFrameProc",fSize=10
-	SetVariable FramesTrig2SetVar, win = twoP_Controls, limits={0,inf,1},value= root:Packages:twoP:Acquire:DelayFrames2
-	SetVariable FramesTrig2SecsSetvar, win = twoP_Controls, disable=1, pos={156,420},size={65,15},proc=GUIPSIsetVarProc,title=" "
-	SetVariable FramesTrig2SecsSetvar, win = twoP_Controls, userdata=  "NQ_TrigSecsProc",fSize=10, format="%.2W0Ps"
-	SetVariable FramesTrig2SecsSetvar, win = twoP_Controls, limits={0,inf,0},value= root:Packages:twoP:Acquire:DelayFramesSec2
-	// ephys popmenu
-	PopupMenu ePhysPopup, win = twoP_Controls, disable=1,pos={229,398},size={103,20},proc=NQ_ephysAdjChansProc,title="Electrophys"
-	PopupMenu ePhysPopup, win = twoP_Controls, mode=1,popvalue="OFF",value= #"\"OFF;1;2;1 & 2\""
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "T_Ser", "Checkbox LiveROICheck 0;Checkbox LroiCheckRatio 0;Popupmenu LROIRatPopUp 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "T_Ser", "Setvariable NumTSeriesFramesSetVar 0;Checkbox FramesTrig1Check 0;Setvariable FramesTrig1SetVar 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "T_Ser", "Setvariable FramesTrig1SecsSetvar 0;Checkbox FramesTrig2Check 0;Setvariable FramesTrig2SetVar 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "T_Ser", "Setvariable FramesTrig2SecsSetvar 0;Popupmenu ePhysPopup 0;")
-//	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "T_Ser", "Checkbox FIFOcheck 0;Setvariable FIFODirSetvar 0;")
-	// "Average Frames" controls
-	SetVariable NumAvgSeriesFramesSetVar, win = twoP_Controls, disable =1,pos={7,336},size={193,18},proc=NQ_SetTimesProc,title="Frames to Average"
-	SetVariable NumAvgSeriesFramesSetVar, win = twoP_Controls, fSize=12,limits={0,inf,1},value= root:Packages:twoP:Acquire:numAverageFrames
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Avg", "Setvariable NumAvgSeriesFramesSetVar 0;")
-	// Line Scan Controls
-	SetVariable LineScanWidthSetVar win = twoP_Controls, disable =1,pos={8,315},size={91,15},proc=NQ_SetTimesProc,title="X Pix",fSize=10
-	SetVariable LineScanWidthSetVar win = twoP_Controls,limits={2,inf,2},value= root:Packages:twoP:Acquire:LSWidth
-	SetVariable LineScanXStartSetVar win = twoP_Controls, disable =1,pos={110,316},size={98,15},proc=GUIPSIsetVarProc,title="X Strt"
-	SetVariable LineScanXStartSetVar win = twoP_Controls,fSize=10,format="%.2W1PV"
-	SetVariable LineScanXStartSetVar win = twoP_Controls,limits={-7.5,7.5,0.1},value= root:Packages:twoP:Acquire:LSStartVolts
-	SetVariable LineScanXEndSetVar win = twoP_Controls, disable=1,pos={237,315},size={95,15},proc=GUIPSIsetVarProc,title="X End"
-	SetVariable LineScanXEndSetVar win = twoP_Controls, fSize=10,format="%.2W1PV"
-	SetVariable LineScanXEndSetVar win = twoP_Controls ,limits={-7.5,7.5,0.1},value= root:Packages:twoP:Acquire:LSEndVolts
-	SetVariable LineScanHeightSetVar win = twoP_Controls, disable=1, pos={8,335},size={90,15},proc=NQ_SetTimesProc,title="Lines", fSize=10
-	SetVariable LineScanHeightSetVar win = twoP_Controls,limits={2,inf,2},value= root:Packages:twoP:Acquire:LSHeight
-	SetVariable LineScanYSetVar win = twoP_Controls, disable =1, pos={133,335},size={75,15},title="Y",fSize=10,format="%.2W1PV"
-	SetVariable LineScanYSetVar win = twoP_Controls,limits={-7.5,7.5,0.1},value= root:Packages:twoP:Acquire:LSYVolts
-	SetVariable LSsizeSetVar win = twoP_Controls, disable=1,pos={12,352},size={69,18},title=" ",fSize=12, format="%.1W1PM",frame=0
-	SetVariable LSsizeSetVar win = twoP_Controls,limits={0,inf,0},value= root:Packages:twoP:Acquire:LSImSize,noedit= 1
-	SetVariable LSpixSizeSetVar win = twoP_Controls, disable=1,pos={79,352},size={97,18},title=" ",fSize=12
-	SetVariable LSpixSizeSetVar  win = twoP_Controls,format="%.1W1Pm/pix",frame=0
-	SetVariable LSpixSizeSetVar win = twoP_Controls,limits={0,inf,0},value= root:Packages:twoP:Acquire:LSPixSize,noedit= 1,live= 1
-	Button LineScanRevertScaleButton win = twoP_Controls, disable=1,pos={207,354},size={50,17},proc=NQ_LSRevertScaleProc,title="Revert"
-	PopupMenu LineScanRevertScalePopMenu win = twoP_Controls, disable=1,pos={259,352},size={76,20},proc=NQ_RevertSettingstoLineScanProc,title="to Scan:"
-	PopupMenu LineScanRevertScalePopMenu win = twoP_Controls,mode=0,value= #"NQ_ListScans (\"3\")",fSize=10
-	Button LineScanRevertScaleButton win = twoP_Controls,pos={207,354},size={50,17},proc=NQ_LSRevertScaleProc,title="Revert"
-	PopupMenu LineScanRevertScalePopMenu win = twoP_Controls, disable=1,pos={259,352},size={76,20},proc=NQ_RevertSettingstoLineScanProc,title="to Scan:"
-	PopupMenu LineScanRevertScalePopMenu win = twoP_Controls,mode=0,value= #"NQ_ListScans (\"3\")",fSize=10
-	PopupMenu LineScanLinktoPopMenu win = twoP_Controls, disable=1,pos={8,373},size={52,20},proc=NQ_LineScanLinkToProc,title="Link"
-	PopupMenu LineScanLinktoPopMenu win = twoP_Controls, mode=0,value= #"NQ_ListScans (\"1,2,4,\") + \";Don't Link\""
-	TitleBox LineScanLinktoTitleBox win = twoP_Controls, disable=1,pos={65,373},size={58,20},fSize=10
-	TitleBox LineScanLinktoTitleBox win = twoP_Controls,variable= root:Packages:twoP:Acquire:LSLinkWaveStr
-	CheckBox LinesTrig1Check win = twoP_Controls, disable=1,pos={5,401},size={16,14},title="",value= 0
-	SetVariable LinesTrig1SetVar win = twoP_Controls, disable=1,pos={23,401},size={128,15},proc=NQ_SetTimesProc,title="Trig1 on Line"
-	SetVariable LinesTrig1SetVar win = twoP_Controls,limits={0,inf,1},value= root:Packages:twoP:Acquire:DelayLines1
-	SetVariable LinesTrig1SecsSetVar win = twoP_Controls, disable=1,pos={154,401},size={57,15},proc=GUIPSIsetVarProc,title=" "
-	SetVariable LinesTrig1SecsSetVar win = twoP_Controls,userdata=  "NQ_TrigSecsLinesProc", format="%.2W0Ps"
-	SetVariable LinesTrig1SecsSetVar win = twoP_Controls,limits={0,inf,0},value= root:Packages:twoP:Acquire:DelayLinesSec1
-	CheckBox LinesTrig2Check win = twoP_Controls,disable=1,pos={5,420},size={16,14},title="",value= 0
-	SetVariable LinesTrig2SetVar win = twoP_Controls,disable=1,pos={24,420},size={128,15},proc=NQ_SetTimesProc,title="Trig2 on Line"
-	SetVariable LinesTrig2SetVar win = twoP_Controls,limits={0,inf,1},value= root:Packages:twoP:Acquire:DelayLines2
-	SetVariable LinesTrig2SecsSetVar win = twoP_Controls, disable =1, pos={155,420},size={57,15},proc=GUIPSIsetVarProc,title=" "
-	SetVariable LinesTrig2SecsSetVar win = twoP_Controls,userdata=  "NQ_TrigSecsLinesProc", format="%.2W0Ps"
-	SetVariable LinesTrig2SecsSetVar win = twoP_Controls,limits={0,inf,0},value= root:Packages:twoP:Acquire:DelayLinesSec2
-	PopupMenu ePhysPopup win = twoP_Controls,disable=1,pos={229,398},size={103,20},proc=NQ_ephysAdjChansProc,title="Electrophys"
-	PopupMenu ePhysPopup win = twoP_Controls,mode=1,popvalue="OFF",value= #"\"OFF;1;2;1 & 2\""
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "Setvariable LineScanHeightSetVar 0;Setvariable LineScanXStartSetVar 0;Setvariable LineScanXEndSetVar 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "Setvariable LineScanWidthSetVar 0;Setvariable LineScanYSetVar 0;Setvariable LSsizeSetVar 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "Setvariable LSpixSizeSetVar 0;Button LineScanRevertScaleButton 0;Popupmenu LineScanRevertScalePopMenu 0")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "Popupmenu LineScanLinktoPopMenu 0;Titlebox LineScanLinktoTitleBox 0;Checkbox LinesTrig1Check 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "Setvariable LinesTrig1SetVar 0;Setvariable LinesTrig1SecsSetVar 0;Checkbox LinesTrig2Check 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "Setvariable LinesTrig2SetVar 0;Setvariable LinesTrig2SecsSetVar 0;Titlebox ePhysTitle 0;Popupmenu ePhysPopup 0;")
-	// Add "Z_Series" controls
-	SetVariable  NumZframesSetvar win = twoP_Controls, disable =3,pos={7,312},size={148,18},proc=NQ_zSetVarProc,title="Z Slices   ", fSize=12
-	SetVariable NumZframesSetvar win = twoP_Controls ,limits={0,inf,1},value= root:Packages:twoP:Acquire:NumZseriesFrames
-	SetVariable zStepSizeSetvar win = twoP_Controls, disable =1, pos={7.00,339.00},size={148.00,18.00},proc=GUIPSIsetVarProc,title="Step Size "
-	SetVariable zStepSizeSetvar win = twoP_Controls,userdata= A":/PAE;e:&O@<,1bDdtj\\0ed/j0K)!I0P)gi2ENu^0kDpj2Z"
-	SetVariable zStepSizeSetvar win = twoP_Controls,fSize=12,format="%.3W1Pm"
-	SetVariable zStepSizeSetvar win = twoP_Controls,limits={-inf,inf,1e-007},value= root:Packages:twoP:Acquire:ZStepSize
-	Button FirstZButton win = twoP_Controls, disable=1,pos={7,366},size={29,18},title="Get", proc=NQ_ZfirstLastButtonProc
-	SetVariable zFirstZSetVar win = twoP_Controls,disable=1,pos={40.00,366.00},size={115.00,18.00},proc=GUIPSIsetVarProc,title="First Z"
-	SetVariable zFirstZSetVar win = twoP_Controls,userdata= A":/PAE;e:&O@<,1bDdtj\\0kDpm4#(:u1HRZ[0kDpj2Z"
-	SetVariable zFirstZSetVar win = twoP_Controls,fSize=12,format="%.3W1Pm"
-	SetVariable zFirstZSetVar win = twoP_Controls,limits={-inf,inf,1e-006},value= root:Packages:twoP:Acquire:ZFirstZ
-	Button LastZButton, win = twoP_Controls, disable=1, pos={7,394},size={30,17},proc=NQ_ZfirstLastButtonProc,title="Get"
-	SetVariable ZLastZSetVar win = twoP_Controls, disable=1, pos={39.00,393.00},size={116.00,18.00},proc=GUIPSIsetVarProc,title="Last Z"
-	SetVariable ZLastZSetVar win = twoP_Controls,userdata= A":/PAE;e:&O@<,1bDdtj\\0kDpm4#(:u1HRZ[0kDpj2Z"
-	SetVariable ZLastZSetVar win = twoP_Controls,fSize=12,format="%.3W1Pm"
-	SetVariable ZLastZSetVar win = twoP_Controls,limits={-inf,inf,1e-006},value= root:Packages:twoP:Acquire:ZLastZ
-	SetVariable zKalmanAvgSetvar win = twoP_Controls, disable=1,pos={7,421},size={147,18},proc=NQ_SetTimesProc,title="Avg. each slice"
-	SetVariable zKalmanAvgSetvar win = twoP_Controls,limits={1,inf,1},value= root:Packages:twoP:Acquire:NumZseriesAvg,fSize=12
-	PopupMenu ZdjustPopMenu, win = twoP_Controls, disable =1,pos={162,312},size={100,21},proc=NQ_ZAdjustPopMenuProc,title="adjust"
-	PopupMenu ZdjustPopMenu, win = twoP_Controls, mode=1,popvalue="Num Slices",value= #"\"Num Slices;Step Size;First Z;Last Z;\""
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Z_ser", "Setvariable NumZframesSetvar 2;Setvariable zStepSizeSetvar 0;Setvariable zFirstZSetVar 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Z_ser", "Setvariable ZLastZSetVar 0;Setvariable zKalmanAvgSetvar 0;Setvariable ZdjustPopMenu 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Z_ser", "Button FirstZButton 0;Button LastZButton 0;PopupMenu ZdjustPopMenu 0")
-	// "ePhys_Only" controls
-	PopupMenu EphysOnlyChansPopUp, win = twoP_Controls, disable =1,pos={7,336},size={191,23},title="ElectroPhys Channels:"
-	PopupMenu EphysOnlyChansPopUp, win = twoP_Controls, mode=3,popvalue="1 & 2",value= #"\"1;2;1 & 2\"", proc = NQ_ephysChansProc
-	SetVariable EphysExpTimeSetVar, win = twoP_Controls, disable = 1, pos={7,360},size={180,16},proc=GUIPSIsetVarProc,title="ElectroPhys Scan Time"
-	SetVariable EphysExpTimeSetVar, win = twoP_Controls, userdata=  ";0;INF;",format="%.1W1Ps"
-	SetVariable EphysExpTimeSetVar, win = twoP_Controls, limits={-inf,inf,0.1},value= root:Packages:twoP:Acquire:ePhysOnlyTime
-	SetVariable EphysExpTimeSetVar, win = twoP_Controls, limits={0,inf,0.1},value= root:Packages:twoP:Acquire:ePhysOnlyTime
-	CheckBox ePhysTrig1Check, win = twoP_Controls, disable =1,pos={6,401},size={16,14},title="",value= 0
-	SetVariable ePhysTrig1SetVar, win = twoP_Controls, disable =1,pos={24,401},size={156,18},proc=GUIPSIsetVarProc,title="Trig1 at Time"
-	SetVariable ePhysTrig1SetVar, win = twoP_Controls, format="%.2W1Ps"
-	SetVariable ePhysTrig1SetVar, win = twoP_Controls, limits={0,inf,1},value= root:Packages:twoP:Acquire:DelaySecs1
-	CheckBox ePhysTrig2Check, win = twoP_Controls, disable =1,pos={6,420},size={16,14},title="",value= 0
-	SetVariable ePhysTrig2SetVar, win = twoP_Controls, disable =1,pos={24,420},size={156,18},proc=GUIPSIsetVarProc,title="Trig2 on Line"
-	SetVariable ePhysTrig2SetVar, win = twoP_Controls, format="%.1W1Ps"
-	SetVariable ePhysTrig2SetVar, win = twoP_Controls, limits={0,inf,1},value= root:Packages:twoP:Acquire:DelaySecs2
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "ePhys", "Setvariable EphysExpTimeSetVar 0;Popupmenu EphysOnlyChansPopUp 0;Checkbox ePhysTrig1Check 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "ePhys", "Setvariable ePhysTrig1SetVar 0;Checkbox ePhysTrig2Check 0;Setvariable ePhysTrig2SetVar 0;")
-//	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "ePhys", "Checkbox FIFOcheck 0;Setvariable FIFODirSetvar 0;")
-	// MultiAq Controls
-	// Period settings
-	CheckBox MultiPeriodCheck win = twoP_Controls, disable =1,pos={8,315},size={47,14},proc=GUIPRadioButtonProcSetGlobal,title="Period",value= 1,mode=1
-	CheckBox MultiPeriodCheck win = twoP_Controls, userdata= A"Ec5l<3cJM;CLLjeF#lo[?VY<G@<\">:@rZX*Eb.:KF_l/66#fk<D.QF[A7[nX4&'j6FD4fbG%F$SARfL;9m(8oBiK+eB4kdr6YL%@CHD"
-	SetVariable MultiAqPeriodNumSetVar  win = twoP_Controls, disable =1, pos={61,315},size={76,15},title="Num"
-	SetVariable MultiAqPeriodNumSetVar win = twoP_Controls ,fSize=10,limits={2,inf,1},value= root:Packages:twoP:Acquire:multiAqPeriodNum
-	SetVariable MultAqPeriodPeriodSetVar win = twoP_Controls, disable =1,pos={142,315},size={100,15},proc=NQ_MultiAqTimeSetVarProc,title="Acq Period "
-	SetVariable MultAqPeriodPeriodSetVar win = twoP_Controls,fSize=10,limits={0,inf,0.5},value= root:Packages:twoP:Acquire:multiAqPeriodPeriodStr
-	SetVariable MultiAqPeriodDelaySetVar win = twoP_Controls, disable =1, pos={248,315},size={82,15},proc=NQ_MultiAqTimeSetVarProc,title="Delay"
-	SetVariable MultiAqPeriodDelaySetVar  win = twoP_Controls,fSize=10, value= root:Packages:twoP:Acquire:multiAqPeriodDelayStr
-	// wave settings
-	CheckBox MultiWaveCheck win = twoP_Controls, disable =1,pos={8,339},size={42,14},proc=GUIPRadioButtonProcSetGlobal,title="Wave",value= 0,mode=1
-	CheckBox MultiWaveCheck win = twoP_Controls,userdata= A"Ec5l<3cJM;CLLjeF#lo[?VY<G@<\">:@rZX*Eb.:KF_l/66#fk<D.QF[A7[nY4&'j6FD4Q_EbTH&6YL%@CHG75CijAjEbT0!ATC.OARfL;"
-	PopupMenu MultiAqWavePopup win = twoP_Controls, disable=1, pos={59,336},size={110,20},proc=NQ_MultiWaveWavePopMenuProc,title="Timing Wave:"
-	PopupMenu MultiAqWavePopup win = twoP_Controls,mode=0,value= #"GUIPListObjs(\"root:packages:twoP:acquire:multiAqWaves\",1, \"*\" , 0, \"\\\\M1(no timing waves;\") + \"\\\\M1-);New Timing Wave\""
-	TitleBox MultiAqWaveTitleBox win = twoP_Controls,disable=1,pos={174,340},size={18,12},frame=0
-	TitleBox MultiAqWaveTitleBox win = twoP_Controls,variable= root:Packages:twoP:Acquire:multiAqWaveWaveStr
-	Button MultiAqWaveEditButton win = twoP_Controls, disable=1,pos={232,337},size={50,18},proc=NQ_MultiWaveEditButtonProc,title="Edit", fSize=10
-	Button MultiAqWaveDeleteButton win = twoP_Controls, disable=1, pos={285,337},size={50,18},proc=NQ_MultiWaveDeleteButtonProc,title="Delete", fSize=10
-	// trigger settings
-	CheckBox MultiTriggerCheck win = twoP_Controls, disable =1,pos={8,363},size={52,14},proc=GUIPRadioButtonProcSetGlobal,title="Trigger",value= 0,mode=1
-	CheckBox MultiTriggerCheck win = twoP_Controls, disable =1,userdata= A"Ec5l<3cJM;CLLjeF#lo[?VY<G@<\">:@rZX*Eb.:KF_l/66#fk<D.QF[A7[nZ4&'j6FD4Q_EbTH&6YL%@CHG75CijAm@<Q3LBOt[h3r"
-	SetVariable MultiAqTriggerNumSetVar  win = twoP_Controls, disable=1, pos={65,363},size={75,15},title="Num", fSize=10, limits={2,inf,1},value= root:Packages:twoP:Acquire:multiAqTriggerNum
-	//Data mode popup  - datamodes are normal single scan modes
-	PopupMenu multiAqDataModePopUp win = twoP_Controls, disable =1,pos={225,379},size={126,20},proc=NQ_MultiAqDataModePopMenuProc,title="mode"
-	PopupMenu multiAqDataModePopUp win = twoP_Controls, mode=1,popvalue="Time Series",value= #"\"Time Series;Average;Line Scan;Z series;ePhys Only\""
-	// Pre-Make button
-	Button MultiPreMakeButton win = twoP_Controls, disable =1, pos={232,357},size={50,20},proc=NQ_MultiPreMakeProc,title="PreMake"
-	//Progress display , tme to next
-	ValDisplay multiAqProgressDisplay win = twoP_Controls, disable =1,pos={7,394},size={200,42},frame=0
-	ValDisplay multiAqProgressDisplay win = twoP_Controls,limits={0,0,0},barmisc={10,30},value= #"root:packages:twoP:acquire:multiAqiAq"
-	TitleBox MultiAqTimeToNextTitle win = twoP_Controls, disable =1,pos={210,397},size={86,17},title="Next Scan In" ,fSize=14,frame=0
-	SetVariable MultiAqTimeToNextSetVar win = twoP_Controls, disable =1,pos={211,415},size={74,20},title=" ",fSize=14,frame=0
-	SetVariable MultiAqTimeToNextSetVar win = twoP_Controls,value= root:Packages:twoP:Acquire:multiAqTimeToNextStr
-	// multi start Button
-	Button MultiAqStartButton win = twoP_Controls, disable=1, pos={288,413},size={51,24},proc=NQ_StartScan,title="Start"
-	Button MultiAqStartButton  win = twoP_Controls,userdata=  "Start Multi",fSize=16,fColor=(0,65535,0)
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "MultiAq", "CheckBox MultiPeriodCheck 0;SetVariable MultiAqPeriodNumSetVar 0;SetVariable MultAqPeriodPeriodSetVar 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "MultiAq", "SetVariable MultiAqPeriodDelaySetVar 0;CheckBox MultiWaveCheck 0;PopupMenu MultiAqWavePopup 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "MultiAq", "TitleBox MultiAqWaveTitleBox 0;Button MultiAqWaveEditButton 0;Button MultiAqWaveDeleteButton 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "MultiAq", "CheckBox MultiTriggerCheck 0;SetVariable MultiAqTriggerNumSetVar 0;PopupMenu multiAqDataModePopUp 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "MultiAq", "Button MultiPreMakeButton 0;ValDisplay multiAqProgressDisplay 0;TitleBox MultiAqTimeToNextTitle 0;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "MultiAq", "SetVariable MultiAqTimeToNextSetVar 0;Button MultiAqStartButton 0;")
+	// pixel size
+	SetVariable PixWidSetVar,pos={9.00,57.00},size={94.00,18.00},proc=NQ_SetTimesProc
+	SetVariable PixWidSetVar,title="X pix",fSize=12
+	SetVariable PixWidSetVar,limits={2,inf,2},value=root:Packages:twoP:Acquire:PixWidth
+	SetVariable PixHeightSetVar,pos={9.00,76.00},size={94.00,18.00},proc=NQ_SetTimesProc
+	SetVariable PixHeightSetVar,title="Y Pix",fSize=12
+	SetVariable PixHeightSetVar,limits={2,inf,2},value=root:Packages:twoP:Acquire:PixHeight
+	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Setvariable PixWidSetVar 0;SetVariable PixHeightSetVar 0;")
+	// Volts
+	SetVariable XStartSetVar,pos={118.00,57.00},size={105.00,18.00},proc=GUIPSIsetVarProc
+	SetVariable XStartSetVar,title="X Start"
+	SetVariable XStartSetVar,userdata="NQ_SetTimesProc;-10;10;autoInc;;",fSize=12
+	SetVariable XStartSetVar,format="%.3W1PV"
+	SetVariable XStartSetVar,limits={-inf,inf,0.1},value=root:Packages:twoP:Acquire:xStartVolts
+	SetVariable XEndSetVar,pos={234.00,57.00},size={99.00,18.00},proc=GUIPSIsetVarProc
+	SetVariable XEndSetVar,title="X End"
+	SetVariable XEndSetVar,userdata="NQ_SetTimesProc;-10;10;autoInc;;",fSize=12
+	SetVariable XEndSetVar,format="%.3W1PV"
+	SetVariable XEndSetVar,limits={-inf,inf,0.1},value=root:Packages:twoP:Acquire:xEndVolts
+	SetVariable YStartSetVar,pos={118.00,76.00},size={105.00,18.00},proc=GUIPSIsetVarProc
+	SetVariable YStartSetVar,title="Y Start"
+	SetVariable YStartSetVar,userdata="NQ_SetTimesProc;-10;10;autoInc;;",fSize=12
+	SetVariable YStartSetVar,format="%.3W1PV"
+	SetVariable YStartSetVar,limits={-inf,inf,0.1},value=root:Packages:twoP:Acquire:yStartVolts
+	SetVariable YEndSetVar,pos={235.00,76.00},size={98.00,18.00},proc=GUIPSIsetVarProc
+	SetVariable YEndSetVar,title="Y End"
+	SetVariable YEndSetVar,userdata="NQ_SetTimesProc;-10;10;aoutoInc;;",fSize=12
+	SetVariable YEndSetVar,format="%.3W1PV"
+	SetVariable YEndSetVar,limits={-inf,inf,0.1},value=root:Packages:twoP:Acquire:yEndVolts
+	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "SetVariable XStartSetVar 0;SetVariable XEndSetVar 0;SetVariable YStartSetVar 0;SetVariable YEndSetVar 0;")
+	// Image sizing controls
+	Button FullScaleButton,pos={8.00,98.00},size={31.00,16.00},proc=NQ_SetFullScaleProc
+	Button FullScaleButton,title="Full"
+	Button RevertScaleButton,pos={41.00,98.00},size={50.00,16.00},proc=NQ_RevertScaleProc
+	Button RevertScaleButton,title="Revert"
+	PopupMenu RevertScalePopMenu,pos={93.00,96.00},size={64.00,19.00},proc=RevertSettingstoWaveProc
+	PopupMenu RevertScalePopMenu,title="to Scan:"
+	PopupMenu RevertScalePopMenu,mode=0,value=#"\"LiveWave;\\\\M1(-;\" + NQ_ListScans (\"1,2,4,\")"
+	SetVariable AspRatSetVar,pos={163.00,97.00},size={90.00,18.00},proc=NQ_AspectRatioProc
+	SetVariable AspRatSetVar,title="Aspect",fSize=12,format="%#.3G"
+	SetVariable AspRatSetVar,limits={0,inf,0.1},value=root:Packages:twoP:Acquire:AspectRatio
+	PopupMenu AspRatPopUp,pos={258.00,96.00},size={77.00,19.00},proc=NQ_AspRatPopUpProc
+	PopupMenu AspRatPopUp,fSize=12
+	PopupMenu AspRatPopUp,mode=5,popvalue="Vary Y End",value=#"\"Vary X Start;Vary X  End;Vary X Pix;Vary Y Start;Vary Y End;Vary Y Pix;Free\""
+	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Button FullScaleButton;Button RevertScaleButton;PopupMenu RevertScalePopMenu;SetVariable AspRatSetVar;PopupMenu AspRatPopUp;")
+	// Objective Selection
+	PopupMenu ObjPopUp,pos={8.00,121.00},size={44.00,19.00},proc=NQ_ObjPopProc
+	PopupMenu ObjPopUp,title="Obj:",mode=0,value=#"NQ_ListObjs()"
+	TitleBox CurObjTitle,pos={57.00,123.00},size={18.00,15.00},fSize=12,frame=0
+	TitleBox CurObjTitle,variable=root:Packages:twoP:Acquire:CurObj
+	SetVariable xPixSizeSetVar,pos={85.00,122.00},size={152.00,18.00},title=" "
+	SetVariable xPixSizeSetVar,fSize=12,format="Pixel Sizes X: %.2W1Pm/pix"
+	SetVariable xPixSizeSetVar,frame=0
+	SetVariable xPixSizeSetVar,limits={0,inf,0},value=root:Packages:twoP:Acquire:xPixSize,noedit=1
+	SetVariable yPixSizeSetVar,pos={237.00,122.00},size={97.00,18.00},title=" "
+	SetVariable yPixSizeSetVar,fSize=12,format="Y: %.2W1Pm/pix",frame=0
+	SetVariable yPixSizeSetVar,limits={0,inf,0},value=root:Packages:twoP:Acquire:yPixSize,noedit=1
+	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "PopupMenu ObjPopUp;TitleBox CurObjTitle;SetVariable xPixSizeSetVar;SetVariable yPixSizeSetVar")
+	// Scan Times
+	GroupBox TimesGrpBox,pos={7.00,468.00},size={334.00,72.00},title="Scan Times"
+	GroupBox TimesGrpBox,fSize=12
+	SetVariable LineTimeSetVar,pos={11.00,488.00},size={150.00,22.00}
+	SetVariable LineTimeSetVar,title="Line   ",fSize=14,format="%.2W1Ps"
+	SetVariable LineTimeSetVar,limits={-inf,inf,0},value=root:Packages:twoP:Acquire:LineTime,noedit=1
+	SetVariable FrameTimeSetVar,pos={167.00,489.00},size={149.00,22.00}
+	SetVariable FrameTimeSetVar,title="Frame",fSize=14,format="%.1W1Ps"
+	SetVariable FrameTimeSetVar,limits={-inf,inf,0},value=root:Packages:twoP:Acquire:FrameTime,noedit=1
+	SetVariable expTimeSetvar,pos={11.00,514.00},size={149.00,22.00}
+	SetVariable expTimeSetvar,title="Total  ",fSize=14
+	SetVariable expTimeSetvar,value=root:Packages:twoP:Acquire:RunTimeStr,noedit=1
+	CheckBox TurboCheck,pos={169.00,516.00},size={116.00,15.00},proc=NQ_TurboCheckProc
+	CheckBox TurboCheck,title="Bi-Directional Scan"
+	CheckBox TurboCheck,help={"If On, data is collected on both directions of horizontal scan. If alternate lines of image are misaligned using Turbo, adjust  Scan Head Delay."}
+	CheckBox TurboCheck,variable=root:Packages:twoP:Acquire:FlyBackMode
+	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "GroupBox TimesGrpBox;SetVariable LineTimeSetVar;SetVariable FrameTimeSetVar;SetVariable expTimeSetvar;CheckBox TurboCheck;")
+	// Buttons to Open other windows
+	Button aqShowScansButton,pos={7.00,547.00},size={49.00,18.00},proc=NQ_ShowScansProc
+	Button aqShowScansButton,title="Scans"
+	Button aqShowTracesButton,pos={73.00,547.00},size={57.00,18.00},proc=NQ_showTracesProc
+	Button aqShowTracesButton,title="Traces"
+	Button ShowScanSettingsButton,pos={142.00,547.00},size={98.00,18.00},proc=NQ_OtherScanSettingsProc
+	Button ShowScanSettingsButton,title="More Settings"
+	Button showFocusPanelButton,pos={257.00,547.00},size={57.00,18.00},proc=NQ_OpenFocusPanel
+	Button showFocusPanelButton,title="Focus"
+	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Button aqShowScansButton;Button aqShowTracesButton;Button ShowScanSettingsButton;Button showFocusPanelButton;")
+	//exp note
+	NewNotebook /F=1 /N=ExpNoteBook /W=(1,572,339,636) /HOST=# 
+	Notebook kwTopWin, defaultTab=10, autoSave= 0, magnification=1, showRuler=0, rulerUnits=1
+	Notebook kwTopWin, newRuler=Normal, justification=0, margins={0,0,231}, spacing={0,0,0}, tabs={}, rulerDefaults={"Arial",11,0,(0,0,0)}
+	RenameWindow #,ExpNoteBook
+	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "SubWindow ExpNoteBook;")
+	// Scan Name
+	SetVariable AqScanNameSetVar,pos={5.00,640.00},size={194.00,22.00},proc=NQ_ScanNameProc
+	SetVariable AqScanNameSetVar,title="New Scan Name"
+	SetVariable AqScanNameSetVar,help={"The scan created when you press \"Start Scan\" will have this name."}
+	SetVariable AqScanNameSetVar,fSize=14
+	SetVariable AqScanNameSetVar,value=root:Packages:twoP:Acquire:NewScanName
+	CheckBox AqAutIncCheck,pos={212.00,646.00},size={58.00,15.00},proc=NQ_autincCheckProc
+	CheckBox AqAutIncCheck,title="AutoInc"
+	CheckBox AqAutIncCheck,help={"If checked, \"New Scan Name\" is given a numeric suffix and automatically incremented with every scan."}
+	CheckBox AqAutIncCheck,variable=root:Packages:twoP:Acquire:AutincCheck
+	CheckBox AqOverWriteWarnCheck,pos={282.00,645.00},size={44.00,15.00}
+	CheckBox AqOverWriteWarnCheck,title="Warn"
+	CheckBox AqOverWriteWarnCheck,help={"If checked, you will be warned if \"New Scan Name\" conflicts with an existing scan."}
+	CheckBox AqOverWriteWarnCheck,variable=root:Packages:twoP:Acquire:overwriteWarnCheck
+	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "SetVariable AqScanNameSetVar;CheckBox AqAutIncCheck;CheckBox AqOverWriteWarnCheck;")
+	// start settings
+	PopupMenu AqExportAtScanEndPop,pos={7.00,667},size={150.00,19.00},proc=NQ_ExportAfterScanPopProc
+	PopupMenu AqExportAtScanEndPop,title="At Scan end"
+	PopupMenu AqExportAtScanEndPop,mode=3,popvalue="Export Scan",value=#"\"Do Nothing;Save Experiment;Export Scan;Export and Delete Scan;Export and Delete Last Scan;\""
+	ValDisplay AqPercentCompleteDisplay,pos={3.00,690.00},size={226.00,17.00}
+	ValDisplay AqPercentCompleteDisplay,fSize=12
+	ValDisplay AqPercentCompleteDisplay,limits={0,100,0},barmisc={0,0},mode=3
+	ValDisplay AqPercentCompleteDisplay,value=#"root:packages:twoP:Acquire:PercentComplete"
+	Button AqStartButton,pos={236.00,677.00},size={52.00,29.00},proc=NQ_StartScan
+	Button AqStartButton,title="Start ",help={"Starts or Aborts a Scan."}
+	Button AqStartButton,userdata="MULTI START",fSize=16,fStyle=1
+	Button AqStartButton,fColor=(0,65535,0)
+	CheckBox AqInPutTrigCheck,pos={290.00,677.00},size={51.00,30.00}
+	CheckBox AqInPutTrigCheck,title="On\rtrigger"
+	CheckBox AqInPutTrigCheck,variable=root:Packages:twoP:Acquire:inputTriggerCheck
+	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "PopupMenu AqExportAtScanEndPop;ValDisplay AqPercentCompleteDisplay;Button AqStartButton;CheckBox AqInPutTrigCheck;")
+	// controls on Scan mode tab control
+	TabControl SmodeTabControl,pos={3.00,149.00},size={339.00,319.00},proc=GUIPTabProc
+	TabControl SmodeTabControl,help={"Selects one of 6 possible type of scans to perform."}
+	TabControl SmodeTabControl,fSize=12,tabLabel(0)="Live",tabLabel(1)="Tser"
+	TabControl SmodeTabControl,tabLabel(2)="Avg",tabLabel(3)="Lines"
+	TabControl SmodeTabControl,tabLabel(4)="Zser",tabLabel(5)="ePhys"
+	TabControl SmodeTabControl,tabLabel(6)="Multi",value=0
+	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "TabControl SmodeTabControl;") 
+	GUIPTabNewTabCtrl ("twoP_Controls", "SmodeTabControl", TabList= "Live;Tser;Avg;Lines;Zser;ePhys;Multi;", UserFunc="NQ_SModeTabControlproc")
+	// controls present on multiple tabs
+	// Live mode im chans - Live;Tser;Avg;Zser;Multi
+	PopupMenu ImageChansPopMenu,pos={9.00,176.00},size={91.00,19.00},proc=NQ_ScanChansPopMenuProc
+	PopupMenu ImageChansPopMenu,title="Image Chans",fSize=12
+	PopupMenu ImageChansPopMenu,mode=0,value=#"twoP_listActiveChans(1)"
+	TitleBox imChanListTitle,pos={107.00,180.00},size={62.00,15.00},frame=0
+	TitleBox imChanListTitle,variable=root:Packages:twoP:Acquire:selImageChanList
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "PopupMenu ImageChansPopMenu", "Live;Tser;Avg;Zser;Multi")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "TitleBox imChanListTitle", "Live;Tser;Avg;Zser;Multi")
+	// ephys chans - TSer;Lines;ePhys;Multi
+	PopupMenu EphysChansPopUp,pos={9.00,199.00},size={89.00,19.00},proc=NQ_ephysChansProc
+	PopupMenu EphysChansPopUp,title="ePhys Chans"
+	PopupMenu EphysChansPopUp,mode=0,value=#"twoP_listActiveChans(2)", disable=1
+	TitleBox ePhysChanListTitle,pos={101.00,202.00},size={62.00,15.00},frame=0
+	TitleBox ePhysChanListTitle,variable=root:Packages:twoP:Acquire:selEphysChanList, disable=1
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "PopupMenu EphysChansPopUp", "Tser;Lines;ePhys;Multi;")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "TitleBox ePhysChanListTitle", "TSer;Lines;ePhys;Multi;")
+	// triggers - TSer;Lines;ePhys
+	CheckBox Trig1Check,disable=1,pos={9.00,335.00},size={44.00,15.00},title="Trig 1"
+	CheckBox Trig1Check,fSize=12,value=1
+	CheckBox Trig2Check,pos={9.00,355.00},size={44.00,15.00},title="Trig 2"
+	CheckBox Trig2Check,fSize=12,value=1, disable=1
+	SetVariable Trig1SecsSetvar,pos={194.00,333.00},size={82.00,18.00},proc=GUIPSIsetVarProc
+	SetVariable Trig1SecsSetvar,title=" "
+	SetVariable Trig1SecsSetvar,userdata="NQ_TrigSecsProc;addFuncStr:NQ_TrigSecsProc;ValMin:0;ValMax:10000;AutoIncr:1;MinIncr:0.001;"
+	SetVariable Trig1SecsSetvar,fSize=12,format="%.2W1Ps"
+	SetVariable Trig1SecsSetvar,limits={-inf,inf,0.1},value=root:Packages:twoP:Acquire:DelaySecs1, disable=1
+	SetVariable Trig2SecsSetvar,pos={194.00,353.00},size={82.00,18.00},proc=GUIPSIsetVarProc
+	SetVariable Trig2SecsSetvar,title=" "
+	SetVariable Trig2SecsSetvar,userdata="NQ_TrigSecsProc;addFuncStr:NQ_TrigSecsProc;ValMin:0;ValMax:10000;AutoIncr:1;MinIncr:0.001;"
+	SetVariable Trig2SecsSetvar,fSize=12,format="%.2W1Ps"
+	SetVariable Trig2SecsSetvar,limits={-inf,inf,0.01},value=root:Packages:twoP:Acquire:DelaySecs2, disable=1
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "CheckBox Trig1Check", "TSer;Lines;ePhys")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "CheckBox Trig2Check", "TSer;Lines;ePhys")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "SetVariable Trig1SecsSetvar", "TSer;Lines;ePhys")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "SetVariable Trig2SecsSetvar", "TSer;Lines;ePhys")
+	//Voltage Pulse waves  TSer;Lines;ePhys
+	GroupBox VoltageWaveGrpBox,pos={8.00,376.00},size={331.00,88.00}
+	GroupBox VoltageWaveGrpBox,title="Voltage Pulse", disable=1
+	CheckBox Voltage1Check,pos={12.00,396.00},size={14.00,14.00},proc=NQ_VoltageCheckProc
+	CheckBox Voltage1Check,title="",value=0, disable=1
+	PopupMenu VoltagePulse1Popup,pos={28.00,394.00},size={231.00,19.00},proc=NQ_VoltageWavePopMenuProc
+	PopupMenu VoltagePulse1Popup,title="1 Voltage Wave", disable=1
+	PopupMenu VoltagePulse1Popup,mode=1,popvalue="No Voltage Pulse Waves",value=#"GUIPListObjs ((\"root:packages:twoP:acquire:VoltagePulseWaves\") , 1, \"*\", 0, \"\\M1(No Voltage Pulse Waves\")"
+	CheckBox Voltage2Check,pos={11.00,418.00},size={14.00,14.00},proc=NQ_VoltageCheckProc
+	CheckBox Voltage2Check,title="",value=0, disable=1
+	PopupMenu VoltagePulse2Popup,pos={28.00,415.00},size={231.00,19.00},proc=NQ_VoltageWavePopMenuProc
+	PopupMenu VoltagePulse2Popup,title="2 Voltage Wave", disable=1
+	PopupMenu VoltagePulse2Popup,mode=1,popvalue="No Voltage Pulse Waves",value=#"GUIPListObjs ((\"root:packages:twoP:acquire:VoltagePulseWaves\") , 1, \"*\", 0, \"\\M1(No Voltage Pulse Waves\")"
+	PopupMenu VoltagePulsePopUp,pos={12.00,437.00},size={90.00,19.00},title="Vout"
+	PopupMenu VoltagePulsePopUp,fSize=12, disable=1
+	PopupMenu VoltagePulsePopUp,mode=1,popvalue="on Start",value=#"\"on Start;on Trig 1;\""
+	Button VoltagePulseEditButton,pos={143.00,440.00},size={141.00,20.00},proc=EditVoltageWavesProc, disable=1
+	Button VoltagePulseEditButton,title="Edit Voltage Waves"
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "GroupBox VoltageWaveGrpBox", "TSer;Lines;ePhys")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "CheckBox Voltage1Check", "TSer;Lines;ePhys")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "PopupMenu VoltagePulse1Popup", "TSer;Lines;ePhys")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "CheckBox Voltage2Check", "TSer;Lines;ePhys")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "PopupMenu VoltagePulse2Popup", "TSer;Lines;ePhys")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "Button VoltagePulseEditButton", "TSer;Lines;ePhys")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "Button VoltagePulseEditButton", "TSer;Lines;ePhys")
+	// Live Roi - Live;Tser"
+	CheckBox LiveROICheck,pos={9.00,235.00},size={59.00,15.00},title="Live ROI"
+	CheckBox LiveROICheck,fSize=12
+	CheckBox LiveROICheck,variable=root:Packages:twoP:Acquire:liveROICheck
+	SetVariable LiveRoiTimeSetVar,pos={74.00,234.00},size={64.00,18.00},proc=GUIPSIsetVarProc
+	SetVariable LiveRoiTimeSetVar,title=" "
+	SetVariable LiveRoiTimeSetVar,help={"If doing Live ROIs, this many seconds will be shown in the scrolling graph below."}
+	SetVariable LiveRoiTimeSetVar,userdata=";0;30;;addFuncStr:;ValMin:1;ValMax:100;AutoIncr:1;MinIncr:0.1;"
+	SetVariable LiveRoiTimeSetVar,fSize=12,format="%.1W1Ps"
+	SetVariable LiveRoiTimeSetVar,value=root:Packages:twoP:Acquire:liveROISecs
+	CheckBox LroiRatioCheck,pos={33.00,258.00},size={43.00,15.00},title="Ratio"
+	CheckBox LroiRatioCheck,fSize=12
+	CheckBox LroiRatioCheck,variable=root:Packages:twoP:Acquire:liveROIRatioCheck
+	PopupMenu LiveROIRatioTopPopMenu,pos={84.00,256.00},size={62.00,19.00},proc=NQ_SetLiveChansPopMenuProc
+	PopupMenu LiveROIRatioTopPopMenu,title="    Top   ",fSize=12
+	PopupMenu LiveROIRatioTopPopMenu,mode=0,value=#"root:packages:twoP:acquire:selImagechanList"
+	TitleBox LiveROIRatioTopChanTitle,pos={151.00,258.00},size={28.00,15.00}
+	TitleBox LiveROIRatioTopChanTitle,frame=0
+	TitleBox LiveROIRatioTopChanTitle,variable=root:Packages:twoP:Acquire:LiveROITopChan
+	PopupMenu LiveROIRatioBottomPopMenu,pos={84.00,278.00},size={62.00,19.00},proc=NQ_SetLiveChansPopMenuProc
+	PopupMenu LiveROIRatioBottomPopMenu,title="Bottom",fSize=12
+	PopupMenu LiveROIRatioBottomPopMenu,mode=0,value=#"root:packages:twoP:acquire:selImagechanList"
+	TitleBox LiveROIRatioBottomChanTitle,pos={151.00,280.00},size={28.00,15.00}
+	TitleBox LiveROIRatioBottomChanTitle,frame=0
+	TitleBox LiveROIRatioBottomChanTitle,variable=root:Packages:twoP:Acquire:LiveROIBottomChan
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "CheckBox LiveROICheck", "Live;Tser")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "SetVariable LiveRoiTimeSetVar", "Live;Tser")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "CheckBox LroiRatioCheck", "Live;Tser")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "SetVariable LiveRoiTimeSetVar", "Live;Tser")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "CheckBox LroiRatioCheck", "Live;Tser")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "PopupMenu LiveROIRatioTopPopMenu", "Live;Tser")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "TitleBox LiveROIRatioTopChanTitle", "Live;Tser")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "PopupMenu LiveROIRatioBottomPopMenu", "Live;Tser")
+	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "TitleBox LiveROIRatioBottomChanTitle","Live;Tser")
+	// Live mode sepecific
+	SetVariable LiveAvgFramesSetVar,pos={114.00,207.00},size={43.00,18.00}
+	SetVariable LiveAvgFramesSetVar,title="Average per Frame",fSize=12,proc=NQ_SetTimesProc
+	SetVariable LiveAvgFramesSetVar,limits={0,inf,1},value=root:Packages:twoP:Acquire:numLiveAvgFrames
+	CheckBox LiveHistCheck,pos={188.00,233.00},size={96.00,15.00},proc=NQ_LiveHistCheckProc
+	CheckBox LiveHistCheck,title="Live Histogram",fSize=12
+	CheckBox LiveHistCheck,variable=root:Packages:twoP:Acquire:liveHistCheck
+	Button Trig1ManualButton,pos={9.00,313.00},size={82.00,20.00}
+	Button Trig1ManualButton,title="Fire Trigger 1"
+	Button Trig1ManualButton,help={"If you have a pulse configured for trigger 1, it is fired with no delay"}
+	Button Trig2ManualButton,pos={109.00,313.00},size={82.00,20.00}
+	Button Trig2ManualButton,title="Fire Trigger 2"
+	Button Trig2ManualButton,help={"If you have a pulse configured for trigger 1, it is fired with no delay"}
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Live", "SetVariable LiveAvgFramesSetVar;CheckBox LiveHistCheck;Button Trig1ManualButton;Button Trig2ManualButton;")
+	// Time series specific
+	SetVariable NumTSeriesFramesSetVar,pos={9.00,304.00},size={174.00,22.00},proc=NQ_SetTimesProc, disable=1
+	SetVariable NumTSeriesFramesSetVar,title="Time Series Frames",fSize=14
+	SetVariable NumTSeriesFramesSetVar,limits={0,inf,1},value=root:Packages:twoP:Acquire:TSeriesFrames
+	SetVariable FramesTrig1SetVar,pos={77.00,333.00},size={110.00,18.00},proc=NQ_SetTimesProc, disable=1
+	SetVariable FramesTrig1SetVar,title="on Frame",userdata="NQ_TrigSecsFrameProc"
+	SetVariable FramesTrig1SetVar,fSize=12
+	SetVariable FramesTrig1SetVar,limits={0,inf,1},value=root:Packages:twoP:Acquire:DelayFrames1
+	SetVariable FramesTrig2SetVar,pos={77.00,353.00},size={110.00,18.00},proc=NQ_SetTimesProc, disable=1
+	SetVariable FramesTrig2SetVar,title="on Frame",userdata="NQ_TrigSecsFrameProc"
+	SetVariable FramesTrig2SetVar,fSize=12
+	SetVariable FramesTrig2SetVar,limits={0,inf,1},value=root:Packages:twoP:Acquire:DelayFrames2
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Tser", "SetVariable NumTSeriesFramesSetVar;SetVariable FramesTrig1SetVar;SetVariable FramesTrig2SetVar")
+	// Avg specific
+	SetVariable AvgNumFramesSetVar,pos={9.00,303.00},size={176.00,22.00},proc=NQ_SetTimesProc, disable=1
+	SetVariable AvgNumFramesSetVar,title="Frames to Average",fSize=14
+	SetVariable AvgNumFramesSetVar,limits={0,inf,1},value=root:Packages:twoP:Acquire:numAverageFrames
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Avg", "SetVariable AvgNumFramesSetVar;")
+	// lines specific
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Avg", "SetVariable AvgNumFramesSetVar;")
+	SetVariable LineScanWidthSetVar,title="X Pix",fSize=12,pos={8.00,228.00},size={91.00,15.00},proc=NQ_SetTimesProc, disable=1
+	SetVariable LineScanWidthSetVar,limits={2,inf,2},value=root:Packages:twoP:Acquire:LSWidth
+	SetVariable LineScanXStartSetVar,pos={110.00,229.00},size={98.00,15.00},proc=GUIPSIsetVarProc, disable=1
+	SetVariable LineScanXStartSetVar,title="X Strt",fSize=10,format="%.2W1PV"
+	SetVariable LineScanXStartSetVar,limits={-7.5,7.5,0.1},value=root:Packages:twoP:Acquire:LSStartVolts
+	SetVariable LineScanXEndSetVar,pos={220.00,229.00},size={103.00,15.00},proc=GUIPSIsetVarProc, disable=1
+	SetVariable LineScanXEndSetVar,title="X End",fSize=12,format="%.2W1PV", disable=1
+	SetVariable LineScanXEndSetVar,limits={-7.5,7.5,0.1},value=root:Packages:twoP:Acquire:LSEndVolts
+	SetVariable LineScanPixSizeSetVar,pos={5.00,248.00},size={106.00,18.00}, disable=1
+	SetVariable LineScanPixSizeSetVar,title=" ",fSize=12,format="Size %.1W1Pm/pix"
+	SetVariable LineScanPixSizeSetVar,frame=0, disable=1
+	SetVariable LineScanPixSizeSetVar,limits={0,inf,0},value=root:Packages:twoP:Acquire:LSPixSize,noedit=1,live=1
+	SetVariable LineScanYSetVar,pos={128.00,248.00},size={80.00,15.00},title="Y", disable=1
+	SetVariable LineScanYSetVar,fSize=10,format="%.2W1PV"
+	SetVariable LineScanYSetVar,limits={-7.5,7.5,0.1},value=root:Packages:twoP:Acquire:LSYVolts
+	PopupMenu LineScanLinktoPopMenu,pos={9.00,272.00},size={44.00,19.00},proc=NQ_LineScanLinkToProc
+	PopupMenu LineScanLinktoPopMenu,title="Link", disable=1
+	PopupMenu LineScanLinktoPopMenu,mode=0,value=#"NQ_ListScans (\"1,2,4,\") + \";Don't Link\""
+	TitleBox LineScanLinktoTitleBox,pos={56.00,274.00},size={54.00,15.00},fSize=12
+	TitleBox LineScanLinktoTitleBox,frame=0
+	TitleBox LineScanLinktoTitleBox,variable=root:Packages:twoP:Acquire:LSLinkWaveStr, disable=1
+	Button LineScanRevertScaleButton,pos={153.00,273.00},size={50.00,17.00},proc=NQ_LSRevertScaleProc
+	Button LineScanRevertScaleButton,title="Revert", disable=1
+	PopupMenu LineScanRevertScalePopMenu,pos={205.00,272.00},size={64.00,19.00},proc=NQ_RevertSettingstoLineScanProc
+	PopupMenu LineScanRevertScalePopMenu,title="to Scan:",fSize=10, disable=1
+	PopupMenu LineScanRevertScalePopMenu,mode=0,value=#"NQ_ListScans (\"3\")"
+	SetVariable LineScanHeightSetVar disable =1, pos={9.00,304.00},size={169.00,22.00},proc=NQ_SetTimesProc
+	SetVariable LineScanHeightSetVar,title="LineScan Lines",fSize=14
+	SetVariable LineScanHeightSetVar,limits={2,inf,2},value=root:Packages:twoP:Acquire:LSHeight
+	SetVariable LineScanTrig1SetVar disable =1, pos={81.00,333.00},size={110.00,18.00},proc=NQ_SetTimesProc
+	SetVariable LineScanTrig1SetVar,title="on Line"
+	SetVariable LineScanTrig1SetVar,limits={0,inf,1},value=root:Packages:twoP:Acquire:DelayLines1
+	SetVariable LineScanTrig2SetVar disable =1,pos={81.00,353.00},size={110.00,18.00},proc=NQ_SetTimesProc
+	SetVariable LineScanTrig2SetVar,title="on Line"
+	SetVariable LineScanTrig2SetVar,limits={0,inf,1},value=root:Packages:twoP:Acquire:DelayLines2
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "SetVariable LineScanWidthSetVar;SetVariable LineScanXStartSetVar;SetVariable LineScanXStartSetVar;")
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "SetVariable LineScanYSetVar;PopupMenu LineScanLinktoPopMenu;TitleBox LineScanLinktoTitleBox;")
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "Button LineScanRevertScaleButton;PopupMenu LineScanRevertScalePopMenu;SetVariable LineScanHeightSetVar")
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "SetVariable LineScanTrig1SetVar;SetVariable LineScanTrig2SetVar;")
+	// Zser specific
+	Button FirstZButton,disable =1,pos={13.00,221.00},size={29.00,18.00},proc=NQ_ZfirstLastButtonProc
+	Button FirstZButton,title="Get"
+	SetVariable zFirstZSetVar,disable =1,pos={56.00,222.00},size={115.00,18.00},proc=GUIPSIsetVarProc
+	SetVariable zFirstZSetVar,title="First Z"
+	SetVariable zFirstZSetVar,userdata="NQ_zSetVarProc;-1e-3;1e-3;;;1e-07"
+	SetVariable zFirstZSetVar,fSize=12,format="%.3W1Pm"
+	SetVariable zFirstZSetVar,limits={-inf,inf,1e-06},value=root:Packages:twoP:Acquire:ZFirstZ
+	Button LastZButton,disable =1,pos={11.00,254.00},size={30.00,17.00},proc=NQ_ZfirstLastButtonProc
+	Button LastZButton,title="Get"
+	SetVariable ZLastZSetVar, disable =1,pos={58.00,253.00},size={116.00,18.00},proc=GUIPSIsetVarProc
+	SetVariable ZLastZSetVar,title="Last Z"
+	SetVariable ZLastZSetVar,userdata="NQ_zSetVarProc;-1e-3;1e-3;;;1e-07",fSize=12
+	SetVariable ZLastZSetVar,format="%.3W1Pm"
+	SetVariable ZLastZSetVar,limits={-inf,inf,1e-06},value=root:Packages:twoP:Acquire:ZLastZ
+	SetVariable zStepSizeSetvar, disable =1,pos={38.00,280.00},size={132.00,18.00},proc=GUIPSIsetVarProc
+	SetVariable zStepSizeSetvar,title="Step Size "
+	SetVariable zStepSizeSetvar,userdata="NQ_zSetVarProc;-10e-06;10e-06;;;1e-07"
+	SetVariable zStepSizeSetvar,fSize=12,format="%.3W1Pm"
+	SetVariable zStepSizeSetvar,limits={-inf,inf,1e-07},value=root:Packages:twoP:Acquire:ZStepSize
+	SetVariable NumZframesSetvar,disable =1,pos={9.00,304.00},size={148.00,22.00},proc=NQ_zSetVarProc
+	SetVariable NumZframesSetvar,title="Z Slices   ",fSize=14
+	SetVariable NumZframesSetvar,limits={0,inf,1},value=root:Packages:twoP:Acquire:NumZseriesFrames
+	SetVariable zKalmanAvgSetvar, disable =1,pos={9.00,334.00},size={147.00,18.00},proc=NQ_SetTimesProc
+	SetVariable zKalmanAvgSetvar,title="Avg. each slice",fSize=12
+	SetVariable zKalmanAvgSetvar,limits={1,inf,1},value=root:Packages:twoP:Acquire:NumZseriesAvg
+	PopupMenu ZdjustPopMenu,disable =1,pos={182.00,224.00},size={116.00,19.00},proc=NQ_ZAdjustPopMenuProc
+	PopupMenu ZdjustPopMenu,title="adjust"
+	PopupMenu ZdjustPopMenu,mode=1,popvalue="Num Slices",value=#"\"Num Slices;Step Size;First Z;Last Z;\""
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Zser", "Button FirstZButton;SetVariable zFirstZSetVar;Button LastZButton;SetVariable ZLastZSetVar;SetVariable zStepSizeSetvar;")
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Zser", "SetVariable NumZframesSetvar;SetVariable zKalmanAvgSetvar;PopupMenu ZdjustPopMenu")
+	// Muti specific
+	PopupMenu multiAqDataModePopUp,disable =1,pos={10.00,229.00},size={115.00,19.00},proc=NQ_MultiAqDataModePopMenuProc
+	PopupMenu multiAqDataModePopUp,title="Mode"
+	PopupMenu multiAqDataModePopUp,mode=1,popvalue="Time Series",value=#"\"Time Series;Average;Line Scan;Z series;ePhys Only\""
+	// period
+	GroupBox MultModePeriodGrp,disable =1,pos={6.00,252.00},size={110.00,97.00}
+	GroupBox MultModePeriodGrp,title="                        "
+	CheckBox MultiPeriodCheck,disable =1,pos={35.00,257.00},size={50.00,15.00},proc=GUIPRadioButtonProcSetGlobal
+	CheckBox MultiPeriodCheck,title="Period"
+	CheckBox MultiPeriodCheck,userdata="root:packages:twoP:acquire:multiAqTimeMode=0;MultiWaveCheck;MultiTriggerCheck;"
+	CheckBox MultiPeriodCheck,value=1,mode=1
+	SetVariable MultiAqPeriodNumSetVar,disable =1,pos={9.00,276.00},size={76.00,18.00}
+	SetVariable MultiAqPeriodNumSetVar,title="Num",fSize=12
+	SetVariable MultiAqPeriodNumSetVar,limits={2,inf,1},value=root:Packages:twoP:Acquire:multiAqPeriodNum
+	SetVariable MultAqPeriodPeriodSetVar disable =1,pos={9.00,299.00},size={103.00,18.00},proc=NQ_MultiAqTimeSetVarProc
+	SetVariable MultAqPeriodPeriodSetVar,title="Period ",fSize=12
+	SetVariable MultAqPeriodPeriodSetVar,limits={0,inf,0.5},value=root:Packages:twoP:Acquire:multiAqPeriodPeriodStr
+	SetVariable MultiAqPeriodDelaySetVar,disable =1,pos={9.00,323.00},size={102.00,18.00},proc=NQ_MultiAqTimeSetVarProc
+	SetVariable MultiAqPeriodDelaySetVar,title="Delay",fSize=12
+	SetVariable MultiAqPeriodDelaySetVar,value=root:Packages:twoP:Acquire:multiAqPeriodDelayStr
+	// Wave
+	GroupBox MultModeWaveGrp disable =1,pos={114.00,252.00},size={113.00,97.00}
+	GroupBox MultModeWaveGrp,title="                        "
+	CheckBox MultiWaveCheck,disable =1,pos={147.00,254.00},size={45.00,15.00},proc=GUIPRadioButtonProcSetGlobal
+	CheckBox MultiWaveCheck,title="Wave"
+	CheckBox MultiWaveCheck,userdata="root:packages:twoP:acquire:multiAqTimeMode=1;MultiPeriodCheck;MultiTriggerCheck;"
+	CheckBox MultiWaveCheck,value=0,mode=1
+	Button MultiAqWaveEditButton,disable =1,pos={120.00,317.00},size={46.00,18.00},proc=NQ_MultiWaveEditButtonProc
+	Button MultiAqWaveEditButton,title="Edit",fSize=10
+	Button MultiAqWaveDeleteButton,disable =1,pos={172.00,317.00},size={47.00,18.00},proc=NQ_MultiWaveDeleteButtonProc
+	Button MultiAqWaveDeleteButton,title="Delete",fSize=10
+	PopupMenu MultiAqWavePopup,disable =1,pos={121.00,276.00},size={94.00,19.00},proc=NQ_MultiWaveWavePopMenuProc
+	PopupMenu MultiAqWavePopup,title="Timing Wave:"
+	PopupMenu MultiAqWavePopup,disable =1,mode=0,value=#"GUIPListObjs(\"root:packages:twoP:acquire:multiAqWaves\",1,\"!maq_seconds\",0,\"\\\\M1(no timing waves;\")+\"\\\\M1-);New Timing Wave\""
+	TitleBox MultiAqWaveTitleBox,disable =1,pos={122.00,298.00},size={19.00,15.00},frame=0
+	TitleBox MultiAqWaveTitleBox,variable=root:Packages:twoP:Acquire:multiAqWaveWaveStr
+	// trigger
+	GroupBox MultModeTriggerGrp,disable =1,pos={225.00,252.00},size={104.00,97.00}
+	GroupBox MultModeTriggerGrp,title="                     "
+	CheckBox MultiTriggerCheck,disable =1,pos={252.00,257.00},size={52.00,15.00},proc=GUIPRadioButtonProcSetGlobal
+	CheckBox MultiTriggerCheck,title="Trigger"
+	CheckBox MultiTriggerCheck,userdata="root:packages:twoP:acquire:multiAqTimeMode=2;MultiPeriodCheck;MultiWaveCheck;"
+	CheckBox MultiTriggerCheck,value=0,mode=1
+	SetVariable MultiAqTriggerNumSetVar,disable =1, pos={236.00,278.00},size={75.00,15.00}
+	SetVariable MultiAqTriggerNumSetVar,title="Num",fSize=10
+	SetVariable MultiAqTriggerNumSetVar,limits={2,inf,1},value=root:Packages:twoP:Acquire:multiAqTriggerNum
+	// display time
+	TitleBox MultiAqTimeToNextTitle, disable =1, pos={10.00,357.00},size={35.00,19.00},fSize=14
+	TitleBox MultiAqTimeToNextTitle,frame=0
+	TitleBox MultiAqTimeToNextTitle,variable=root:Packages:twoP:Acquire:multiAqTimeToNextStr
+	ValDisplay multiAqProgressDisplay, disable =1,pos={11.00,382.00},size={321.00,43.00}
+	ValDisplay multiAqProgressDisplay,frame=0
+	ValDisplay multiAqProgressDisplay,limits={0,10,0},barmisc={10,30},highColor=(0,65535,0),lowColor=(65535,0,0)
+	ValDisplay multiAqProgressDisplay,value=#"root:packages:twoP:acquire:multiAqiAq"
+	// start
+	Button MultiPreMakeButton, disable =1,pos={22.00,438.00},size={99.00,20.00},proc=NQ_MultiPreMakeProc
+	Button MultiPreMakeButton,title="PreMake Waves"
+	Button MultiStartButton, disable =1,pos={217.00,433.00},size={113.00,29.00},proc=NQ_MultiStartProc
+	Button MultiStartButton,title="Start Multi"
+	Button MultiStartButton,help={"Starts or Aborts a series of multiple scans"}
+	Button MultiStartButton,userdata="Start Multi",fSize=16,fStyle=1
+	Button MultiStartButton,fColor=(0,65280,0)
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Multi", "PopupMenu multiAqDataModePopUp;GroupBox MultModePeriodGrp;CheckBox MultiPeriodCheck;SetVariable MultiAqPeriodNumSetVar;")
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Multi", "SetVariable MultAqPeriodPeriodSetVar;SetVariable MultiAqPeriodDelaySetVar;GroupBox MultModeWaveGrp;CheckBox MultiWaveCheck;")
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Multi", "Button MultiAqWaveEditButton;PopupMenu MultiAqWavePopup;TitleBox MultiAqWaveTitleBox;GroupBox MultModeTriggerGrp;")
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Multi", "CheckBox MultiTriggerCheck;SetVariable MultiAqTriggerNumSetVar;TitleBox MultiAqTimeToNextTitle;ValDisplay multiAqProgressDisplay;")
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Multi", "Button MultiPreMakeButton;Button MultiStartButton;")
+
 	// Call SetTimes Procedure to set the above times to the defaults from the constants
-	Execute/P/Q/Z "NQ_SetTimes ()"
+	NQ_SetTimes ()
 	// Init livemode ScanStr, without getting stage, because stage probably hasn't loaded yet
 	STRUCT NQ_ScanStruct s
 	NQ_LoadScanStruct (s, 0)
@@ -3892,9 +3824,11 @@ Function NQ_StartScan (ba) : ButtonControl
 				case "Start Multi":
 					return NQ_MultiAqInit ()
 					break
-				case "Start": // starting a new scan; including multiAcq
+				case "Start": // starting a new scan
+					
 					// save scan mode in case user flips tabcontrol before stopping scan
 					ScanStartMode = scanMode
+					TabControl SmodeTabControl disable=2
 					// Change Start button color to yellow to show we are show initializing a scan, and update userData to "abort"
 					Button AqStartButton, win = twoP_Controls, fColor=(65280,65280,0), title = "Init", userData ="Abort"; doUpdate
 					// set percent complete to > 0, so if we abort, we know to shut down
@@ -3908,9 +3842,9 @@ Function NQ_StartScan (ba) : ButtonControl
 						// Check for overwriting of new scan 
 						errPos=0
 						err = NQ_CheckOverWrite (s);AbortOnValue (err), errPos 
-						// set galvos to start of X and Y images
-						fDAQmx_WriteChan(s.ImageBoard, 0, s.xsv, -10, 10)
-						fDAQmx_WriteChan(s.ImageBoard, 1, s.xsv, -10, 10)
+						// set galvos to end of X and Y images
+						fDAQmx_WriteChan(s.ImageBoard, 0, s.xev, -10, 10)
+						fDAQmx_WriteChan(s.ImageBoard, 1, s.xev, -10, 10)
 						// make scan waves
 						errPos=1
 						err = NQ_MakeImageScanWaves (s);AbortOnValue (err), errPos //^^11
@@ -5468,7 +5402,6 @@ function NQ_MultiReadTimeStr(timeStr)
 	return (3600 * hrs + 60 *mins + secs)
 end
 
-
 //******************************************************************************************************
 // Makes a series of waves in advance of doing the scanning, for increased speed
 // Last Modified 2012/07/09 by Jamie Boyd
@@ -5639,7 +5572,7 @@ Function NQ_MultiBkg( s)
 		NVAR MultiAqNextTime = root:packages:twoP:acquire:MultiAqNextTime			// timeof next scan
 		variable rSecs = MultiAqNextTime -  datetime
 		if (rSecs > 0)
-			sprintf tempStr, "Scan %d in %s.", iAq, NQ_MultiParseTimeStr (num2str (rSecs))
+			sprintf tempStr, "SCAN %d NEXT in %s.", iAq, NQ_MultiParseTimeStr (num2str (rSecs))
 		else
 			sprintf tempStr,"STARTING %d of %d", (iAq + 1), nAqs
 			WAVE maq_seconds= root:packages:twoP:acquire:multiAqWaves:maq_seconds

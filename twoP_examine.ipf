@@ -47,17 +47,17 @@ end
 // Last Modified Nov 209 2011 by Jamie Boyd
 Function NQ_MakeExamineFolder ()
 
-	if (DataFolderexists ("root:Packages:twoP:examine"))
-		return 1
-	else
-		if (!(DataFolderExists ("root:packages")))
-			NewDataFolder root:Packages
-		endif
+	if (!(DataFolderexists ("root:Packages:twoP:examine")))
 		if (!(DataFolderExists ("root:packages:twoP")))
+			if (!(DataFolderExists ("root:packages")))
+				NewDataFolder root:Packages
+			endif
 			NewDataFolder root:Packages:twoP
 		endif
+		NewDataFolder root:Packages:twoP:examine
+	else
+		return 0
 	endif
-	NewDataFolder root:Packages:twoP:examine
 	//String that stores the name of the current scan, and display it in a title box on the Examine Panel
 	string/g root:Packages:twoP:examine:curScan = "no current scan"	
 	// Variable for scan numbers, when scans are sequentially numbered
@@ -154,16 +154,9 @@ Function NQ_MakeNidaqPanel (withAcquire)
 	
 	
 	// If no global variable found, Make Global variables and load default preferences file 
-	if (!(dataFolderExists ("root:Packages:twoP:")))
-		if (!(dataFolderExists ("root:Packages:twoP:examine")))
-			// Make global examine variables
-			NQ_MakeExamineFolder ()
-		endif
-		//ChR_InitMakeGlobals ()
-		//Make an Igor Path to ChR folder in User's User procedures Folder so we can search it later for power procedures
-		//NewPath/q/O ChRMapper, SpecialDirPath("Igor Pro User Files", 0, 0, 0 ) + "User Procedures:ChRMapper:"
-		// Make an Igor Path to the ChR preferences folder, so we can search it for preferences files
-		//NewPath/C/Q/O ChrPrefsPath SpecialDirPath("Preferences" , 0, 0, 0) + "WaveMetrics:Igor Pro 6:Packages:ChRMapper"
+	if (!(dataFolderExists ("root:Packages:twoP:examine")))
+		// Make global examine variables
+		NQ_MakeExamineFolder ()
 	endif
 	
 	// make path to get new tabs for examine tab control

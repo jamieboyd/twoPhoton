@@ -441,7 +441,7 @@ Function twoP_PrefsMakeGlobals ()
 	SetDimlabel 1,1, X_Scal objWave
 	SetDimlabel 1,2, Y_Scal objWave
 	SetDimlabel 1,3, X_Offset objWave
-	SetDimlabel 1,4, Y_Offset chanList
+	SetDimlabel 1,4, Y_Offset objWave
 	objSelWave = 2 // editable
 	objWave [0] [0] = "OBJ_NAME"
 	objWave [0] [1] =  "X_SCAL"
