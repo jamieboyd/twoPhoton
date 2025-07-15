@@ -89,13 +89,13 @@ EndStructure
 // Last Modified 2025/07/07 by Jamie Boyd
 function/s twoP_PrefsListBoards()
 	
-	string aBoard, boards=fDAQmx_DeviceNames()
+	string aBoard, boards= "PCI6036"//fDAQmx_DeviceNames()
 	variable iBoard, nBoards = itemsinList(boards, ";")
 	string outStr = ""
 	for (iBoard=0;iBoard < nBoards;iBoard +=1)
 		aBoard = stringFromList (iBoard, boards,";")
-		DAQmx_DeviceInfo /DEV=aBoard
-		outStr += aBoard + ": " + S_NIProductType + ": " + S_NIDeviceCategory + ";"
+		//DAQmx_DeviceInfo/DEV=aBoard
+		outStr += aBoard + ": " // +  S_NIProductType + ": " + S_NIDeviceCategory + ";"
 	endfor
 	//outStr += ";None"
 	return outStr
@@ -124,7 +124,7 @@ Function twoP_PrefsSetBoardName (pa) : PopupMenuControl
 				WAVE/t chanList = root:packages:twoP:Acquire:ePhysChanList
 				WAVE chanSelList = root:packages:twoP:Acquire:ePhysChanSelList
 			endif
-			variable numChans = fdaqmx_NumAnalogInputs(boardNameG)
+			variable numChans = 2//fdaqmx_NumAnalogInputs(boardNameG)
 			boardNameG = stringfromlist (0, pa.popStr, ":")
 			boardClassG = trimString (stringfromlist (2, pa.popStr, ":"))
 			if (cmpStr (boardNameG, "None") != 0)
@@ -671,100 +671,7 @@ End
 // Last modified 2025/07/10 by Jamie Boyd
 Function twoP_PrefsTest()
 	string tempStr
-	for (tempStr = fDAQmx_ErrorString (); CmpStr (tempStr, "") != 0;tempStr = fDAQmx_ErrorString ())  // clearNIDAQ error messgs
-	endfor
-	SVAR imBoard = root:packages:twoP:acquire:ImageBoard
-	if (WhichListItem(imBoard, fdaQmx_DeviceNames(), ";") < 0)
-		sprintf tempStr, "The specified imaging board, \"%s\", is not present in the system.\r", imBoard
-		Doalert 0, tempStr
-	else
-		DAQmx_DeviceInfo /DEV=imBoard
-		string/G root:packages:twoP:acquire:imageBoardClass = S_NIDeviceCategory
-		SVAR boardClass = root:packages:twoP:acquire:imageBoardClass
-		String/G root:packages:twoP:acquire:imageGains = ""
-		SVAR boardGains = root:packages:twoP:acquire:imageGains
-		strswitch (boardClass)
-			case "E Series DAQ":
-				boardGains = "0.05;0.5;5;10"
-				break
-			case "S Series DAQ":
-				boardGains = "0.2;0.5;1;2;5;10"
-				break
-			case "X Series DAQ":
-				boardGains = "1;2;5;10"
-				break
-			default:
-				boardGains = "10"
-				break
-		endswitch
-	endif
-	// load stage procedure and start Stage
-	SVAR stageProc = root:packages:twoP:acquire:StageProc
-	SVAR stagePort = root:packages:twoP:acquire:StagePort
-	Execute/P/Q/Z "INSERTINCLUDE \"" + "Stages\""
-	Execute/P/Q/Z "INSERTINCLUDE \"" + stageProc + "_Stage\""
-	Execute/P/Q/Z "COMPILEPROCEDURES "
-	sprintf tempStr, "StageStartStage(\"%s\", thePort = \"%s\") ", stageProc, stagePort
-	execute/P/Q/Z tempStr
-	// shutter task
-	NVAR shutterOPenLevel=root:Packages:twoP:Acquire:shutterOpenLevel
-	NVAR shutterDelay = root:Packages:twoP:Acquire:shutterDelay
-	NVAR taskNum =  root:packages:twoP:Acquire:shutterTaskNum
-	DAQmx_DIO_Config /DEV=imBoard/Dir=1/LGRP=1  "/" + imBoard + "/port0/line0"
-	tempStr = fDAQmx_ErrorString ()
-	if (cmpStr (tempStr, "") != 0)
-		doalert 0, "Digital configuration for shutter task failed" 
-		print tempStr
-	else
-		taskNum = V_DAQmx_DIO_TaskNumber
-		if (fDAQmx_DIO_Write(imBoard, V_DAQmx_DIO_TaskNumber, (!shutterOPenLevel)))
-			doalert 0, "Digital Out for shutter task failed" 
-			print fdaqmx_errorString()
-		endif
-	endif
-	// ephys board
-	SVAR ePhysBoard = root:packages:twoP:acquire:ePhysBoard
-	if ((cmpStr (ePhysBoard, "None") != 0) && (WhichListItem(ePhysBoard, fdaQmx_DeviceNames(), ";") == -1))
-		sprintf tempStr, "The specified ePhys board, \"%s\", is not present in the system.\r", ePhysBoard
-		Doalert 0,tempStr
-	else
-		DAQmx_DeviceInfo /DEV=ePhysBoard
-		SVAR BoardClass = root:packages:twoP:acquire:ePhysBoardClass
-		BoardClass = S_NIDeviceCategory
-		SVAR boardGains = root:packages:twoP:acquire:ePhysGains
-		strswitch (boardClass)
-			case "E Series DAQ":
-				boardGains = "0.05;0.5;5;10"
-				break
-			case "S Series DAQ":
-				boardGains = "0.2;0.5;1;2;5;10"
-				break
-			case "X Series DAQ":
-				boardGains = "1;2;5;10"
-				break
-			default:
-				boardGains = "10"
-				break
-		endswitch
-	endif
-	NVAR polarity =  root:packages:twoP:acquire:Trig1Polarity
-	NVAR duration = root:packages:twoP:acquire:Trig1Duration
-	fDAQmx_CTR_Finished(ePhysBoard, 0)
-	DAQmx_CTR_OutputPulse /DEV=ePhysBoard /SEC={duration, duration} /IDLE =(!polarity) /NPLS=1 /KEEP=1 /STRT=1/TRIG="/" + imBoard + "/ao/StartTrigger" 0
-	tempStr = fDAQmx_ErrorString ()
-	if (cmpStr (tempStr, "") != 0)
-		DoAlert 0, "COnfiguration for trigger 1 pulse failed"
-		print tempStr
-	endif
-	NVAR polarity =  root:packages:twoP:acquire:Trig2Polarity
-	NVAR duration = root:packages:twoP:acquire:Trig2Duration
-	fDAQmx_CTR_Finished(ePhysBoard, 0)
-	DAQmx_CTR_OutputPulse /DEV=ePhysBoard /SEC={duration, duration} /IDLE =(!polarity) /NPLS=1 /KEEP=1 /STRT=1/TRIG="/" + imBoard + "/ao/StartTrigger" 1
-	tempStr = fDAQmx_ErrorString ()
-	if (cmpStr (tempStr, "") != 0)
-		DoAlert 0, "COnfiguration for trigger 1 pulse failed"
-		print tempStr
-	endif
+
 end
 
 
