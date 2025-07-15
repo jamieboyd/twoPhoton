@@ -6,6 +6,12 @@
 
 #include "GUIPControls"
 
+
+Menu "Macros"
+	Submenu "twoP" 
+		"Edit Acquire Preferences", /Q, twoP_PrefsMakePanel()
+	end
+end
 constant kTwoPPrefsVers = 110 // Preferences structure version number
 
 // **************************************************************************************************************
@@ -89,13 +95,13 @@ EndStructure
 // Last Modified 2025/07/07 by Jamie Boyd
 function/s twoP_PrefsListBoards()
 	
-	string aBoard, boards= "PCI6036"//fDAQmx_DeviceNames()
+	string aBoard, boards=fDAQmx_DeviceNames()
 	variable iBoard, nBoards = itemsinList(boards, ";")
 	string outStr = ""
 	for (iBoard=0;iBoard < nBoards;iBoard +=1)
 		aBoard = stringFromList (iBoard, boards,";")
-		//DAQmx_DeviceInfo/DEV=aBoard
-		outStr += aBoard + ": " // +  S_NIProductType + ": " + S_NIDeviceCategory + ";"
+		DAQmx_DeviceInfo /DEV=aBoard
+		outStr += aBoard + ": " + S_NIProductType + ": " + S_NIDeviceCategory + ";"
 	endfor
 	//outStr += ";None"
 	return outStr
@@ -124,7 +130,7 @@ Function twoP_PrefsSetBoardName (pa) : PopupMenuControl
 				WAVE/t chanList = root:packages:twoP:Acquire:ePhysChanList
 				WAVE chanSelList = root:packages:twoP:Acquire:ePhysChanSelList
 			endif
-			variable numChans = 2//fdaqmx_NumAnalogInputs(boardNameG)
+			variable numChans = fdaqmx_NumAnalogInputs(boardNameG)
 			boardNameG = stringfromlist (0, pa.popStr, ":")
 			boardClassG = trimString (stringfromlist (2, pa.popStr, ":"))
 			if (cmpStr (boardNameG, "None") != 0)
@@ -423,7 +429,7 @@ Function twoP_PrefsMakeGlobals ()
 	chanSelList [*] [1] = 2	 // channel name, editable
 	chanSelList [*] [2] = 0 // not editable -have to use popMenu for PDIFF,RSE, etc.
 	chanSelList [*] [3] = 0 // not editable -have to use popMenu for gains
-	chanSelList [*] [4,5] = 0 // scaling and offset not used for images
+	chanSelList [*] [4,5] = 6 // scaling and offset not used for images
 	chanList [*] [0] = num2str(p) // ao channel numbers
 	chanList [*] [4] = num2str (1) // scaling = 1
 	chanList [*] [5] = num2str (0) // offset = 0
@@ -441,7 +447,7 @@ Function twoP_PrefsMakeGlobals ()
 	SetDimlabel 1,1, X_Scal objWave
 	SetDimlabel 1,2, Y_Scal objWave
 	SetDimlabel 1,3, X_Offset objWave
-	SetDimlabel 1,4, Y_Offset chanList
+	SetDimlabel 1,4, Y_Offset objWave
 	objSelWave = 2 // editable
 	objWave [0] [0] = "OBJ_NAME"
 	objWave [0] [1] =  "X_SCAL"
@@ -473,7 +479,7 @@ Function twoP_PrefsMakeGlobals ()
 	chanSelList [*] [1] = 2	 // channel name, editable
 	chanSelList [*] [2] = 0 // not editable -have to use popMenu for PDIFF,RSE, etc.
 	chanSelList [*] [3] = 0 // not editable -have to use popMenu for gains
-	chanSelList [*] [4,5] = 0 // scaling and offset not used for images
+	chanSelList [*] [4,5] = 6 // scaling and offset not used for images
 	chanList [*] [0] = num2str(p) // ao channel numbers
 	chanList [0] [1] = "CHAN_NAME"
 	chanList [0] [2] = "A2D_TYPE"
@@ -650,7 +656,7 @@ end
 
 // **************************************************************************************************************
 // calls function to check the vaidity of the loaded preference values
-// Last modified 2025/07/10 by Jamie Boyd
+// Last modified 2025/07/13 by Jamie Boyd
 Function twoP_PrefsCheckButtonProc(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 
@@ -671,7 +677,100 @@ End
 // Last modified 2025/07/10 by Jamie Boyd
 Function twoP_PrefsTest()
 	string tempStr
-
+	for (tempStr = fDAQmx_ErrorString (); CmpStr (tempStr, "") != 0;tempStr = fDAQmx_ErrorString ())  // clearNIDAQ error messgs
+	endfor
+	SVAR imBoard = root:packages:twoP:acquire:ImageBoard
+	if (WhichListItem(imBoard, fdaQmx_DeviceNames(), ";") < 0)
+		sprintf tempStr, "The specified imaging board, \"%s\", is not present in the system.\r", imBoard
+		Doalert 0, tempStr
+	else
+		fDAQmx_ResetDevice(imBoard)
+		DAQmx_DeviceInfo /DEV=imBoard
+		string/G root:packages:twoP:acquire:imageBoardClass = S_NIDeviceCategory
+		SVAR boardClass = root:packages:twoP:acquire:imageBoardClass
+		String/G root:packages:twoP:acquire:imageGains = ""
+		SVAR boardGains = root:packages:twoP:acquire:imageGains
+		strswitch (boardClass)
+			case "E Series DAQ":
+				boardGains = "0.05;0.5;5;10"
+				break
+			case "S Series DAQ":
+				boardGains = "0.2;0.5;1;2;5;10"
+				break
+			case "X Series DAQ":
+				boardGains = "1;2;5;10"
+				break
+			default:
+				boardGains = "10"
+				break
+		endswitch
+	endif
+	// load stage procedure and start Stage
+	SVAR stageProc = root:packages:twoP:acquire:StageProc
+	SVAR stagePort = root:packages:twoP:acquire:StagePort
+	Execute/P/Q/Z "INSERTINCLUDE \"" + "Stages\""
+	Execute/P/Q/Z "INSERTINCLUDE \"" + stageProc + "_Stage\""
+	Execute/P/Q/Z "COMPILEPROCEDURES "
+	sprintf tempStr, "StageStartStage(\"%s\", thePort = \"%s\") ", stageProc, stagePort
+	execute/P/Q/Z tempStr
+	// shutter task
+	NVAR shutterOPenLevel=root:Packages:twoP:Acquire:shutterOpenLevel
+	NVAR shutterDelay = root:Packages:twoP:Acquire:shutterDelay
+	NVAR taskNum =  root:packages:twoP:Acquire:shutterTaskNum
+	DAQmx_DIO_Config /DEV=imBoard/Dir=1/LGRP=1  "/" + imBoard + "/port0/line0"
+	tempStr = fDAQmx_ErrorString ()
+	if (cmpStr (tempStr, "") != 0)
+		doalert 0, "Digital configuration for shutter task failed" 
+		print tempStr
+	else
+		taskNum = V_DAQmx_DIO_TaskNumber
+		if (fDAQmx_DIO_Write(imBoard, V_DAQmx_DIO_TaskNumber, (!shutterOPenLevel)))
+			doalert 0, "Digital Out for shutter task failed" 
+			print fdaqmx_errorString()
+		endif
+	endif
+	// ephys board
+	SVAR ePhysBoard = root:packages:twoP:acquire:ePhysBoard
+	if ((cmpStr (ePhysBoard, "None") != 0) && (WhichListItem(ePhysBoard, fdaQmx_DeviceNames(), ";") == -1))
+		sprintf tempStr, "The specified ePhys board, \"%s\", is not present in the system.\r", ePhysBoard
+		Doalert 0,tempStr
+	else
+		fDAQmx_ResetDevice(ePhysBoard)
+		DAQmx_DeviceInfo /DEV=ePhysBoard
+		SVAR BoardClass = root:packages:twoP:acquire:ePhysBoardClass
+		BoardClass = S_NIDeviceCategory
+		SVAR boardGains = root:packages:twoP:acquire:ePhysGains
+		strswitch (boardClass)
+			case "E Series DAQ":
+				boardGains = "0.05;0.5;5;10"
+				break
+			case "S Series DAQ":
+				boardGains = "0.2;0.5;1;2;5;10"
+				break
+			case "X Series DAQ":
+				boardGains = "1;2;5;10"
+				break
+			default:
+				boardGains = "10"
+				break
+		endswitch
+	endif
+	NVAR polarity =  root:packages:twoP:acquire:Trig1Polarity
+	NVAR duration = root:packages:twoP:acquire:Trig1Duration
+	DAQmx_CTR_OutputPulse /DEV=ePhysBoard /SEC={duration, duration} /IDLE =(!polarity) /NPLS=1 /KEEP=1 /STRT=1/TRIG="/" + imBoard + "/ao/StartTrigger" 0
+	tempStr = fDAQmx_ErrorString ()
+	if (cmpStr (tempStr, "") != 0)
+		DoAlert 0, "COnfiguration for trigger 1 pulse failed"
+		print tempStr
+	endif
+	NVAR polarity =  root:packages:twoP:acquire:Trig2Polarity
+	NVAR duration = root:packages:twoP:acquire:Trig2Duration
+	DAQmx_CTR_OutputPulse /DEV=ePhysBoard /SEC={duration, duration} /IDLE =(!polarity) /NPLS=1 /KEEP=1 /STRT=1/TRIG="/" + imBoard + "/ao/StartTrigger" 1
+	tempStr = fDAQmx_ErrorString ()
+	if (cmpStr (tempStr, "") != 0)
+		DoAlert 0, "COnfiguration for trigger 1 pulse failed"
+		print tempStr
+	endif
 end
 
 
@@ -1032,3 +1131,5 @@ Function twoP_PrefsMakePanel()
 	SetVariable Trig2DurationSetVar,limits={-inf,inf,0.0001},value=root:Packages:twoP:Acquire:Trig2Duration, disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "SetVariable Trig2DurationSetVar 0;")
 end
+
+

@@ -41,7 +41,7 @@ end
 // Inserts include specifications for acquire or examine depending on presence of NIDAQmx functions
 // or removes acquire procedure, if acquire functions are loaded
 // Last modified:
-// 2016/11/04 by Jamie Boyd - added code to remove stage proc as well
+// 2016/11/04 by Jamie Boyd - added code to include stage proc as well
 // 2016/11/04 by Jamie Boyd - added switch for loading/unloading code
 Function TwoPLoader (hasXOPs)
 	variable hasXOPs
@@ -52,8 +52,8 @@ Function TwoPLoader (hasXOPs)
 		Execute/P/Q/Z "COMPILEPROCEDURES "
 		newPath/O/Q twoPPrefsPath SpecialDirPath("Igor Pro User Files" , 0, 0, 0) + "User Procedures:twoPhoton"
 		Execute/P/Q/Z "twoP_PrefsLoad (\"twoPPrefs_default\") "
-		Execute/P/Q/Z "twoP_PrefsMakePanel()"
-		//Execute/P/Q/Z "NQ_MakeNidaqPanel (1)"
+		Execute/P/Q/Z "twoP_PrefsTest()"
+		Execute/P/Q/Z "NQ_MakeNidaqPanel (1)"
 	else  //Just load  examine
 		Execute/P/Q/Z "INSERTINCLUDE \"twoP_examine\""
 		Execute/P/Q/Z "COMPILEPROCEDURES "

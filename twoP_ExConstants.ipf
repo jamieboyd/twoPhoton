@@ -11,6 +11,7 @@ Constant kSingleImage = 2
 Constant kLineScan = 3
 Constant kZSeries = 4
 Constant kePhysOnly = 5
+COnstant kMultiAq = 6
 // bit widht of images, used when making displays for histograms and slider, etc.
 // either 12 for old school PCI boards or 16 for some new PCIe boards
 constant kNQimageBits = 12
