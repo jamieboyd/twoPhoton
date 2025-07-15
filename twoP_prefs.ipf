@@ -1,11 +1,18 @@
 ﻿#pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2025/07/10 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2025/07/13 by Jamie Boyd.
 #pragma IgorVersion = 7
 
 #include "GUIPControls"
+#include "GUIPprotoFuncs"
 
+
+Menu "Macros"
+	Submenu "twoP" 
+		"Edit Acquire Preferences", /Q, twoP_PrefsMakePanel()
+	end
+end
 constant kTwoPPrefsVers = 110 // Preferences structure version number
 
 // **************************************************************************************************************
@@ -650,7 +657,7 @@ end
 
 // **************************************************************************************************************
 // calls function to check the vaidity of the loaded preference values
-// Last modified 2025/07/10 by Jamie Boyd
+// Last modified 2025/07/13 by Jamie Boyd
 Function twoP_PrefsCheckButtonProc(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 
@@ -678,6 +685,7 @@ Function twoP_PrefsTest()
 		sprintf tempStr, "The specified imaging board, \"%s\", is not present in the system.\r", imBoard
 		Doalert 0, tempStr
 	else
+		fDAQmx_ResetDevice(imBoard)
 		DAQmx_DeviceInfo /DEV=imBoard
 		string/G root:packages:twoP:acquire:imageBoardClass = S_NIDeviceCategory
 		SVAR boardClass = root:packages:twoP:acquire:imageBoardClass
@@ -728,6 +736,7 @@ Function twoP_PrefsTest()
 		sprintf tempStr, "The specified ePhys board, \"%s\", is not present in the system.\r", ePhysBoard
 		Doalert 0,tempStr
 	else
+		fDAQmx_ResetDevice(ePhysBoard)
 		DAQmx_DeviceInfo /DEV=ePhysBoard
 		SVAR BoardClass = root:packages:twoP:acquire:ePhysBoardClass
 		BoardClass = S_NIDeviceCategory
@@ -749,7 +758,6 @@ Function twoP_PrefsTest()
 	endif
 	NVAR polarity =  root:packages:twoP:acquire:Trig1Polarity
 	NVAR duration = root:packages:twoP:acquire:Trig1Duration
-	fDAQmx_CTR_Finished(ePhysBoard, 0)
 	DAQmx_CTR_OutputPulse /DEV=ePhysBoard /SEC={duration, duration} /IDLE =(!polarity) /NPLS=1 /KEEP=1 /STRT=1/TRIG="/" + imBoard + "/ao/StartTrigger" 0
 	tempStr = fDAQmx_ErrorString ()
 	if (cmpStr (tempStr, "") != 0)
@@ -758,7 +766,6 @@ Function twoP_PrefsTest()
 	endif
 	NVAR polarity =  root:packages:twoP:acquire:Trig2Polarity
 	NVAR duration = root:packages:twoP:acquire:Trig2Duration
-	fDAQmx_CTR_Finished(ePhysBoard, 0)
 	DAQmx_CTR_OutputPulse /DEV=ePhysBoard /SEC={duration, duration} /IDLE =(!polarity) /NPLS=1 /KEEP=1 /STRT=1/TRIG="/" + imBoard + "/ao/StartTrigger" 1
 	tempStr = fDAQmx_ErrorString ()
 	if (cmpStr (tempStr, "") != 0)
@@ -1125,3 +1132,5 @@ Function twoP_PrefsMakePanel()
 	SetVariable Trig2DurationSetVar,limits={-inf,inf,0.0001},value=root:Packages:twoP:Acquire:Trig2Duration, disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "SetVariable Trig2DurationSetVar 0;")
 end
+
+

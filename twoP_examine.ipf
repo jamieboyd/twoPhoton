@@ -139,7 +139,7 @@ Function NQ_MakeExamineFolder ()
 //	Variable/G root:Packages:twoP:examine:scanCount //used for naming the traces on the waterfall plot
 //	Make/T/O/n=0 root:Packages:twoP:examine:scanListWave
 //BMB edit
-	
+	make/o/t/n=1 root:Packages:twoP:examine:scanListWave
 	// Variables for Nidaq Traces Graph ROI deltaF processing
 	variable/g root:Packages:twoP:examine:startffordeltaf =0		//The range of points at in the ROI wave used for determining the  "F"  used for calculating "deltaF" is stored in these two variables
 	variable/g root:Packages:twoP:examine:endffordeltaf =5
@@ -2374,41 +2374,6 @@ End
 //********************************************************************************************
 // Calls histogram button procedure when checked/uncheked
 // last modified Jul 14 2010 by Jamie Boyd
-Function NQ_HistChanCheckProc(cba) : CheckBoxControl
-	STRUCT WMCheckboxAction &cba
-
-	switch( cba.eventCode )
-		case 2: // mouse up
-			SVAR  curScan = root:packages:twoP:examine:curScan
-			if (cmpStr (curScan, "LiveWave") == 0)
-				SVAR scanStr =root:packages:twoP:Acquire:LiveModeScanStr
-			else
-				SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-			endif
-			variable imChans =  NumberByKey("imChans", scanStr, ":", "\r") 
-			STRUCT WMButtonAction ba
-			ba.eventCode = 2
-			if (cmpStr (cba.ctrlName, "HistCH1check") == 0)
-				if (cba.checked)
-					if (!(imChans & 1))
-						checkBox HistCH1check, win = twoP_Controls , value = 0
-						return 1
-					endif
-				endif
-				ba.eventMod =2 // shift key for don't do channel 2
-			elseif (cmpStr (cba.ctrlName, "HistCH2check") == 0)
-				if (!(imChans & 2))
-					checkBox HistCH2check, win = twoP_Controls , value = 0
-					return 1
-				endif
-				ba.eventMod =8 // command/ctrl key for don't do channel 1
-			endif
-			NQ_ShowHistogramProc (ba)
-			break
-	endswitch
-
-	return 0
-End
 
 //********************************************************************************************
 // A hook function that saves window size/position on quit and runs the left and right offset draggers on the histogram
@@ -4263,5 +4228,42 @@ Function dsiMapButtonProc(ba) : ButtonControl
 			break
 	endswitch
 	
+	return 0
+End
+
+Function NQ_HistChanCheckProc(cba) : CheckBoxControl
+	STRUCT WMCheckboxAction &cba
+
+	switch( cba.eventCode )
+		case 2: // mouse up
+			SVAR  curScan = root:packages:twoP:examine:curScan
+			if (cmpStr (curScan, "LiveWave") == 0)
+				SVAR scanStr =root:packages:twoP:Acquire:LiveModeScanStr
+			else
+				SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
+			endif
+			print StringByKey("imChans", scanStr, ":", "\r")
+			variable imChans =  itemsinlist(StringByKey("imChans", scanStr, ":", "\r"), ";")
+			STRUCT WMButtonAction ba
+			ba.eventCode = 2
+			if (cmpStr (cba.ctrlName, "HistCH1check") == 0)
+				if (cba.checked)
+					if (!(imChans & 1))
+						checkBox HistCH1check, win = twoP_Controls , value = 0
+						return 1
+					endif
+				endif
+				ba.eventMod =2 // shift key for don't do channel 2
+			elseif (cmpStr (cba.ctrlName, "HistCH2check") == 0)
+				if (!(imChans & 2))
+					checkBox HistCH2check, win = twoP_Controls , value = 0
+					return 1
+				endif
+				ba.eventMod =8 // command/ctrl key for don't do channel 1
+			endif
+			NQ_ShowHistogramProc (ba)
+			break
+	endswitch
+
 	return 0
 End

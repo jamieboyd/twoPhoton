@@ -5,15 +5,11 @@
 #pragma IgorVersion = 7
 
 #include "twoP_Prefs"
-
-
 #include "twoP_examine"
 #include "twoPex_export"
 #include "Stages"
 
 static constant kNQtBufferTime = 5
-STATIC CONSTANT kImageFifoSize = 1e05
-STATIC CONSTANT kImageFifoTransfer = 1e04
 STATIC CONSTANT kNQshutterOpen = 1
 STATIC CONSTANT kNQePhysScalerCh1 =1
 STATIC CONSTANT kNQePhysScalerCh2 =1
@@ -206,7 +202,9 @@ Function NQ_MakeAcquireFolder (overWrite)
 	variable/G root:Packages:twoP:Acquire:ePhysOnlyTime = 30
 	// @@@variable/G root:Packages:twoP:Acquire:ePhysChans =1
 	// multiAq
-	variable/G root:packages:twoP:acquire:multiAqTimeMode =0				// mode is periodic, from a wave of times, start from a trigger 
+	variable/G root:packages:twoP:acquire:multiModeIsMulti = 0
+	variable/G root:packages:twoP:acquire:multiAqScanMode = kTimeSeries
+	variable/G root:packages:twoP:acquire:multiAqTimeMode =kMultiUsePeriod				// mode is periodic, from a wave of times, start from a trigger 
 	variable/G root:packages:twoP:acquire:multiAqiAq =0						// for counting acquisitions
 	variable/G root:packages:twoP:acquire:multiAqnAqs =0
 	string/G root:packages:twoP:acquire:multiAqTimeToNextStr=""   			// time to next scan,counted down and displayed by background task
@@ -221,9 +219,6 @@ Function NQ_MakeAcquireFolder (overWrite)
 	string/G root:packages:twoP:Acquire:multiAqWaveWaveStr = ""			//contains name of text wave with scan times in it.
 	// triggered mode
 	variable/G root:packages:twoP:acquire:multiAqTriggerNum = 10	
-
-		
-	
 	// Trigger Timing Values
 	variable/G root:packages:twoP:Acquire:trig1Check = 0
 	variable/G root:packages:twoP:Acquire:trig2Check = 0
@@ -424,14 +419,14 @@ Function NQ_AddAcquireControls ()
 	// start settings
 	PopupMenu AqExportAtScanEndPop,pos={7.00,667},size={150.00,19.00},proc=NQ_ExportAfterScanPopProc
 	PopupMenu AqExportAtScanEndPop,title="At Scan end"
-	PopupMenu AqExportAtScanEndPop,mode=3,popvalue="Export Scan",value=#"\"Do Nothing;Save Experiment;Export Scan;Export and Delete Scan;Export and Delete Last Scan;\""
+	PopupMenu AqExportAtScanEndPop,mode=1,popvalue="Do Nothing",value=#"\"Do Nothing;Save Experiment;Export Scan;Export and Delete Scan;Export and Delete Last Scan;\""
 	ValDisplay AqPercentCompleteDisplay,pos={3.00,690.00},size={226.00,17.00}
 	ValDisplay AqPercentCompleteDisplay,fSize=12
 	ValDisplay AqPercentCompleteDisplay,limits={0,100,0},barmisc={0,0},mode=3
 	ValDisplay AqPercentCompleteDisplay,value=#"root:packages:twoP:Acquire:PercentComplete"
 	Button AqStartButton,pos={236.00,677.00},size={52.00,29.00},proc=NQ_StartScan
 	Button AqStartButton,title="Start ",help={"Starts or Aborts a Scan."}
-	Button AqStartButton,userdata="MULTI START",fSize=16,fStyle=1
+	Button AqStartButton,userdata="START",fSize=16,fStyle=1
 	Button AqStartButton,fColor=(0,65535,0)
 	CheckBox AqInPutTrigCheck,pos={290.00,677.00},size={51.00,30.00}
 	CheckBox AqInPutTrigCheck,title="On\rtrigger"
@@ -542,10 +537,9 @@ Function NQ_AddAcquireControls ()
 	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "PopupMenu LiveROIRatioBottomPopMenu", "Live;Tser")
 	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "TitleBox LiveROIRatioBottomChanTitle","Live;Tser")
 	// Live mode sepecific
-	SetVariable LiveAvgFramesSetVar,pos={114.00,207.00},size={43.00,18.00}
-	SetVariable LiveAvgFramesSetVar,title="Average per Frame",fSize=12,proc=NQ_SetTimesProc
+	SetVariable LiveAvgFramesSetVar, disable =1, pos={9.00,205.00},size={163.00,18.00},proc=NQ_SetTimesProc
+	SetVariable LiveAvgFramesSetVar,title="Average per Frame",fSize=12
 	SetVariable LiveAvgFramesSetVar,limits={0,inf,1},value=root:Packages:twoP:Acquire:numLiveAvgFrames
-	CheckBox LiveHistCheck,pos={188.00,233.00},size={96.00,15.00},proc=NQ_LiveHistCheckProc
 	CheckBox LiveHistCheck,title="Live Histogram",fSize=12
 	CheckBox LiveHistCheck,variable=root:Packages:twoP:Acquire:liveHistCheck
 	Button Trig1ManualButton,pos={9.00,313.00},size={82.00,20.00}
@@ -713,12 +707,12 @@ Function NQ_AddAcquireControls ()
 	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Multi", "CheckBox MultiTriggerCheck;SetVariable MultiAqTriggerNumSetVar;TitleBox MultiAqTimeToNextTitle;ValDisplay multiAqProgressDisplay;")
 	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Multi", "Button MultiPreMakeButton;Button MultiStartButton;")
 
-	// Call SetTimes Procedure to set the above times to the defaults from the constants
+	// Call SetTimes Procedure to set the above times
 	NQ_SetTimes ()
 	// Init livemode ScanStr, without getting stage, because stage probably hasn't loaded yet
-	STRUCT NQ_ScanStruct s
-	NQ_LoadScanStruct (s, 0)
-	NQ_ScanNoter (s, "root:packages:twoP:Acquire:LiveModeScanStr")
+	//STRUCT NQ_ScanStruct s
+	//NQ_LoadScanStruct (s, 0)
+	//NQ_ScanNoter (s, "root:packages:twoP:Acquire:LiveModeScanStr")
 end
  
 //******************************************************************************************************
@@ -1185,10 +1179,9 @@ end
  
 //*************************************************************************************************************************************
 // Sets the scanMode variable and various options in the control panel
-// Last Modified 2013/08/09 by Jamie Boyd
+// Last Modified 2025/07/13 by Jamie Boyd
 Function NQ_SModeTabControlproc (TC_Struct) : TabControl
 	STRUCT WMTabControlAction &tc_Struct
-	
 	
 	if (TC_Struct.eventCode != 2)
 		return 0
@@ -1199,11 +1192,12 @@ Function NQ_SModeTabControlproc (TC_Struct) : TabControl
 	string tabWin = tc_Struct.win
 	
 	NVAR ScanMode = root:packages:twoP:Acquire:ScanMode
-	if (tab== 6) // multiaq
-		// set scan mode as negative of selected mode in multiAqDataMode popup
-		controlinfo/w=twoP_Controls multiAqDataModePopUp
-		ScanMode = -V_Value
-		// button struct for running button functions
+	NVAR isMulti = root:packages:twoP:acquire:multiModeIsMulti
+	ScanMode = tab
+	if (tab== 6) // multiaq - disable scan start button
+		isMulti  = 1
+		button AqStartButton disable = 2
+		// checkbox struct for running control functions
 		STRUCT WMCheckboxAction cba
 		cba.eventCode = 2
 		// make sure autoincrement is selected and run
@@ -1227,66 +1221,13 @@ Function NQ_SModeTabControlproc (TC_Struct) : TabControl
 			endif
 		endif
 	else
-		ScanMode = tab
+		button AqStartButton disable = 0
+		isMulti  = 0
 	endif
 	//Set Times
-	struct WMSetVariableAction sva
-	sva.eventCode = 2
 	NQ_SetTimes ()
 	return 0
 end
-
-//*************************************************************************************************************************************
-// Makes sure a proper directory is chosen when selecting scan to disk, and that timing globals are set correctly
-// Last Modified 2013/07/30 by Jamie Boyd
-//Function NQ_ScanToDiskCheckProc(cba) : CheckBoxControl
-//	STRUCT WMCheckboxAction &cba
-//
-//	switch( cba.eventCode )
-//		case 2: // mouse up
-//			if (cba.checked)
-//				SVAR dirStr = root:packages:twoP:acquire:scanToDiskDir
-//				STRUCT WMSetVariableAction sva
-//				sva.eventcode =2
-//				sva.sval = dirStr
-//				NQ_FifoDirSetVarProc(sva)
-//			endif
-//			NQ_SetTimes()
-//			break
-//		case -1: // control being killed
-//			break
-//	endswitch
-//
-//	return 0
-//End
-
-//*************************************************************************************************************************************
-// Checks the directory chosen for scan to disk. GIves user a chance to set it if it doesn't exist
-// Last Modified 2013/07/25 by Jamie Boyd
-//Function NQ_FifoDirSetVarProc(sva) : SetVariableControl
-//	STRUCT WMSetVariableAction &sva
-//
-//	switch( sva.eventCode )
-//		case 1: // mouse up
-//		case 2: // Enter key
-//		case 3: // Live update
-//			String sval = sva.sval
-//			SVAR dirStr = root:packages:twoP:acquire:scanToDiskDir
-//			// check if directory exists, or select/make a new directory
-//			GetFileFolderInfo/Q/Z=2/D sval
-//			if (V_Flag == -1) // user cancelled
-//				dirStr = ""
-//				return 1
-//			else
-//				dirStr = S_Path
-//			endif
-//			break
-//		case -1: // control being killed
-//			break
-//	endswitch
-//
-//	return 0
-//End
 
 
 //*************************************************************************************************************************************
@@ -1313,8 +1254,14 @@ End
 Function NQ_SetTimes ()
 	
 	// Globals for scan timing
-	NVAR scanmodeG = root:Packages:twoP:Acquire:ScanMode
-	variable scanMode = abs (scanModeG)
+	variable scanMode
+	NVAR scanmodeG =  root:packages:twoP:Acquire:ScanMode
+	if (scanmodeG == kMultiAq)
+		NVAR multiAqTimeMode = root:packages:twoP:acquire:multiAqTimeMode
+		scanMode = multiAqTimeMode
+	else
+		scanMode = scanmodeG
+	endif
 	if (scanmode == kLineScan)
 		NVAR PixWidth = root:Packages:twoP:acquire:LSWidth
 		NVAR PixHeight = root:Packages:twoP:acquire:LSHeight
@@ -1356,10 +1303,7 @@ Function NQ_SetTimes ()
 		case kTimeSeries:
 			NVAR TFrames = root:Packages:twoP:Acquire:TSeriesFrames
 			NVAR isCyclic = root:packages:twoP:Acquire:isCyclic
-			NVAR scanToDisk = root:packages:twoP:acquire:scanToDisk
-			if (scanToDisk)
-				isCyclic = 0
-			elseif (TFrames * PixWidth * pixHeight > 2^24)
+			if (TFrames * PixWidth * pixHeight > 2^24)
 				isCyclic =1
 				NVAR bufferSize = root:packages:twoP:acquire:tSeriesBufferSize
 				bufferSize = round (kNQtBufferTime/FrameTime)
@@ -1500,9 +1444,9 @@ Function NQ_SetTimes ()
 		endif
 	endif
 	// update Live scan str, without calling stage procedure
-	STRUCT NQ_ScanStruct s
-	NQ_LoadScanStruct (s, 0)
-	NQ_ScanNoter (s, "root:packages:twoP:Acquire:LiveModeScanStr")
+	//STRUCT NQ_ScanStruct s
+	//NQ_LoadScanStruct (s, 0)
+	//NQ_ScanNoter (s, "root:packages:twoP:Acquire:LiveModeScanStr")
 end
 
 //*************************************************************************************************************************************
@@ -2474,127 +2418,166 @@ Function NQ_ResetBoards (FullReset)
 	return 0
 end
 
+
+
+
+
+
 //******************************************************************************************************
 // A structure to hold all the various globals so  that we can pass them easily between functions
 // Last Modified:
-// 2025/07/10 by Jamie Boyd - gonna make a smaller struct specific for each scanning mode, gonna try to break this monolith
+// 2025/07/10 by Jamie Boyd 
 // 2016/11/15 by Jamie Boyd - added support for separate back ground tasks for each channel plus merge
-Structure NQ_ScanStruct_Live
-	
-
-endStructure
 
 Structure NQ_ScanStruct
 // general scan/run settings
-variable scanMode
-variable isMulti
-string newScanName
-string scanNote
-variable overWriteWarn
-variable inPutTrigger
-variable RunTime
-// image settings 
-string scanWavePath // string containing paths to image waves to scan and channels on which to scan them, in NIDAQ format
-string imageBoard
-variable scanChans
-variable scanGain
-variable numFrames
-variable pixHeight
-variable pixWidth
-variable xSV
-variable xEV
-variable YSV
-variable YEV
-// image scaling
-string obj
-variable xImSize
-variable yImSize
-variable xPixSize
-variable yPixSize
-//  image Timing
-variable pixTime
-variable dutyCycle
-variable flybackMode
-variable scanHeadDelay
-variable flybackProp
-variable pixWidthTotal
-variable frameTime
-variable lineTime
-variable scanIsCyclic
-// TimeSeries Specific
-variable scanToDisk
-string FIFODir
-// Live mode specific
-variable liveAvgFrames
-variable liveROISecs
-variable liveHist
-// LineScan specific
-string LSLinkWave
-// stage 
-string stageProc
-string stagePort
-variable xPos
-variable yPos
-variable zPos
-// Z series specific
-variable zStepSize
-variable zAvg
-variable zAvgStackAtOnce
-// ephys
-string ePhysBoard
-variable ePhysChans
-variable ePhysFreq
-variable ePhysGain
-string ePhysPath  // string containing paths to ePhys waves to scan and channels on which to scan them, in NIDAQ format
-variable ePhysIsCyclic
-// triggers
-variable trigChans
-variable trig1Pos
-variable trig2Pos
-// voltage waves
-variable vOutChans
-string vOutWave1
-string vOutWave2
-variable vOutStart // "1 = on Scan Start;2=on Trig 1;"
-// Background task ids - a separate backGround task for each image channel, maybe extend this for ephys?
-variable imageBkgTaskIDs [4]
-variable ephysBkgTaskIDs [16]
+	variable scanMode
+	variable isMulti
+	string newScanName
+	string scanNote
+	variable overWriteWarn
+	variable inPutTrigger
+	variable RunTime
+	// image settings
+	string scanWavePath // string containing paths to image waves to scan and channels on which to scan them, in NIDAQ format "root:twoP_Scans:Scan_000:Scan_000_ch1, 0/DIFF, -5, 5;
+	string imageBoard
+	string scanChans // in the selected channels format 0:ch1;1:ch2;
+	variable numFrames
+	variable pixHeight
+	variable pixWidth
+	variable xSV
+	variable xEV
+	variable YSV
+	variable YEV
+	// image scaling
+	string obj
+	variable xImSize
+	variable yImSize
+	variable xPixSize
+	variable yPixSize
+	//  image Timing
+	variable pixTime
+	variable dutyCycle
+	variable flybackMode
+	variable scanHeadDelay
+	variable flybackProp
+	variable pixWidthTotal
+	variable frameTime
+	variable lineTime
+	variable scanIsCyclic
+	// Live mode specific also T-series for live ROI
+	variable liveAvgFrames
+	variable liveROISecs  // or 0 ifnot doing a live ROI
+	string liveRatioTopChan 	// name of top chan for live ratio, or "" if not doing ratio
+	string liveRatioBottomChan
+	variable liveHist
+	// LineScan specific
+	string LSLinkWave
+	// stage
+	string stageProc
+	string stagePort
+	variable xPos
+	variable yPos
+	variable zPos
+	// Z series specific
+	variable zStepSize
+	variable zAvg
+	variable zAvgStackAtOnce
+	// ephys
+	string ePhysBoard
+	variable ePhysChans
+	variable ePhysFreq
+	string ePhysPath  // string containing paths to ePhys waves to scan and channels on which to scan them, in NIDAQ format
+	variable ePhysIsCyclic
+	// triggers
+	variable trigChans
+	variable trig1Secs
+	variable trig2Secs
+	// voltage waves
+	variable vOutChans
+	string vOutWave1
+	string vOutWave2
+	variable vOutStart // "1 = on Scan Start;2=on Trig 1;"
+	// Background task ids - a separate backGround task for each image channel, maybe extend this for ephys?
+	variable imageBkgTaskIDs [4]
 endStructure
 
 //******************************************************************************************************
 // Reads values appropriate for this scan into the scanStructure, s
-// Last Modified 2025/07/10 by Jamie Boyd
-Function NQ_LoadScanStruct (s, doStage)
+// Last Modified 2025/07/14 by Jamie Boyd
+Function NQ_LoadScanStruct (s)
 	STRUCT NQ_ScanStruct &s
-	variable doStage // set if you wish to update stage positions.
 	
 	// general scan/run settings
-	NVAR scanModeG = root:packages:twoP:Acquire:ScanMode
-	SVAR newScanName = root:Packages:twoP:acquire:NewScanName
-	SVAR ScanNote = root:packages:twoP:acquire:newScanNote
-	NVAR overWriteWarn = root:packages:twoP:acquire:overwriteWarnCheck
-	NVAR inPutTrigger = root:packages:twoP:acquire:inputTriggerCheck
-	NVAR trig1Check = root:Packages:twoP:Acquire:trig1Check
-	NVAR trig2Check = root:Packages:twoP:Acquire:trig2Check
-	s.ScanMode = abs (scanModeG)
-	s.isMulti = (scanModeG <  0)
-	// run time
-	if (s.ScanMode == kePhysOnly)
-		NVAR runTime = root:Packages:twoP:acquire:EphysOnlyTime
-	else
-		NVAR runTime = root:Packages:twoP:acquire:RunTime
-	endif
-	// scan name/note
-	s.runTime = runTime
-	if (s.ScanMode == kLiveMode)
+	NVAR scanMode = root:packages:twoP:Acquire:ScanMode
+	s.ScanMode = scanMode
+	SVAR selImageChanList = root:packages:twoP:acquire:selImageChanList
+	SVAR selePhysChanList = root:packages:twoP:acquire:selePhysChanList
+	if (scanMode == kLiveMode)
 		s.NewScanName = "LiveWave"
+		// Live mode specific
+		controlinfo/w= twoP_Controls LiveAvgCheck
+		if (V_Value == 0)
+			s.liveAvgFrames = 0
+		else
+			NVAR liveAvgFrames = root:Packages:twoP:acquire:numLiveAvgFrames
+			s.liveAvgFrames = liveAvgFrames
+		endif
+		controlinfo/w=twoP_Controls LiveROICheck
+		if (V_Value == 0)
+			s.liveROISecs = 0
+		else
+			NVAR liveROIsecs = root:Packages:twoP:acquire:LiveROIsecs
+			s.liveROISecs = liveROIsecs
+			NVAR liveROIRatioCheck = root:Packages:twoP:Acquire:liveROIRatioCheck
+			//if ((scanChans & 3) != 3)
+			//	liveROIRatioCheck = 0
+			//endif
+		endif
+		controlinfo/w=twoP_Controls LiveHistCheck
+		s.liveHist = V_Value
 	else
+		NVAR isMulti = root:packages:twoP:acquire:multiModeIsMulti
+		s.isMulti = isMulti
+		SVAR newScanName = root:Packages:twoP:acquire:NewScanName
 		s.NewScanName = NewScanName
+		NVAR inPutTrigger = root:packages:twoP:acquire:inputTriggerCheck
+		s.inPutTrigger= inPutTrigger
+		NVAR overWriteWarn = root:packages:twoP:acquire:overwriteWarnCheck
+		s.overWriteWarn = overWriteWarn
+		notebook twoP_Controls#EXPNOTEBOOK getData=2
+		s.scanNote = S_Value
+		if (s.ScanMode == kePhysOnly)
+			NVAR runTime = root:Packages:twoP:acquire:EphysOnlyTime
+			s.runTime = runTime
+			
+			
+		else
+			NVAR runTime = root:Packages:twoP:acquire:RunTime
+			s.runTime = runTime
+		
+		
+		
+		endif
+		NVAR trig1Check = root:Packages:twoP:Acquire:trig1Check
+		NVAR trig2Check = root:Packages:twoP:Acquire:trig2Check
+		
+	
 	endif
-	s.scanNote = scanNote
-	s.overWriteWarn = overWriteWarn
-	s.inPutTrigger= inPutTrigger
-	s.runTime = runTime
+	
+	
+end
+	
+	// ephys settings
+	
+	
+	
+	endif
+	
+	
+	if (s.ScanMode == kLiveMode)
+		
+
 	// Image settings
 	SVAR imageBoard = root:packages:twoP:acquire:imageBoard
 	s.imageBoard = imageBoard
@@ -2684,37 +2667,8 @@ Function NQ_LoadScanStruct (s, doStage)
 				s.liveROISecs = 1
 			endif
 		endif
-		NVAR scanToDisk = root:packages:twoP:acquire:ScanToDisk
-		SVAR fifoDir = root:packages:twoP:acquire:ScanToDiskDir
-		s.scanToDisk = scanToDisk
-		if (scanToDisk)
-			s.FIFODir = fifoDir
-		else
-			s.FIFODir = ""
-		endif
-		// Live mode specific
-		if (s.ScanMode == kLiveMode)
-			controlinfo/w= twoP_Controls LiveAvgCheck
-			if (V_Value == 0)
-				s.liveAvgFrames = 0
-			else
-				NVAR liveAvgFrames = root:Packages:twoP:acquire:numLiveAvgFrames
-				s.liveAvgFrames = liveAvgFrames
-			endif
-			controlinfo/w=twoP_Controls LiveROICheck
-			if (V_Value == 0)
-				s.liveROISecs = 0
-			else
-				NVAR liveROIsecs = root:Packages:twoP:acquire:LiveROIsecs
-				s.liveROISecs = liveROIsecs
-				NVAR liveROIRatioCheck = root:Packages:twoP:Acquire:liveROIRatioCheck
-				if ((scanChans & 3) != 3)
-					liveROIRatioCheck = 0
-				endif
-			endif
-			controlinfo/w=twoP_Controls LiveHistCheck
-			s.liveHist = V_Value
-		endif
+
+		
 		// line scan specific
 		if (s.ScanMode == kLineScan)
 			SVAR LSLinkWaveStr= root:packages:twoP:Acquire:lsLinkWaveStr
@@ -2730,7 +2684,7 @@ Function NQ_LoadScanStruct (s, doStage)
 			s.zAvg = zAvg
 		endif
 	endif // end of image specific
-	if (doStage)
+	if (doStage)  // update stage 
 		// Stage - Call stage doUpdate function so we get accurate values for positions
 		// X and Y position will be the position of the start of the image.
 		// Relative zero (i.e., 0 offset from the current reading of the stage values) is halfway between
@@ -2893,7 +2847,7 @@ end
 // Makes a formatted string containing useful information about the scan and puts it in the provided global str
 // Some variables are used in calculations, and need to be accessed later, some are just for maintaining
 // a record of settings for the user. The latter can be printed with easier to read but harder to parse %W formatting
-// Last Modified 2014/09/18 by Jamie Boyd
+// Last Modified 2025/07/14 by Jamie Boyd
 Function NQ_ScanNoter (s, gStrName)
 	STRUCT NQ_ScanStruct &s
 	string gStrName
@@ -3011,13 +2965,6 @@ Function NQ_ScanNoter (s, gStrName)
 	endfor
 	NoteStr += "\r"
 	// Need to add extra info for ePhys?
-	// info for FIFO scanning
-	NoteStr += "ScanToDisk:"
-	if (s.scanToDisk)
-		NoteStr += "1\r"
-	else
-		NoteStr += "0\r"
-	endif
 	return 0
 end
 
@@ -3076,39 +3023,7 @@ Function NQ_MakeImageScanWaves (s)
 				if (!(dataFolderExists ("root:twoP_Scans:" + s.newScanName)))
 					newDataFolder/O $"root:twoP_Scans:" + s.newScanName
 				endif
-				if (s.ScanToDisk)
-					// FIFO time. Make the FIFO. Remake it everytime, in case selection of channels has changed
-					FIFOStatus /Q NIDAQImageFifo
-					if (V_flag) // already exists
-						KillFIFO NIDAQImageFifo
-					endif
-					NewFifo NIDAQImageFifo 
-					// add channels
-					DataWave_Path = "NIDAQImageFifo;"
-					For (theChannel = 1; theChannel < 3; theChannel +=1)
-						if ((s.ScanChans) & theChannel)	// Then the current channel is selected
-							NewFIFOChan/W/u NIDAQImageFifo, $"ch" + num2str (theChannel), 0, 0.00241,-10,10,""
-							DataWave_Path +=  num2str (theChannel) + ","
-						endif
-					endfor
-					//DataWave_Path = removeending (DataWave_Path, ",")
-					// set sampling rate to something reasonable, although we will be controlling it by counter
-					CtrlFIFO NIDAQImageFifo, deltaT =1e-01
-					// set FIFO size
-					CtrlFIFO NIDAQImageFifo, size= kImageFifoSize
-					// make a file on disk to connect to FIFO
-					string newFolderName = s.FIFODir + s.newScanName
-					NewPath /C/O NIDAQFifoPath, newFolderName
-					NVAR FileRefNum = root:Packages:twoP:Acquire:scanToDiskFileRefNum
-					string newFifoFileName = s.newScanName + ".bin"
-					Open/P=NidaqFIFOPath FileRefNum as newFifoFileName
-					CtrlFIFO NIDAQImageFifo, file=FileRefNum
-					CtrlFIFO NIDAQImageFifo start
-					// ^^^^^ this needs testing
-					//NewPanel/w=(50,50,550,550) as "fifopanel"
-					//Chart MyChart, fifo=NIDAQImageFifo, chans ={0,1},size={500,500}, umode=1, omode=0, smode = 0, ppstrip = 1
-					//chart MyChart color(0)=(65535,0,0 ), color (1) = (0,0,65535)
-				else
+				
 					redimension/n = ((s.PixWidth), (s.PixHeight))root:packages:twoP:examine:scanGraph_ch1,root:packages:twoP:examine:scanGraph_ch2
 					SetScale/P x s.xPos, s.XPixSize, "m", root:packages:twoP:examine:scanGraph_ch1, root:packages:twoP:examine:scanGraph_ch2
 					SetScale/P x s.yPos, s.YPixSize, "m", root:packages:twoP:examine:scanGraph_ch1, root:packages:twoP:examine:scanGraph_ch2
@@ -3172,7 +3087,6 @@ Function NQ_MakeImageScanWaves (s)
 							SetScale d, 0, 2e12-1, "raw A/D", DataWave 
 						endif
 					endfor
-				endif
 				break
 			case kLineScan:
 				For (theChannel = 1; theChannel < 3; theChannel +=1)
@@ -3319,39 +3233,7 @@ Function NQ_MakeEPhysWaves (s)
 	endif
 	try
 		variable ePnts = (s.Runtime * s.EphysFreq) 
-		if (s.ScanToDisk)
-			// FIFO time. Make the FIFO
-			FIFOStatus /Q NIDAQePhysFifo
-			if (V_flag) // already exists
-				KillFIFO NIDAQePhysFifo
-			endif
-			NewFifo NIDAQePhysFifo 
-			eDataWave_Path = "NIDAQePhysFifo;"
-			// add channels
-			For (theChannel = 1; theChannel < 3; theChannel +=1)
-				if ((s.ePhysChans) & theChannel)	// Then the current channel is selected
-					NewFIFOChan/W NIDAQePhysFifo, $"ep" + num2str (theChannel), 0, 0.00241,-10,10,"V"
-					eDataWave_Path += "ep" + num2str (theChannel) + ","
-				endif
-			endfor
-			// set sampling rate
-			CtrlFIFO NIDAQePhysFifo, deltaT =  (1/s.EphysFreq)
-			// set size for fifo for 5 seconds 
-			CtrlFIFO NIDAQePhysFifo size = (5 * s.EphysFreq) 
-			// make a file on disk to connect to FIFO
-			if (s.ScanMode == kEPhysOnly)
-				string newFolderName = s.FIFODir + s.newScanName
-				NewPath /C/O NIDAQFifoPath, newFolderName
-			endif
-			NVAR FileRefNum = root:Packages:twoP:Acquire:ePhysToDiskFileRefNum
-			string newFifoFileName = s.newScanName + "_ephys.bin"
-			Open/P=NidaqFIFOPath FileRefNum as newFifoFileName
-			CtrlFIFO NIDAQePhysFifo, file=FileRefNum
-			CtrlFIFO NIDAQePhysFifo start
-			//display ePhys data
-			NewPanel
-			Chart MyChart, fifo=NIDAQePhysFifo, size={200,100}
-		else
+		
 			For (theChannel = 1; theChannel < 3; theChannel +=1)
 				if (s.ePhysChans & theChannel)	// Then the current channel is selected
 					//Make WaveName
@@ -3390,7 +3272,6 @@ Function NQ_MakeEPhysWaves (s)
 					endif
 				endif
 			endfor
-		endif
 	catch
 		doAlert 0, " Could not make the ePhys Wave: " + GetRTErrMessage()
 		err = GetRTError(1)						// Clear error state
@@ -3488,44 +3369,7 @@ Function NQ_doEphysInit (s)
 		printf  "The \"NQ_doEphysInit\" function failed at position %d. The Error message was:\r%s\r", V_AbortCode, fdaqmx_errorString ()
 		return 1
 	endtry
-	//	try 
-	//		if (s.ScanMode == kePhysOnly)
-				// Export Convert signal to RTSI 2 - where it can be used to start timers for triggers, etc.,  If not doing ephys alone, we'll have a signal from other board to start stuff
-	//			fDAQmx_ConnectTerminals(SourceTerminal, DestTerminal, Invert)
-	//			NidaqError = ftwoP_Select_Signal(s.ePhysBoardslot, ND_RTSI_2, ND_IN_Convert, ND_HIGH_TO_LOW)
-	//			AbortOnValue NidaqError, 1
-	//			// wait for trigger
-	//			if (s.inPutTrigger)
-	//				NidaqError = ftwoP_Select_Signal(s.ePhysBoardslot, ND_OUT_START_TRIGGER, ND_PFI_6, ND_LOW_TO_HIGH)
-	//				AbortOnValue NidaqError, 2
-	//			else
-	//				NidaqError = ftwoP_Select_Signal(s.ePhysBoardslot, ND_OUT_START_TRIGGER, ND_AUTOMATIC, ND_LOW_TO_HIGH)
-	//				abortOnValue NidaqError, 3
-	//			endif
-	//			if (s.ScanToDisk)
-	//				NidaqError =ftwoP_ScanFIFO (s.EphysBoardSlot, s.ePhysGain, s.ePhysPath, (0.5 * s.EphysFreq) , 0, errFuncStr, "")
-	//				AbortOnValue NidaqError, 4
-	//			else
-	//				NidaqError = ftwoP_ScanAsyncStart (s.EphysBoardSlot, s.ePhysGain, s.ePhysPath, 0, endFuncStr, errFuncStr, "")
-	//				AbortOnValue NidaqError, 5
-	//			endif
-	//		else
-	//			// if not doing ephys alone, select trigger signal for Scan starting to be RTSI 1, the signal output by counter 0 from board 1. E-Phys trace will start on the fisrst pixel of the first frame of first image
-	//			NidaqError =ftwoP_Select_Signal(s.ePhysBoardslot, ND_IN_START_TRIGGER, ND_RTSI_1,  ND_LOW_TO_HIGH)
-	//			AbortOnValue NidaqError, 6
-	//			// start ePhys waiting on galvo start
-	//			if (s.ScanToDisk)
-	//				NidaqError =ftwoP_ScanFIFO (s.EphysBoardSlot, s.ePhysGain, s.ePhysPath, (0.5 * s.EphysFreq) , 257, errFuncStr, "")
-	//				AbortOnValue NidaqError, 7
-	//			else
-	//				NidaqError = ftwoP_ScanAsyncStart (s.EphysBoardSlot, s.ePhysGain, s.ePhysPath, 1, endFuncStr, errFuncStr, "")
-	//				AbortOnValue NidaqError, 8
-	//			endif
-	//		endif
-	//	catch
-	//		printf  "The \"NQ_doEphysInit\" function failed at position %d. The Error message was:\r%s\r", V_AbortCode, "" //NQGetErrorString (NidaqError)
-	//		return 1
-	//	endtry
+
 	return 0	// exit with success
 end
 
@@ -3798,10 +3642,64 @@ End
 //******************************************************************************************************
 // Function called by the "Start Scan" Button.
 // Last Modified:
-// 2025/07/11 by Jamie Boyd
+// 2025/07/13 by Jamie Boyd - start buton is start button
 // 2017/08/14  by Jamie Boyd - started adding ePhys stuff back in
 Function NQ_StartScan (ba) : ButtonControl
 	STRUCT WMButtonAction &ba
+	
+	switch( ba.eventCode )
+		case 2: // mouse up
+		// grab scanmode in case user changes it 
+		NVAR scanMode = root:packages:twoP:Acquire:ScanMode
+		NVAR ScanStartMode = root:packages:twoP:Acquire:ScanStartMode
+		ScanStartMode=scanMode
+		//or just lock the tabcontrol to keep user from switching
+		TabControl SmodeTabControl disable=2 
+		// start percent complete going so abort is handled properly right away
+		NVAR percentComplete =root:packages:twoP:Acquire:PercentComplete
+		percentComplete = 0.01
+		// stage
+		SVAR stageProc = root:Packages:twoP:Acquire:StageProc
+		SVAR stagePort = root:packages:twoP:acquire:StagePort
+		STRUCT NQ_ScanStruct s
+		NQ_LoadScanStruct (s, 1)
+		switch (ScanStartMode)
+			case kLiveMode:
+				Button AqStartButton, win = twoP_Controls, title="STOP",fColor=(65535,0,0), proc= twoP_LiveStop
+				NQ_ScanNoter (s, "root:packages:twoP:Acquire:LiveModeScanStr")
+				break
+			case kTimeSeries:
+			
+				break
+				
+			case kSingleImage:
+			
+				break
+			case kZseries:
+				
+				break
+			case KlineScan:
+				break
+				
+			case kePhysOnly:
+				break
+				
+		endSwitch
+		
+		if (ScanStartMode == kLiveMode)
+			
+		else
+			Button AqStartButton title="ABORT", fColor=(65535,65535,0)
+		endif
+		Button AqStartButton, win = twoP_Controls, userData ="Abort:" + num2str (ScanStartMode)
+		
+		
+		
+		
+		
+		break
+	endswitch
+end
 	
 	switch( ba.eventCode )
 		case 2: // mouse up
@@ -3826,7 +3724,7 @@ Function NQ_StartScan (ba) : ButtonControl
 					break
 				case "Start": // starting a new scan
 					
-					// save scan mode in case user flips tabcontrol before stopping scan
+					// save scan mode in case user flips tabcontrol before stopping scan, or just disable
 					ScanStartMode = scanMode
 					TabControl SmodeTabControl disable=2
 					// Change Start button color to yellow to show we are show initializing a scan, and update userData to "abort"
@@ -3853,7 +3751,6 @@ Function NQ_StartScan (ba) : ButtonControl
 							errPos=2
 							err = NQ_MakeEphysWaves (s);AbortOnValue (err), errPos 
 						endif
-						if (S.ScanToDisk ==0)
 							if (s.ScanMode == kePhysOnly)
 								NQ_NewTracesGraph (s.NewScanName)
 							else
@@ -3877,7 +3774,6 @@ Function NQ_StartScan (ba) : ButtonControl
 										endif
 									endif
 								endif
-							endif
 							// if doing Z, move focus  to correct location
 							if (s.ScanMode == kZSeries) 
 								// set the focus to the first Z
@@ -4049,11 +3945,8 @@ Function NQ_ScanInit (s)
 		
 		Switch (s.ScanMode)
 			case kTimeSeries:				
-				if (s.ScanToDisk)
-					errPos =5
-					//NidaqError =ftwoP_ScanFIFO (s.ImageBoardSlot, s.scanGain, s.scanWavePath, kImageFifoTransfer, 392 ,ScanErrStr, "") // maybe add 256?
-					//AbortOnValue NidaqError,0
-				else
+				
+				
 					if (s.scanIsCyclic)
 						errPos =6
 						DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/ao/SampleClock", 1}/PAUS={"/" + s.imageBoard + "/Ctr1InternalOutput", 1, 0, 0}/RPTC/RPTH=RPTCstr/ERRH= ScanErrStr WAVES = s.scanWavePath;ABORTONRTE
@@ -4062,7 +3955,7 @@ Function NQ_ScanInit (s)
 						errPos=7
 						DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/ao/SampleClock", 1}/PAUS={"/" + s.imageBoard + "/Ctr1InternalOutput", 1, 0, 0}/ERRH= ScanErrStr/EOSH=ScanEndStr WAVES = s.scanWavePath;ABORTONRTE
 					endif
-				endif
+				
 				break
 			case kLineScan:
 				if (s.scanIsCyclic)
@@ -4181,13 +4074,10 @@ Function NQ_Tseries_Bkg(s)
 	variable flybackMode = numberbykey ("flybackMode", scanStr, ":", "\r")
 	variable CurFramePos = min (numFrames-1, max (0,  floor(((ticks-startTime)/60)/frameTime)-1))
 	NVAR LiveRoiCheck = root:packages:twoP:acquire:LiveRoiCheck
-	NVAR scanToDisk = root:packages:twoP:acquire:scanToDisk
 	
 	PercentComplete = 100 * (curFramePos + 2)/numFrames
 	if (PercentComplete >= 100)
-		if (scanToDisk)
-			//NQ_ScanEnd (kTimeSeries, 0)
-		endif
+
 		return 1
 	else
 		if (LiveROICheck)
@@ -4626,17 +4516,10 @@ Function  NQ_ScanEnd (scanMode, ScanIsAbort)
 				//err = fDAQmx_CTR_Finished(imageBoard, 0);ABORTONVALUE (err), errPos
 				//errPos = 3
 				err = fDAQmx_CTR_Finished(imageBoard, 1);ABORTONVALUE (err), errPos
-				// stop the fifo if using a FIFO
-				NVAR scanToDisk = root:packages:twoP:acquire:scanToDisk
-				//				NVAR fileRefNum = root:Packages:twoP:Acquire:scanToDiskFileRefNum
-				//				if (scanToDisk)
-				//					CtrlFIFO NIDAQImageFifo, flush
-				//					CtrlFIFO NIDAQImageFifo, stop
-				//					killfifo NIDAQImageFifo
-				//				endif
-				// Stop the scan manually if an abort/live mode end, a zSeries end with repeated scanning, or a fifof
+
+				// Stop the scan manually if an abort/live mode end, a zSeries end with repeated scanning,
 				NVAR isCyclic =  root:packages:twoP:acquire:isCyclic
-				if ((((ScanIsAbort) || (scanToDisk)) || (scanMode == kzSeries)) || (ScanMode == kTimeSeries && (isCyclic)))
+				if (((ScanIsAbort)  || (scanMode == kzSeries)) || (ScanMode == kTimeSeries && (isCyclic)))
 					errPos = 7
 					err=fDAQmx_ScanStop(ImageBoard);ABORTONVALUE (err), errPos
 				endif
@@ -4657,31 +4540,7 @@ Function  NQ_ScanEnd (scanMode, ScanIsAbort)
 			NVAR trig1check = root:packages:twoP:Acquire:trig1Check
 			NVAR trig2check = root:packages:twoP:Acquire:trig2Check
 			if (ePhysChans)
-				//				// stop the fifo if using a FIFO
-				//				NVAR scanToDisk = root:packages:twoP:acquire:scanToDisk
-				//				NVAR fileRefNUm = root:Packages:twoP:Acquire:ePhysToDiskFileRefNum
-				//				if (scanToDisk)
-				//					fNidaq_ScanFIFOStop(EphysBoardSlot)
-				//					killfifo NIDAQePhysFifo
-				//				endif
-				//				if (ScanIsAbort)
-				//					fNIDAQ_ResetScan(EPhysBoardSlot)
-				//				endif
-				//			// Stop the voltage pulse waveform generator
-				//			if (voltagePulseChans)
-				//			NidaqError = fNIDAQ_WFReset(EphysBoardSlot)
-				//			AbortOnValue NidaqError, 10
-				//			//			endif
-				//			//Disarm the counters for the triggers
-				//			if (trig1check)
-				//				//NidaqError = ftwoP_GPCTR_Control(ephysboardSlot, ND_COUNTER_0, ND_RESET)
-				//				AbortOnValue NidaqError, 11
-				//			endif
-				//			if (trig2check)
-				//				//NidaqError = ftwoP_GPCTR_Control(ephysboardSlot, ND_COUNTER_1, ND_RESET)
-				//				AbortOnValue NidaqError, 12
-				//			endif
-			endif
+		endif
 		catch
 			printf "NQ_ScanEnd had an error shutting at position %d. The NIDAQ error message was was:\r%s\r", errPos, fDAQmx_ErrorString()
 		endtry
@@ -4747,7 +4606,6 @@ Function  NQ_ScanEnd (scanMode, ScanIsAbort)
 			case kTimeSeries:
 			
 				
-				if (scanToDisk ==0)
 					if (!(isCyclic))
 						if (scanChans & 1)
 							WAVE dataWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch1"
@@ -4772,7 +4630,6 @@ Function  NQ_ScanEnd (scanMode, ScanIsAbort)
 							setscale/p z zPos, frameTime, "s", dataWave
 						endif
 					endif
-				endif
 				break
 			case kSingleImage: // do Kalman averaging
 				// stop background task
@@ -5310,8 +5167,8 @@ Function NQ_MultiAqDataModePopMenuProc(pa) : PopupMenuControl
 
 	switch( pa.eventCode )
 		case 2: // mouse up
-			NVAR scanMode=root:packages:twoP:Acquire:ScanMode
-			scanMode = -pa.popNum
+			NVAR multiAqScanMode =  root:packages:twoP:acquire:multiAqScanMode
+			multiAqScanMode = pa.popNum
 			//Set Times
 			NQ_SetTimes ()
 			break
