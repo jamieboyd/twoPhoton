@@ -6141,3 +6141,171 @@ Function NQ_SetLiveChansPopMenuProc(pa) : PopupMenuControl
 	endswitch
 	return 0
 End
+
+
+Function NQ_TrigSecsProc(sva) : SetVariableControl
+	STRUCT WMSetVariableAction &sva
+
+	if (sva.eventCode ==8 ||sva.eventCode == 1)
+		if (cmpStr (sva.ctrlname, "Trig1SecsSetvar") ==0)
+			NVAR delayFrames = root:packages:twoP:acquire:delayFrames1
+			NVAR delayLines = root:packages:twoP:acquire:delayLines1
+		elseif (cmpStr (sva.ctrlname, "Trig2SecsSetvar") ==0)
+			NVAR delayFrames = root:packages:twoP:acquire:delayFrames2
+			NVAR delayLines = root:packages:twoP:acquire:delayLines2
+		endif
+		NVAR scanMode = root:packages:twoP:acquire:scanMode
+		if (scanMode ==  kTimeSeries)
+			NVAR frameTime = root:packages:twoP:acquire:frameTime
+			delayFrames = floor (sva.dval/frameTime)
+			NQ_SetTimes()
+		elseif (scanMode ==  kLineScan)
+			NVAR lineTime = root:packages:twoP:acquire:lineTime				
+			delayLines = floor (sva.dval/lineTime)
+			NQ_SetTimes()
+		endif
+			
+	endif
+end
+
+
+
+function testStuff ()
+	//make pixel clock on ctr0, feed it into ctr1, use ctr1 as gate for acquisition, export ai/scanClock
+	//DAQmx_CTR_OutputPulse /DEV="PCI6023" /FREQ={100, 0.5} /NPLS=0 /OUT="/PCI6023/ctr0out" /strt =1 0
+	
+	
+	// feed it into ctr1,
+	DAQmx_CTR_OutputPulse/DEV="PCI6023"/FREQ={100, 0.25} /OUT="/PCI6023/ctr1out" 1
+	//print fDAQmx_ConnectTerminals("/PCI6023/ctr1Source", "/PCI6023/PFI3", 0)
+	
+	print fDAQmx_ConnectTerminals("/PCI6023/ai/sampleClock", "/PCI6023/PFI7", 0)
+	
+	//print fDAQmx_ConnectTerminals("/PCI6023/ai/sampleClock", "/PCI6023/PFI7", 0)
+	DAQmx_Scan/DEV="PCI6023" /BKG=1 /PAUS={"/PCI6023/Ctr1InternalOutput", 1, 0, 0} WAVES = "tData,0;"
+	
+	
+	print fdaqmx_errorString()
+	
+	
+end
+
+
+
+
+Function NQ_MultiStartProc(ba) : ButtonControl
+	STRUCT WMButtonAction &ba
+
+	switch( ba.eventCode )
+		case 2: // mouse up
+			variable errVar
+			try
+				// make sure autoincrement is selected
+				NVAR autincCheck = root:packages:twoP:acquire:autincCheck
+				abortOnValue (autIncCheck == 0), 0
+				// make sure export path is set, if exporting after each scan
+				NVAR exportafterscan = root:packages:twoP:acquire:exportAfterScan
+				if (exportafterscan > 1)
+					SVAR PathStr =root:Packages:twoP:examine:ExportPath		// the global string were we store the path
+					pathinfo ExportPath
+					AbortOnValue ((V_Flag ==0) || (cmpstr (S_path, PathStr) !=0)), 1// path does not exits or is not the same as shown in the string
+				endif
+				// Set scan mode to chosen multi mode
+				NVAR scanMode = root:packages:twoP:acquire:scanMode
+				NVAR multiAqScanMode =  root:packages:twoP:acquire:multiAqScanMode
+				scanMode = multiAqScanMode
+				// update multiAq timing globals
+				NVAR iAq = root:packages:twoP:acquire:multiAqiAq
+				NVAR nAqs = root:packages:twoP:acquire:multiAqnAqs
+				iAq =0
+				NVAR multiMode = root:packages:twoP:acquire:multiAqTimeMode
+				string theTask
+				switch (multiMode)
+					case kMultiUsePeriod:   // make a wave from the periods and use Wave method
+						NVAR multiAqPeriodNum = root:packages:twoP:acquire:multiAqPeriodNum
+						nAqs = multiAqPeriodNum
+						SVAR periodStr = root:Packages:twoP:Acquire:multiAqPeriodPeriodStr
+						variable period=NQ_MultiReadTimeStr(periodStr) 
+						SVAR delayStr =root:packages:twoP:acquire:multiAqPeriodDelayStr
+						variable delay =NQ_MultiReadTimeStr(delayStr)
+						make/o/n= (nAqs) root:packages:twoP:acquire:multiAqWaves:maq_seconds
+						WAVE maq_seconds = root:packages:twoP:acquire:multiAqWaves:maq_seconds
+						maq_seconds [0]=delay
+						maq_seconds [1,nAqs -1] = delay +p*period
+						// no break
+					case kMultiUseWave:
+						if (multiMode == kMultiUseWave)
+							SVAR multiWaveName = root:packages:twoP:Acquire:multiAqWaveWaveStr
+							WAVE/t/z multiWave = $"root:packages:twoP:acquire:multiAqWaves:" + multiWaveName
+							abortOnValue (!(waveExists (multiWave))), 3
+							nAqs = numpnts(multiWave)
+							make/o/n= (nAqs) root:packages:twoP:acquire:multiAqWaves:maq_Period
+							WAVE maq_seconds = root:packages:twoP:acquire:multiAqWaves:maq_seconds
+							maq_seconds = NQ_MultiReadTimeStr (multiWave[p])
+						endif
+						NVAR MultiAqStartTime = root:packages:twoP:acquire:MultiAqStartTime				// when scan was started
+						NVAR MultiAqNextTime = root:packages:twoP:acquire:MultiAqNextTime
+						MultiAqStartTime = dateTime
+						MultiAqNextTime = MultiAqStartTime + maq_seconds [0]
+						break
+					case kMultiUseTrigger:
+						NVAR inputTrigger = root:packages:twoP:acquire:inputTriggerCheck
+						abortOnValue (inputTrigger != 1), 2
+						NVAR multiAqTriggerNum = root:packages:twoP:acquire:multiAqTriggerNum
+						nAqs =multiAqTriggerNum
+						break
+				endswitch
+				// adjust multi-aq controls
+				NVAR curNum = root:Packages:twoP:Acquire:NewScanNum
+				variable/G root:packages:twoP:acquire:StartScanNum = curNum
+				ValDisplay multiAqProgressDisplay win = twoP_Controls, limits={(curNum),(curNum + nAqs -1),(curNum)}
+				ValDisplay multiAqProgressDisplay value=#"root:packages:twoP:acquire:multiAqiAq + root:packages:twoP:acquire:StartScanNum"
+			catch
+				switch (V_abortCode)
+					case 0:
+						doAlert 0,  "Autoincrementing must be enabled for multi-acquisition."
+						break
+					case 1:
+						doAlert 0, "The export path must be set when saving scans during multi-acquisition."
+						break
+					case 2:
+						doAlert 0, "Input trugger must be selected for multi-aquisition with input trigger."
+						break
+					case 3:
+						doAlert 0, "Selected multiple acquisition timing wave does not exist."
+						break
+				endSwitch
+				return 1
+			endTry
+			TabControl SmodeTabControl disable=2
+			Button AqStartButton disable=2
+			CtrlNamedBackground multAqBKG, period=20, proc=NQ_MultiBkg, start
+			Button MultiStartButton, win = twoP_Controls_new, fColor=(65280,65280,0), title = "Abort Multi", proc = NQ_Muli_AbortProc
+
+			break
+		case -1: // control being killed
+			break
+	endswitch
+
+	return 0
+End
+
+
+Function NQ_Muli_AbortProc(ba) : ButtonControl
+	STRUCT WMButtonAction &ba
+
+	switch( ba.eventCode )
+		case 2: // mouse up
+			TabControl SmodeTabControl disable=0
+			Button MultiStartButton, win = twoP_Controls_new, fColor=(65280,65280,0), title = "Start Multi", proc = NQ_Muli_StartProc
+			// cleanup code here
+		break
+		case -1: // control being killed
+			break
+	endswitch
+
+	return 0
+end
+
+
+•redimension/w/n = (200*200*2) root:twoP_Scans:Scan_000:Scan_000_ch1;DAQmx_Scan /DEV="PCI6023"/BKG WAVES ="root:twoP_Scans:Scan_000:Scan_000_ch1, 0/DIFF, -10, 10, 1, 100"
