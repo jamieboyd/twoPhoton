@@ -1,11 +1,10 @@
 ﻿#pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2025/07/13 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2025/07/10 by Jamie Boyd.
 #pragma IgorVersion = 7
 
 #include "GUIPControls"
-#include "GUIPprotoFuncs"
 
 
 Menu "Macros"
@@ -430,7 +429,7 @@ Function twoP_PrefsMakeGlobals ()
 	chanSelList [*] [1] = 2	 // channel name, editable
 	chanSelList [*] [2] = 0 // not editable -have to use popMenu for PDIFF,RSE, etc.
 	chanSelList [*] [3] = 0 // not editable -have to use popMenu for gains
-	chanSelList [*] [4,5] = 6 // scaling and offset
+	chanSelList [*] [4,5] = 6 // scaling and offset not used for images
 	chanList [*] [0] = num2str(p) // ao channel numbers
 	chanList [*] [4] = num2str (1) // scaling = 1
 	chanList [*] [5] = num2str (0) // offset = 0
@@ -480,7 +479,7 @@ Function twoP_PrefsMakeGlobals ()
 	chanSelList [*] [1] = 2	 // channel name, editable
 	chanSelList [*] [2] = 0 // not editable -have to use popMenu for PDIFF,RSE, etc.
 	chanSelList [*] [3] = 0 // not editable -have to use popMenu for gains
-	chanSelList [*] [4,5] = 6 // scaling and offset
+	chanSelList [*] [4,5] = 6 // scaling and offset not used for images
 	chanList [*] [0] = num2str(p) // ao channel numbers
 	chanList [0] [1] = "CHAN_NAME"
 	chanList [0] [2] = "A2D_TYPE"
