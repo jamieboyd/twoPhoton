@@ -905,24 +905,6 @@ End
 // *************************************************************************************************
 // sets strings for Top and Botttom channel names used in ratio for live rois
 // Last Modified 2025/07/10 by Jamie Boyd - new channel selection metho
-Function NQ_SetLiveChansPopMenuProc(pa) : PopupMenuControl
-	STRUCT WMPopupAction &pa
-	switch( pa.eventCode )
-		case 2: // mouse up
-			if (cmpStr (pa.ctrlName, "LiveROIRatioTopPopMenu")==0)
-				SVAR chan=root:Packages:twoP:Acquire:LiveROItopChan
-			elseif (cmpStr (pa.ctrlName, "LiveROIRatioBottomPopMenu")==0)
-				SVAR chan=root:Packages:twoP:Acquire:LiveROIBottomChan
-			endif
-			chan = pa.popStr
-			Variable popNum = pa.popNum
-			String popStr = pa.popStr
-			break
-		case -1: // control being killed
-			break
-	endswitch
-	return 0
-End
 
 //******************************************************************************************************
 // Updates global variable for ephys channels
@@ -2465,12 +2447,16 @@ Structure NQ_ScanStruct
 	variable frameTime
 	variable lineTime
 	variable scanIsCyclic
-	// Live mode specific also T-series for live ROI
+	// Live mode specific 
 	variable liveAvgFrames
-	variable liveROISecs  // or 0 ifnot doing a live ROI
+	variable liveHist
+	//live but also T-series for live ROI
+	variable liveROI // set if doing live roi
+	variable liveROISecs  // or 0 if not doing a live ROI
+	variable liveRatio	// set if doing live ratio
 	string liveRatioTopChan 	// name of top chan for live ratio, or "" if not doing ratio
 	string liveRatioBottomChan
-	variable liveHist
+	
 	// LineScan specific
 	string LSLinkWave
 	// stage
@@ -2508,34 +2494,42 @@ endStructure
 Function NQ_LoadScanStruct (s)
 	STRUCT NQ_ScanStruct &s
 	
-	// general scan/run settings
+	// scan mode
 	NVAR scanMode = root:packages:twoP:Acquire:ScanMode
 	s.ScanMode = scanMode
-	SVAR selImageChanList = root:packages:twoP:acquire:selImageChanList
+	
+	SVAR ephysBoard = root:packages:twoP:acquire:ePhysBoard
+	s.ePhysBoard = ephysBoard
+	
 	SVAR selePhysChanList = root:packages:twoP:acquire:selePhysChanList
-	if (scanMode == kLiveMode)
-		s.NewScanName = "LiveWave"
-		// Live mode specific
-		controlinfo/w= twoP_Controls LiveAvgCheck
-		if (V_Value == 0)
-			s.liveAvgFrames = 0
-		else
-			NVAR liveAvgFrames = root:Packages:twoP:acquire:numLiveAvgFrames
-			s.liveAvgFrames = liveAvgFrames
-		endif
-		controlinfo/w=twoP_Controls LiveROICheck
-		if (V_Value == 0)
-			s.liveROISecs = 0
-		else
+	
+	
+
+	// Live ROI
+	if ((scanmode == kLiveMode) || (scanMode == kTimeSeries))
+		NVAR liveROICheck =  root:Packages:twoP:Acquire:liveROICheck
+		s.liveROI = liveROICheck
+		if (liveROICheck)
 			NVAR liveROIsecs = root:Packages:twoP:acquire:LiveROIsecs
 			s.liveROISecs = liveROIsecs
 			NVAR liveROIRatioCheck = root:Packages:twoP:Acquire:liveROIRatioCheck
-			//if ((scanChans & 3) != 3)
-			//	liveROIRatioCheck = 0
-			//endif
+			if (liveROIRatioCheck)
+				SVAR topChan = root:Packages:twoP:Acquire:liveROItopChan
+				SVAR bottomChan = root:Packages:twoP:Acquire:liveROIBottomChan
+				if ((cmpStr (bottomChan, "") ==0) || (cmpStr (bottomChan, "") !=0)) 
+					liveROIRatioCheck = 0
+				else
+					s.liveRatioTopChan = topChan
+					s.liveRatioBottomChan = bottomChan
+				endif
+			endif
+			s.liveRatio = liveROIRatioCheck
 		endif
-		controlinfo/w=twoP_Controls LiveHistCheck
-		s.liveHist = V_Value
+	endif
+
+	// Scan name and general checks for imaging and/or ephys not applicable to live mode
+	if (scanMode == kLiveMode)
+		s.NewScanName = "LiveWave"
 	else
 		NVAR isMulti = root:packages:twoP:acquire:multiModeIsMulti
 		s.isMulti = isMulti
@@ -2549,38 +2543,77 @@ Function NQ_LoadScanStruct (s)
 		s.scanNote = S_Value
 		if (s.ScanMode == kePhysOnly)
 			NVAR runTime = root:Packages:twoP:acquire:EphysOnlyTime
-			s.runTime = runTime
-			
-			
 		else
 			NVAR runTime = root:Packages:twoP:acquire:RunTime
-			s.runTime = runTime
-		
-		
-		
 		endif
+		s.runTime = runTime
+	endif
+	
+	// board and channels for imaging and/or ephys
+	if (scanMode != kEPhysOnly)
+		SVAR imageBoard = root:packages:twoP:acquire:imageBoard
+		s.imageBoard = imageBoard
+		SVAR selImageChanList = root:packages:twoP:acquire:selImageChanList
+		WAVE/T chanList = root:packages:twoP:acquire:imChanList
+		variable iChan, nChans = itemsinlist (selImageChanList, ";")
+		if (nCHans == 0)
+			doAlert 0, "Select some image channels before starting."
+			return 1
+		endif
+		string ai_chanName, ai,chanName, type, range
+		s.scanWavePath = ""
+		for (iChan=0; iChan < nChans;iChan +=1)
+			ai_chanName = stringFromList(iChan, selImageChanList,";")
+			ai = stringFromList (0, ai_chanName)
+			chanName = stringFromList (1, ai_chanName)
+			type = chanList [str2num(ai)] [2]
+			range =  chanList [str2num(ai)] [3]
+			if (scanMode == kLiveMode)
+				s.scanWavePath +="root:packages:twoP:acquire:LiveWave" + ":_" + chanName
+			else
+				s.scanWavePath += "root:twoP_Scans:" + s.NewScanName + ":_" + chanName
+			endif
+			s.scanWavePath += ", " + ai + "/" + type +", -" +  range + ", " + range + ";"
+		endfor
+	endif	
+		
+		NVAR curObjNUm = root:packages:twoP:acquire:CurObjNum
+	
+	
+	
+	
+	// Live mode specific - average frames and live histogram
+	if (scanMode == kLiveMode)
+		s.NewScanName = "LiveWave"
+		
+		NVAR liveAvgFrames = root:Packages:twoP:acquire:numLiveAvgFrames
+		s.liveAvgFrames = liveAvgFrames
+		NVAR liveHistCheck = root:Packages:twoP:acquire:liveHistCheck
+		s.liveHist = liveHistCheck
+	endif
+		
+	
+	
+	
+
+	
+		
+
 		NVAR trig1Check = root:Packages:twoP:Acquire:trig1Check
 		NVAR trig2Check = root:Packages:twoP:Acquire:trig2Check
 		
-	
-	endif
+
 	
 	
 end
 	
 	// ephys settings
 	
-	
-	
-	endif
-	
-	
-	if (s.ScanMode == kLiveMode)
+
 		
 
 	// Image settings
-	SVAR imageBoard = root:packages:twoP:acquire:imageBoard
-	s.imageBoard = imageBoard
+	
 	if (s.ScanMode != kePhysOnly)
 		NVAR scanChans = root:Packages:twoP:Acquire:ScanChans
 		NVAR ScanGain = root:Packages:twoP:Acquire:ScanGain
@@ -2893,14 +2926,14 @@ Function NQ_ScanNoter (s, gStrName)
 	NoteStr +=  tempStr
 	// image specific stuff
 	// image channels, bitwise
-	NoteStr += "ImChans:" + num2str (s.scanChans) + "\r"
+	//NoteStr += "ImChans:" + num2str (s.scanChans) + "\r"
 	// channel descriptions, for forwards compatibility
 	NoteStr += "imChanDesc:"
 	variable ii
 	for (ii =1; ii<3; ii+=1)
-		if (ii & s.scanChans)
+		//if (ii & s.scanChans)
 			NoteStr += "ch" + num2str (ii) + ","
-		endif
+		//endif
 	endfor
 	NoteStr += "\r"
 	// stage positions
@@ -2994,7 +3027,7 @@ Function NQ_MakeImageScanWaves (s)
 				// Do we need multiple frames for timing issues
 				NVAR nLiveFrames = root:packages:twoP:acquire:nLiveFrames
 				For (theChannel =0 ; theChannel < nChannels; theChannel +=1)
-					if (s.ScanChans & (2^theChannel))	// Then the current channel is selected
+					if (1)//s.ScanChans & (2^theChannel))	// Then the current channel is selected
 						// Make the wave we will acquire into directly, but not display. The waves
 						// we acquire into directly need to be kept 1-Dimensional thanks to a nidattoolsmx update
 						theWaveName = "root:packages:twoP:acquire:LiveAcq_ch" + num2str (theChannel + 1)
@@ -3033,7 +3066,7 @@ Function NQ_MakeImageScanWaves (s)
 						s.numFrames = ceil (s.numFrames / bufferSize) * bufferSize
 					endif
 					For (theChannel = 0; theChannel < nChannels; theChannel +=1)
-						if ((s.ScanChans) & (2^theChannel))	// Then the current channel is selected
+						if (1)//(s.ScanChans) & (2^theChannel))	// Then the current channel is selected
 							// don't kill this wave
 							dontKill +=  s.NewScanName + "_ch" + num2str (theChannel + 1) + ";"
 							//Make WaveName
@@ -3090,7 +3123,7 @@ Function NQ_MakeImageScanWaves (s)
 				break
 			case kLineScan:
 				For (theChannel = 1; theChannel < 3; theChannel +=1)
-					if ((s.ScanChans) & theChannel)	// Then the current channel is selected
+					if(1)// ((s.ScanChans) & theChannel)	// Then the current channel is selected
 						// don't kill this wave
 						dontKill +=  s.NewScanName + "_ch" + num2str (theChannel + 1) + ";"
 						//Make WaveName
@@ -3148,7 +3181,7 @@ Function NQ_MakeImageScanWaves (s)
 				endif
 				variable/G root:packages:twoP:acquire:zAvgStackAtOnce = s.zAvgStackAtOnce
 				For (theChannel = 0; theChannel < nCHannels; theChannel +=1)
-					if ((s.ScanChans) & (2^theChannel))	// Then the current channel is selected
+					if (1) //(s.ScanChans) & (2^theChannel))	// Then the current channel is selected
 						// don't kill this wave
 						dontKill +=  s.NewScanName + "_ch" + num2str (theChannel + 1) + ";"
 						//Make WaveName
@@ -3326,7 +3359,7 @@ Function NQ_doTriggers (s)
 		try
 			For (thetrig = 1; thetrig < 3; thetrig += 1)
 				if (s.trigChans&theTrig)
-					trigDelay =SelectNumber(thetrig -1,  s.trig1Pos, s.trig2Pos)
+					//trigDelay =SelectNumber(thetrig -1,  s.trig1Pos, s.trig2Pos)
 				//@@@	DAQmx_CTR_OutputPulse /DEV=s.ePhysBoard/SEC={kNQtrigWidth, kNQtrigWidth} /IDLE=0/DELY=(trigDelay) /NPLS=1/STRT=1/TRIG="/" + s.imageBoard + "/ao/StartTrigger" (thetrig -1) ; AbortOnRTE
 
 			endif
@@ -3662,7 +3695,7 @@ Function NQ_StartScan (ba) : ButtonControl
 		SVAR stageProc = root:Packages:twoP:Acquire:StageProc
 		SVAR stagePort = root:packages:twoP:acquire:StagePort
 		STRUCT NQ_ScanStruct s
-		NQ_LoadScanStruct (s, 1)
+		NQ_LoadScanStruct (s)
 		switch (ScanStartMode)
 			case kLiveMode:
 				Button AqStartButton, win = twoP_Controls, title="STOP",fColor=(65535,0,0), proc= twoP_LiveStop
@@ -4409,7 +4442,7 @@ Function NQ_MakeLROIGraph (s)
 	endif
 	variable nAxes = 0
 	string axisStr = ""
-	if (s.ScanChans & 1)
+	if (1)//s.ScanChans & 1)
 		WAVE LROIWave1 = Root:Packages:twoP:acquire:LroiWave_ch1
 		if (s.ScanMode == kLiveMode)
 			redimension/n= (s.liveROISecs/s.FrameTime) LROIWave1
@@ -4421,7 +4454,7 @@ Function NQ_MakeLROIGraph (s)
 		axisStr [0]= "ch1;"
 		nAxes += 1
 	endif
-	if (s.scanChans & 2)
+	if (1) //s.scanChans & 2)
 		WAVE LROIWave2 = Root:Packages:twoP:acquire:LroiWave_ch2
 		if (s.ScanMode == kLiveMode)
 			redimension/n= (s.liveROISecs/s.FrameTime) LROIWave2
@@ -5292,9 +5325,9 @@ Function NQ_MultiPreMakeProc(ba) : ButtonControl
 			variable iAq
 			// load the scan struct with values for next scan
 			STRUCT NQ_ScanStruct s
-			NQ_LoadScanStruct (s, 1)
+			NQ_LoadScanStruct (s)
 			for (iAq=0; iAq < nAqs; iAq +=1)
-				if (s.scanChans)
+				if (1) // @@@ s.scanChans)
 					NQ_MakeImageScanWaves (s)
 				endif
 				if (s.ePhysChans)
@@ -5673,7 +5706,7 @@ function NQ_StartBKGThreads (s)
 	// make threads, one per channel
 	variable iChan, nChans=2
 	for (iChan =0; iChan < nChans; iChan +=1)
-		if (s.scanChans & (2^iChan))
+		if (1) // @@@ s.scanChans & (2^iChan))
 			bkgThreadIDs [iChan] = ThreadGroupCreate(1)
 			// make a new data folder, copy over needed global variables
 			newdatafolder/o/s root:packages:twoP:acquire:bkgStartFldr
@@ -6090,3 +6123,21 @@ Function NQ_MultiAqTimeSetVarProc(sva) : SetVariableControl
 	endswitch
 	return 0
 end
+
+
+Function NQ_SetLiveChansPopMenuProc(pa) : PopupMenuControl
+	STRUCT WMPopupAction &pa
+	switch( pa.eventCode )
+		case 2: // mouse up
+			if (cmpStr (pa.ctrlName, "LiveROIRatioTopPopMenu")==0)
+				SVAR chan=root:Packages:twoP:Acquire:LiveROItopChan
+			elseif (cmpStr (pa.ctrlName, "LiveROIRatioBottomPopMenu")==0)
+				SVAR chan=root:Packages:twoP:Acquire:LiveROIBottomChan
+			endif
+			chan = stringFromList (1, pa.popStr,":")
+			break
+		case -1: // control being killed
+			break
+	endswitch
+	return 0
+End
