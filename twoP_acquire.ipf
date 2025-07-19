@@ -254,7 +254,7 @@ Function NQ_MakeAcquireFolder (overWrite)
 	variable/G root:packages:twoP:acquire:expSize = NQ_GetExpSize ()
 	return 0
 end
-
+		
 		
 function/S twoP_listActiveChans (type)
 	variable type
@@ -2461,7 +2461,7 @@ Structure NQ_ScanStruct
 	variable ePhysFreq
 	variable ePhysIsCyclic
 	// triggers
-	//variable trigChans	// old-style bitwise, 1 for ctr 0, 2 for ctr 1, 3 for both
+	variable trigChans	// old-style bitwise, 1 for ctr 0, 2 for ctr 1, 3 for both
 	variable trig1Secs	// seconds to delay, already converted from frames, or lines
 	variable trig2Secs
 	// voltage waves
@@ -2665,7 +2665,7 @@ Function NQ_LoadScanStruct (s)
 		// triggers
 		NVAR trig1Check = root:Packages:twoP:Acquire:trig1Check
 		NVAR trig2Check = root:Packages:twoP:Acquire:trig2Check
-		//s.trigChans = (trig1Check) + 2*(trig2Check)
+		s.trigChans = (trig1Check) + 2*(trig2Check)
 		if (trig1Check)
 			NVAR DelaySecs = root:Packages:twoP:Acquire:DelaySecs1
 			s.trig1Secs = DelaySecs
