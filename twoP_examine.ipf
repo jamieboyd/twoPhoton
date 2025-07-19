@@ -1,6 +1,6 @@
 #pragma rtGlobals=3
 #pragma IgorVersion = 6.2
-#pragma version = 2.0  // Last Modified 2017/08/14 by Jamie Boyd
+#pragma version = 2.1  // Last Modified 2025/07/20 by Jamie Boyd
 
 #include <SaveRestoreWindowCoords>
 #include "twoP_ExConstants"
@@ -232,74 +232,83 @@ Function NQ_AddExamineControls ()
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Setvariable ScanNumSetVar 0;Popupmenu ScansPopMenu 0;Titlebox CurScanTitleBox 0;",applyAbleState=1)
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "TitleBox DateTimeTitleBox 0;Titlebox ChannnelsTitleBox 0;Listbox WaveNoteListBox 0;", applyAbleState=1)
 	// Histogram
-	Button ShowHistButton win = twoP_Controls, disable=able,pos={6,143},size={84,16},proc=NQ_ShowHistogramProc,title="Histogram",fSize=12
-	CheckBox HistFrameCheck win = twoP_Controls, disable=able,pos={109,140},size={85,15},proc=NQ_HistCheckProc,title="This Frame"
-	CheckBox HistFrameCheck win = twoP_Controls,fSize=12,value= 1,mode=1
-	CheckBox HistStackCheck win = twoP_Controls, disable=able,pos={109,158},size={92,15},proc=NQ_HistCheckProc,title="Whole Stack"
-	CheckBox HistStackCheck win = twoP_Controls,fSize=12,value= 0,mode=1
-	CheckBox HistCH1check win = twoP_Controls, disable=able,pos={218,140},size={76,15},proc=NQ_HistChanCheckProc,title="Channel 1"
-	CheckBox HistCH1check win = twoP_Controls,fSize=12,value= 1
-	CheckBox HistCH2check  win = twoP_Controls, disable=able, pos={218,158},size={76,15},proc=NQ_HistChanCheckProc,title="Channel 2"
-	CheckBox HistCH2check win = twoP_Controls,fSize=12,value= 0
+	Button ShowHistButton,win = twoP_Controls, disable=able,pos={11.00,145.00},size={84.00,16.00},proc=NQ_ShowHistogramProc
+	Button ShowHistButton, win = twoP_Controls, disable=able,title="Histogram",fSize=12
+	CheckBox HistFrameCheck win = twoP_Controls, disable=able,pos={205.00,145.00},size={49.00,15.00},proc=NQ_HistCheckProc
+	CheckBox HistFrameCheck win = twoP_Controls, disable=able,title="Frame",fSize=12,value=1,mode=1
+	CheckBox HistStackCheck win = twoP_Controls,disable=able,pos={272.00,145.00},size={44.00,15.00},proc=NQ_HistCheckProc
+	CheckBox HistStackCheck win = twoP_Controls,disable=able,title="Stack",fSize=12,value=0,mode=1
+	CheckBox HistCH1check win = twoP_Controls,disable=able, pos={99.00,145.00},size={58.00,15.00},proc=NQ_HistChanCheckProc
+	CheckBox HistCH1check win = twoP_Controls,title="Chans 1",fSize=12,value=1,side=1
+	CheckBox HistCH2check win = twoP_Controls, disable=able,pos={163.00,145.00},size={25.00,15.00},proc=NQ_HistChanCheckProc
+	CheckBox HistCH2check win = twoP_Controls,title=" 2",fSize=12,value=1,side=1
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Button ShowHistButton 0;CheckBox HistFrameCheck 0;CheckBox HistStackCheck 0;", applyAbleState=1)
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "CheckBox HistCH1check 0;CheckBox HistCH2check 0", applyAbleState=1)
 	// Image Appearance
 	// Channel selectors
-	CheckBox LUTChan1Check, win = twoP_Controls, pos={3,197},size={52,14},proc=NQ_ChanForLUTcheckProc,title="Chan 1"
-	CheckBox LUTChan1Check, win = twoP_Controls, userdata=  "LUTChan2Check;",fSize=10,value= 1,mode=1
-	CheckBox LUTChan2Check, win = twoP_Controls, pos={3,212},size={52,14},proc=NQ_ChanForLUTcheckProc,title="Chan 2"
-	CheckBox LUTChan2Check,win = twoP_Controls, userdata=  "LUTChan1Check;",fSize=10,value= 0,mode=1
+	CheckBox LUTChan1Check win = twoP_Controls,disable=able,pos={6.00,172.00},size={47.00,14.00},proc=NQ_ChanForLUTcheckProc
+	CheckBox LUTChan1Check win = twoP_Controls,title="Chan 1",userdata="LUTChan2Check;",fSize=10
+	CheckBox LUTChan1Check win = twoP_Controls,value=0,mode=1,side=1
+	CheckBox LUTChan1Check win = twoP_Controls,value=0,mode=1,side=1
+	CheckBox LUTChan2Check win = twoP_Controls,disable=able,pos={57.00,172.00},size={21.00,14.00},proc=NQ_ChanForLUTcheckProc
+	CheckBox LUTChan2Check win = twoP_Controls,title="2",userdata="LUTChan1Check;",fSize=10
+	CheckBox LUTChan2Check win = twoP_Controls,value=1,mode=1,side=1
 	// LUT popmenu and inverter
-	PopupMenu LUTpopUp  win = twoP_Controls,pos={5,176},size={278,20},proc=NQ_LUTPopMenuProc,title="LUT", fSize=10
-	PopupMenu LUTpopUp  win = twoP_Controls,mode=1,bodyWidth= 256,popvalue="",value= #"\"*COLORTABLEPOPNONAMES*\""
-	CheckBox LUTInvertCheck  win = twoP_Controls,pos={289,178},size={49,14},proc=NQ_LutInvertCheckProc,title="Invert"
-	CheckBox LUTInvertCheck  win = twoP_Controls, fSize=10,variable= root:Packages:twoP:examine:Ch1LUTInvert
-	// LUT setvars
-	SetVariable LUTFirstValueSetVar  win = twoP_Controls,pos={70,201},size={77,15},proc=NQ_LUTValsSetVarProc,title="First"
-	SetVariable LUTFirstValueSetVar  win = twoP_Controls,fSize=9,format="%d"
-	SetVariable LUTFirstValueSetVar  win = twoP_Controls,limits={1,(2^kNQimageBits)-2,1},value= root:Packages:twoP:examine:Ch1FirstLUTColor
-	SetVariable LUTLastValueSetVar  win = twoP_Controls,pos={158,201},size={72,15},proc=NQ_LUTValsSetVarProc,title="Last"
-	SetVariable LUTLastValueSetVar  win = twoP_Controls,fSize=9,format="%d"
-	SetVariable LUTLastValueSetVar  win = twoP_Controls,limits={1,(2^kNQimageBits)-2,1},value= root:Packages:twoP:examine:Ch1LastLUTColor
-	// adjust first/last to data range
-	Button LUTtoDataButton  win = twoP_Controls,pos={240,199},size={42,20},proc=NQ_LUTtoDataProc,title="to Data",fSize=10
-	CheckBox LUT96check  win = twoP_Controls,pos={290,202},size={42,14},proc=NQ_LUT96CheckProc,title="96%"
-	CheckBox LUT96check  win = twoP_Controls,fSize=10,value= 0
-	// LUT Sliders
-	Slider LUTFirstValSlider  win = twoP_Controls,pos={5,229},size={277,16},proc=NQ_LUTValSliderProc,fSize=10
-	Slider LUTFirstValSlider  win = twoP_Controls,limits={17,(2^kNQimageBits)-2,1},variable= root:Packages:twoP:examine:Ch1FirstLUTColor,vert= 0,ticks= 0,thumbColor= (0,0,52224)
-	Slider LUTLastValSlider  win = twoP_Controls,pos={5,225},size={277,16},proc=NQ_LUTValSliderProc,fSize=10
-	Slider LUTLastValSlider  win = twoP_Controls,limits={17,(2^kNQimageBits)-2,1},variable= root:Packages:twoP:examine:Ch1LastLUTColor,side= 2,vert= 0,ticks= 0,thumbColor= (65280,0,0)
+	PopupMenu LUTpopUp win = twoP_Controls,disable=able,pos={89.00,169.00},size={198.00,19.00},bodyWidth=178,proc=NQ_LUTPopMenuProc
+	PopupMenu LUTpopUp win = twoP_Controls,title="LUT",fSize=10
+	PopupMenu LUTpopUp,mode=1,value=#"\"*COLORTABLEPOPNONAMES*\""
+	CheckBox LUTInvertCheck win = twoP_Controls,disable=able,pos={293.00,172.00},size={41.00,14.00},proc=NQ_LutInvertCheckProc
+	CheckBox LUTInvertCheck win = twoP_Controls,title="Invert",fSize=10
+	CheckBox LUTInvertCheck win = twoP_Controls,variable=root:packages:twoP:examine:Ch2LUTInvert
 	// Auto LUT checkbox
-	CheckBox LUTautoCheck  win = twoP_Controls,pos={291,226},size={37,14},proc=NQ_LUTAutoCheckProc,title="auto"
-	CheckBox LUTautoCheck  win = twoP_Controls,variable= root:Packages:twoP:examine:Ch1LUTAuto
+	CheckBox LUTautoCheck win = twoP_Controls,disable=able,pos={6.00,197.00},size={40.00,15.00},proc=NQ_LUTAutoCheckProc
+	CheckBox LUTautoCheck win = twoP_Controls,title="auto"
+	CheckBox LUTautoCheck win = twoP_Controls,variable=root:packages:twoP:examine:ch2LUTauto
+	// LUT slider
+	CustomControl LUTslider,pos={3.00,222.00},size={333.00,30.00},proc=MinMaxSlider_thumbFunc
+	CustomControl LUTslider,userdata=A"!!<6!!\"&`oz7=Xe,!!N?&5uCTF!\"&]5z!CHlT7=Xe,!!!!$"
+	CustomControl LUTslider,userdata(FUNCSTR)="NQ_LUTSliderAction",frame=0
+	CustomControl LUTslider,focusRing=0
+	// LUT first/last setvars
+	SetVariable LUTFirstValueSetVar win = twoP_Controls,disable=able,pos={72.00,197.00},size={73.00,15.00},proc=NQ_LUTValsSetVarProc
+	SetVariable LUTFirstValueSetVar win = twoP_Controls,title="First",fSize=9,format="%d"
+	SetVariable LUTFirstValueSetVar win = twoP_Controls,limits={1,4094,1},value=root:packages:twoP:examine:Ch2FirstLUTColor
+	SetVariable LUTLastValueSetVar win = twoP_Controls,disable=able,pos={151.00,197.00},size={72.00,15.00},proc=NQ_LUTValsSetVarProc
+	SetVariable LUTLastValueSetVar win = twoP_Controls,title="Last",fSize=9,format="%d"
+	SetVariable LUTLastValueSetVar win = twoP_Controls,limits={1,4094,1},value=root:packages:twoP:examine:Ch2LastLUTColor
+	// adjust first/last to data range
+	Button LUTtoDataButton win = twoP_Controls,disable=able,pos={229.00,196.00},size={41.00,19.00},proc=NQ_LUTtoDataProc
+	Button LUTtoDataButton win = twoP_Controls,title="to Data",fSize=10
+	CheckBox LUT96check win = twoP_Controls,disable=able,pos={284.00,198.00},size={34.00,14.00},proc=NQ_LUT96CheckProc
+	CheckBox LUT96check win = twoP_Controls,title="96%",fSize=10,value=0
 	// Before First color adjustments
-	TitleBox LUTBeforeFirstTitle win = twoP_Controls ,pos={4,251},size={83,12},title="Before First Use "
-	TitleBox LUTBeforeFirstTitle win = twoP_Controls ,fSize=10,frame=0
-	CheckBox LUTBeforeUseFirstCheck win = twoP_Controls ,pos={96,250},size={43,14},proc=NQ_LutBeforeModeCheckProc,title="First"
-	CheckBox LUTBeforeUseFirstCheck win = twoP_Controls ,fSize=10,value= 0,mode=1
-	CheckBox LUTBeforeUseColorCheck win = twoP_Controls ,pos={154,250},size={16,14},proc=NQ_LutBeforeModeCheckProc,title=""
-	CheckBox LUTBeforeUseColorCheck win = twoP_Controls ,fSize=12,value= 1,mode=1
-	PopupMenu LUTBeforeColorPopUp win = twoP_Controls ,pos={170,247},size={50,20},proc=NQ_BeforeColorPopMenuProc
-	PopupMenu LUTBeforeColorPopUp win = twoP_Controls ,fSize=10
-	PopupMenu LUTBeforeColorPopUp win = twoP_Controls ,mode=122,popColor= (0,15872,65280),value= #"\"*COLORPOP*\""
-	CheckBox LUTBeforeUseTransCheck win = twoP_Controls ,pos={249,250},size={78,14},proc=NQ_LutBeforeModeCheckProc,title="Transparent"
-	CheckBox LUTBeforeUseTransCheck win = twoP_Controls ,fSize=10,value= 0,mode=1
+	TitleBox LUTBeforeFirstTitle win = twoP_Controls,disable=able,pos={4.00,259.00},size={70.00,12.00}
+	TitleBox LUTBeforeFirstTitle win = twoP_Controls,title="Before First Use ",fSize=10,frame=0
+	CheckBox LUTBeforeUseFirstCheck win = twoP_Controls,disable=able,pos={83.00,258.00},size={33.00,14.00},proc=NQ_LutBeforeModeCheckProc
+	CheckBox LUTBeforeUseFirstCheck win = twoP_Controls,title="First",fSize=10,value=0,mode=1
+	CheckBox LUTBeforeUseColorCheck win = twoP_Controls,disable=able,pos={132.00,258.00},size={14.00,14.00},proc=NQ_LutBeforeModeCheckProc
+	CheckBox LUTBeforeUseColorCheck win = twoP_Controls,title="",fSize=12,value=1,mode=1
+	PopupMenu LUTBeforeColorPopUp win = twoP_Controls,disable=able,pos={148.00,255.00},size={50.00,19.00},proc=NQ_BeforeColorPopMenuProc
+	PopupMenu LUTBeforeColorPopUp win = twoP_Controls,fSize=10
+	PopupMenu LUTBeforeColorPopUp win = twoP_Controls,mode=122,popColor=(0,0,65535),value=#"\"*COLORPOP*\""
+	CheckBox LUTBeforeUseTransCheck win = twoP_Controls,disable=able,pos={222.00,258.00},size={66.00,14.00},proc=NQ_LutBeforeModeCheckProc
+	CheckBox LUTBeforeUseTransCheck win = twoP_Controls,title="Transparent",fSize=10,value=0,mode=1
 	// After Last color adjustments
-	TitleBox LUTAfterLastTitle win = twoP_Controls ,pos={15,273},size={68,12},title="After Last Use"
-	TitleBox LUTAfterLastTitle win = twoP_Controls ,fSize=10,frame=0
-	CheckBox LUTAfterUseLastCheck win = twoP_Controls ,pos={96,272},size={38,14},proc=NQ_LutAfterModeCheckProc,title="Last"
-	CheckBox LUTAfterUseLastCheck win = twoP_Controls ,fSize=10,value= 0,mode=1
-	CheckBox LUTAfterUseColorCheck win = twoP_Controls,pos={154,273},size={21,14},proc=NQ_LutAfterModeCheckProc,title=" "
-	CheckBox LUTAfterUseColorCheck win = twoP_Controls,value= 0,mode=1
-	PopupMenu LUTAfterColorPopUp win = twoP_Controls ,pos={170,269},size={50,20},proc=NQ_AfterColorPopMenuProc,fSize=10
-	PopupMenu LUTAfterColorPopUp win = twoP_Controls ,mode=1,popColor= (65535,0,0),value= #"\"*COLORPOP*\""
-	CheckBox LUTAfterUseTransCheck win = twoP_Controls ,pos={249,272},size={78,14},proc=NQ_LutAfterModeCheckProc,title="Transparent"
-	CheckBox LUTAfterUseTransCheck win = twoP_Controls ,fSize=10,value= 0,mode=1
+	TitleBox LUTAfterLastTitle win = twoP_Controls,disable=able,pos={4.00,275.00},size={59.00,12.00}
+	TitleBox LUTAfterLastTitle win = twoP_Controls,title="After Last Use",fSize=10,frame=0
+	CheckBox LUTAfterUseLastCheck win = twoP_Controls,disable=able,pos={83.00,274.00},size={33.00,14.00},proc=NQ_LutAfterModeCheckProc
+	CheckBox LUTAfterUseLastCheck win = twoP_Controls,title="Last",fSize=10,value=0,mode=1
+	CheckBox LUTAfterUseColorCheck win = twoP_Controls,pos={132.00,274.00},size={19.00,15.00},proc=NQ_LutAfterModeCheckProc
+	CheckBox LUTAfterUseColorCheck win = twoP_Controls,title=" ",value=1,mode=1
+	PopupMenu LUTAfterColorPopUp win = twoP_Controls,disable=able,pos={148.00,272.00},size={50.00,19.00},proc=NQ_AfterColorPopMenuProc
+	PopupMenu LUTAfterColorPopUp win = twoP_Controls,fSize=10
+	PopupMenu LUTAfterColorPopUp win = twoP_Controls,mode=1,popColor=(65535,0,0),value=#"\"*COLORPOP*\""
+	CheckBox LUTAfterUseTransCheck win = twoP_Controls,disable=able,pos={222.00,274.00},size={66.00,14.00},proc=NQ_LutAfterModeCheckProc
+	CheckBox LUTAfterUseTransCheck win = twoP_Controls,title="Transparent",fSize=10,value=0,mode=1
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Button ShowHistButton 0;Checkbox HistFrameCheck 0;Checkbox HistStackCheck 0;Checkbox HistCH1check 0;",applyAbleState=1)
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Checkbox HistCH2check 0;Popupmenu LUTpopUp 0;Checkbox LUTInvertCheck 0;Checkbox LUTChan1Check 0;",applyAbleState=1)
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Checkbox LUTChan2Check 0;Setvariable LUTFirstValueSetVar 0;Setvariable LUTLastValueSetVar 0;",applyAbleState=1)
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Button LUTtoDataButton 0;Checkbox LUT96check 0;Slider LUTFirstValSlider 0;Slider LUTLastValSlider 0;",applyAbleState=1)
+	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Button LUTtoDataButton 0;Checkbox LUT96check 00;CustomControl LUTslider 0",applyAbleState=1)
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Titlebox LUTBeforeFirstTitle 0;Checkbox LUTBeforeUseFirstCheck 0;Checkbox LUTBeforeUseColorCheck 0;",applyAbleState=1)
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Popupmenu LUTBeforeColorPopUp 0;Titlebox LUTAfterLastTitle 0;Checkbox LUTBeforeUseTransCheck 0;",applyAbleState=1)
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Checkbox LUTAfterUseLastCheck 0;Checkbox LUTAfterUseColorCheck 0;Popupmenu LUTAfterColorPopUp 0;",applyAbleState=1)
@@ -2074,7 +2083,7 @@ End
 // examine scans panel. The character width is important here depending on your platform. So change it as necessary. Inelegant, but it's the best you get right now
 // Last Modified:
 // 2016/11/24 by Jamie Boyd
-STATIC CONSTANT NQNOTECHARWID = 44	// Must match the width of our listbox, in characters. If your text is spilling past the end of the line, set CharWid smaller
+STATIC CONSTANT NQNOTECHARWID = 38	// Must match the width of our listbox, in characters. If your text is spilling past the end of the line, set CharWid smaller
 
 function NQ_showNote (ScanStrName)
 	string ScanStrName
@@ -2195,14 +2204,13 @@ Function NQ_MakeHistGraph (scanChans, curScan)
 		rightxCh2 = Ch2Last
 		appendtograph/W=twoP_HistGraph leftyCh1 vs leftxCh1
 		appendtograph/W=twoP_HistGraph/r leftyCh2 vs leftxCh2
-		modifygraph/W=twoP_HistGraph rgb (ImRangeLeftyCh1) = (0,0,65535), lsize(ImRangeLeftyCh1)=2,quickdrag(ImRangeLeftyCh1)=1, live (ImRangeLeftyCh1)=1
-		modifygraph/W=twoP_HistGraph rgb (ImRangeLeftyCh2) = (0,0,65535), lsize(ImRangeLeftyCh2)=2,quickdrag(ImRangeLeftyCh2)=1, live (ImRangeLeftyCh2)=1
+		modifygraph/W=twoP_HistGraph rgb (ImRangeLeftyCh1) = (0,0,65535), lsize(ImRangeLeftyCh1)=2
+		modifygraph/W=twoP_HistGraph rgb (ImRangeLeftyCh2) = (0,0,65535), lsize(ImRangeLeftyCh2)=2
 		appendtograph/W=twoP_HistGraph rightyCh1 vs rightxCh1
 		appendtograph/W=twoP_HistGraph/r rightyCh2 vs rightxCh2
-		modifygraph/W=twoP_HistGraph rgb (ImRangerightyCh1) = (65535,0,0), lsize(ImRangerightyCh1)=2,quickdrag(ImRangerightyCh1)=1
-		modifygraph/W=twoP_HistGraph rgb (ImRangerightyCh2) = (65535,0,0), lsize(ImRangerightyCh2)=2,quickdrag(ImRangerightyCh2)=1
+		modifygraph/W=twoP_HistGraph rgb (ImRangerightyCh1) = (65535,0,0), lsize(ImRangerightyCh1)=2
+		modifygraph/W=twoP_HistGraph rgb (ImRangerightyCh2) = (65535,0,0), lsize(ImRangerightyCh2)=2
 		label bottom "Raw A/D Value"
-		setwindow twoP_HistGraph hook(winHook) = NQ_HistGraph_Hook, hookevents = 3
 		controlbar 22
 		CheckBox LinearCheck,pos={4,2},size={53,16},proc=NQ_HistAxisCheckProc,title="Linear"
 		CheckBox LinearCheck,fSize=12,value= 1,mode=1
@@ -2375,95 +2383,12 @@ End
 // Calls histogram button procedure when checked/uncheked
 // last modified Jul 14 2010 by Jamie Boyd
 
-//********************************************************************************************
-// A hook function that saves window size/position on quit and runs the left and right offset draggers on the histogram
-// last modified AUg 31 2011 by Jamie Boyd
-Function NQ_HistGraph_Hook (s)
-	STRUCT WMWinHookStruct &s
 
-	Variable hookResult = 0
-	Switch (s.eventCode)
-		case 2: // kill
-			// save window size
-			WC_WindowCoordinatesSave(s.winName)//SaveWinPosStr (s.winName)
-			hookResult = 1
-			break
-		case 4:
-		case 5: //mouseup
-			NVAR Ch1First = root:Packages:twoP:examine:Ch1FirstLUTColor
-			NVAR Ch1Last = root:Packages:twoP:examine:Ch1LastLUTColor
-			NVAR Ch2First = root:Packages:twoP:examine:Ch2FirstLUTColor
-			NVAR Ch2Last = root:Packages:twoP:examine:Ch2LastLUTColor
-			WAVE leftyCh1 = root:Packages:twoP:examine:ImRangeLeftyCh1
-			WAVE leftxCh1 = root:Packages:twoP:examine:ImRangeLeftxCh1
-			WAVE leftyCh2 = root:Packages:twoP:examine:ImRangeLeftyCh2
-			WAVE leftxCh2 = root:Packages:twoP:examine:ImRangeLeftxCh2
-			WAVE rightyCh1 = root:Packages:twoP:examine:ImRangerightyCh1
-			WAVE rightxCh1 = root:Packages:twoP:examine:ImRangerightxCh1
-			WAVE rightyCh2 = root:Packages:twoP:examine:ImRangerightyCh2
-			WAVE rightxCh2 = root:Packages:twoP:examine:ImRangerightxCh2
-			variable needUpdate = 0
-			string traces = TraceNameList("twoP_HistGraph", ";", 1)
-			if (WhichListItem("ImRangeLeftyCh1", traces, ";") > -1)
-				string tempstr = stringbykey ( "offset(x)", TraceInfo("twoP_HistGraph", "ImRangeLeftyCh1", 0 ),"=", ";")
-				variable ep = strsearch(tempstr, ",", 0 )
-				variable offset = str2num(tempstr [1, ep])
-				if (offset != 0)
-					needUpdate = 1
-					leftxCh1 += offset
-					Ch1First = max (1, leftxCh1 [0])
-					leftxCh1 =Ch1First
-					ModifyGraph offset(ImRangeLeftyCh1)={0,0}
-				endif
-				tempstr = stringbykey ( "offset(x)", TraceInfo("twoP_HistGraph", "ImRangeRightyCh1", 0 ),"=", ";")
-				ep = strsearch(tempstr, ",", 0 )
-				Offset = str2num(tempstr [1, ep])
-				if (offset != 0)
-					needUpdate = 1
-					rightxCh1 += offset
-					Ch1Last = min ((2^kNQimageBits)-2, rightxCh1 [0])
-					rightxCh1 = ch1Last
-					ModifyGraph offset(ImRangeRightyCh1)={0,0}
-				endif
-			endif
-			if (WhichListItem("ImRangeLeftyCh2", traces, ";") > -1)
-				tempstr = stringbykey ( "offset(x)", TraceInfo("twoP_HistGraph", "ImRangeLeftyCh2", 0 ),"=", ";")
-				ep = strsearch(tempstr, ",", 0 )
-				offset = str2num(tempstr [1, ep])
-				if (offset != 0)
-					needUpdate = 2
-					leftxCh2 += offset
-					Ch2First = max (1, leftxCh2 [0])
-					leftxCh2 = Ch2First
-					ModifyGraph offset(ImRangeLeftyCh2)={0,0}
-				endif
-				tempstr = stringbykey ( "offset(x)", TraceInfo("twoP_HistGraph", "ImRangeRightyCh2", 0 ),"=", ";")
-				ep = strsearch(tempstr, ",", 0 )
-				offset = str2num(tempstr [1, ep])
-				if (offset != 0)
-					needUpdate = 2
-					rightxCh2  += offset
-					Ch2Last = min ((2^kNQimageBits)-2, rightxCh2 [0])
-					rightxCh2 = Ch2Last
-					ModifyGraph offset(ImRangeRightyCh2)={0,0}
-				endif
-			endif
-			if (needUpdate)
-				NVAR showMerge = root:packages:twoP:examine:showMerge
-				NQ_ApplyImSettings (needUpdate + showMerge * 4)
-				hookResult = 1
-			endif
-			break
-		default:
-			// 0 if nothing done, else 1 or 2
-	endswitch
-	return hookResult
-End
 
 //********************************************************************************************
 // Function for the Channel radio buttons. When a channel is selected, it loads appropriate 
 // global variables for that channel and adjusts controls to show/edit LUT settings for that channel 
-// Last Modified May 27 2009 by Jamie
+// Last Modified 2025/07/20 by Jamie Boyd - new LUT slider
 Function NQ_ChanForLUTcheckProc(cba) : CheckBoxControl
 	STRUCT WMCheckboxAction &cba
 
@@ -2482,9 +2407,14 @@ Function NQ_ChanForLUTcheckProc(cba) : CheckBoxControl
 				// adjust First and Last color SetVariables
 				setvariable LUTFirstValueSetVar win=twoP_Controls, variable =root:Packages:twoP:examine:Ch1FirstLUTColor
 				setvariable LUTLastValueSetVar win=twoP_Controls, variable =root:Packages:twoP:examine:Ch1LastLUTColor
-				// Adjust First and last sliders
-				Slider LUTFirstValSlider win=twoP_Controls, variable= root:Packages:twoP:examine:Ch1FirstLUTColor
-				Slider LUTLastValSlider win=twoP_Controls, variable= root:Packages:twoP:examine:Ch1LastLUTColor
+				// Adjust MinMax slider
+				NVAR ch1FirstCol = root:Packages:twoP:examine:Ch1FirstLUTColor
+				NVAR ch1LastCol = root:Packages:twoP:examine:Ch1LastLUTColor
+				MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kLeftThumb, ch1FirstCol)
+				MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kRightThumb, ch1LastCol)
+				
+				///Slider LUTFirstValSlider win=twoP_Controls, variable= root:Packages:twoP:examine:Ch1FirstLUTColor
+				//Slider LUTLastValSlider win=twoP_Controls, variable= root:Packages:twoP:examine:Ch1LastLUTColor
 				// Adjust LUT autoCheck
 				checkbox LUTautoCheck win=twoP_Controls, variable = root:packages:twoP:examine:ch1LUTauto
 				// Adjust first color radio buttons and popmenu
@@ -2547,8 +2477,12 @@ Function NQ_ChanForLUTcheckProc(cba) : CheckBoxControl
 				setvariable LUTFirstValueSetVar win=twoP_Controls, variable =root:Packages:twoP:examine:Ch2FirstLUTColor
 				setvariable LUTLastValueSetVar win=twoP_Controls, variable =root:Packages:twoP:examine:Ch2LastLUTColor
 				// Adjust First and last sliders
-				Slider LUTFirstValSlider win=twoP_Controls, variable= root:Packages:twoP:examine:Ch2FirstLUTColor
-				Slider LUTLastValSlider win=twoP_Controls, variable= root:Packages:twoP:examine:Ch2LastLUTColor
+				NVAR ch2FirstCol = root:Packages:twoP:examine:Ch2FirstLUTColor
+				NVAR ch2LastCol = root:Packages:twoP:examine:Ch2LastLUTColor
+				MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kLeftThumb, ch2FirstCol)
+				MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kRightThumb, ch2LastCol)
+				//Slider LUTFirstValSlider win=twoP_Controls, variable= root:Packages:twoP:examine:Ch2FirstLUTColor
+				//Slider LUTLastValSlider win=twoP_Controls, variable= root:Packages:twoP:examine:Ch2LastLUTColor
 				// Adjust LUT autoCheck
 				checkbox LUTautoCheck win=twoP_Controls, variable = root:packages:twoP:examine:ch2LUTauto
 				// Adjust first color radio buttons and popmenu
@@ -2667,7 +2601,7 @@ End
 
 //******************************************************************************************************
 // Function for the LUT first and last values Setvariables.Calls Apply Image settings procedure for selected channel
-// Last Modified Jun 01 2009 by Jamie
+// Last Modified 2025/07/20 by Jamie Boyd
 Function NQ_LUTValsSetVarProc(sva) : SetVariableControl
 	STRUCT WMSetVariableAction &sva
 
@@ -2701,6 +2635,8 @@ Function NQ_LUTValsSetVarProc(sva) : SetVariableControl
 				endif
 				rightWave = LastColor
 			endif
+			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kLeftThumb, FirstColor)
+			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kRightThumb, LastColor)
 			// apply image settings
 			string SubWinList = childwindowlist ("twoPscanGraph")
 			variable hasChan, hasMrg = (WhichListItem("GMRG", SubWinList) > -1)
@@ -2719,7 +2655,65 @@ Function NQ_LUTValsSetVarProc(sva) : SetVariableControl
 	endswitch
 	return 0
 End
+
+//******************************************************************************************************
+// Function for the LUT first and last values Slider.Calls Apply Image settings procedure for selected channel
+// Last Modified 2025/07/20 by Jamie Boyd
+Function NQ_LUTSliderAction (leftThumb, rightThumb, event, thumb)
+	variable leftThumb		// value left thumb is pointing to
+	variable rightThumb	// value right thumb is pointing to
+	variable event			// type of event (thumb up or thumb moved
+	variable thumb			// 1 if a left thumb was just moved or 2 for a right thumb
+	
+	rightThumb = round (rightThumb)
+	leftThumb = round (leftThumb)
+	//check which channel to modify
+	controlinfo/w= twoP_Controls LUTChan1Check
+	if (V_Value== 1) // Channel 1 checked
+		if (thumb == kleftThumb)
+			NVAR FirstColor = root:packages:twoP:examine:CH1FirstLutColor
+			WAVE leftWave = root:Packages:twoP:examine:ImRangeLeftxCh1
+			FirstColor = leftThumb
+			leftWave = leftThumb
+		else
+			NVAR LastColor = root:packages:twoP:examine:CH1LastLutColor
+			WAVE rightWave = root:Packages:twoP:examine:ImRangerightxCh1
+			LastColor = rightThumb
+			rightWave = rightThumb
+		endif
+	else
+		if (thumb == kleftThumb)
+			NVAR FirstColor = root:packages:twoP:examine:CH2FirstLutColor
+			WAVE leftWave = root:Packages:twoP:examine:ImRangeLeftxCh2
+			FirstColor = leftThumb
+			leftWave = leftThumb
+		else
+			NVAR LastColor = root:packages:twoP:examine:CH2LastLutColor
+			WAVE rightWave = root:Packages:twoP:examine:ImRangerightxCh2
+			LastColor = rightThumb
+			rightWave = rightThumb
+		endif
+	endif
+					
 				
+	// Apply image settings
+	string SubWinList = childwindowlist ("twoPscanGraph")
+	variable hasChan, hasMrg = (WhichListItem("GMRG", SubWinList) > -1)
+	if (V_Value== 1) // Channel 1 checked
+		hasChan = (WhichListItem("GCH1", SubWinList) > -1)
+		if (hasChan || hasMrg)
+			NQ_ApplyImSettings (hasChan + 4 * hasMrg)
+		endif
+	else //channel 2
+		hasChan = (WhichListItem("GCH2", SubWinList) > -1)
+		if (hasChan || hasMrg)
+			NQ_ApplyImSettings (2 * hasChan + 4 * hasMrg)
+		endif
+	endif
+End
+
+
+	
 //******************************************************************************************************
 // Function for the LUT first and last values Sliders.Calls Apply Image settings procedure for selected channel
 // Last Modified Seo 03 2009 by Jamie
@@ -4242,8 +4236,9 @@ Function NQ_HistChanCheckProc(cba) : CheckBoxControl
 			else
 				SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 			endif
-			print StringByKey("imChans", scanStr, ":", "\r")
-			variable imChans =  itemsinlist(StringByKey("imChans", scanStr, ":", "\r"), ";")
+			variable imChans = NumberByKey("imChans", scanStr, ":", "\r")
+			//print StringByKey("imChans", scanStr, ":", "\r")
+			//variable imChans =  itemsinlist(StringByKey("imChanDesc", scanStr, ":", "\r"), ",")
 			STRUCT WMButtonAction ba
 			ba.eventCode = 2
 			if (cmpStr (cba.ctrlName, "HistCH1check") == 0)

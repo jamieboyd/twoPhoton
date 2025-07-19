@@ -1,11 +1,12 @@
 ﻿#pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2025/07/10 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2025/07/18 by Jamie Boyd.
 #pragma IgorVersion = 7
 
 #include "GUIPControls"
-
+#include "GUIPprotoFuncs"
+#include "Stages"
 
 Menu "Macros"
 	Submenu "twoP" 
@@ -156,7 +157,7 @@ Function twoP_PrefsSetBoardName (pa) : PopupMenuControl
 			chanSelList [*] [1] = 2	 // channel name, editable
 			chanSelList [*] [2] = 0 // not editable -have to use popMenu for PDIFF,RSE, etc.
 			chanSelList [*] [3] = 0 // not editable -have to use popMenu for gains
-			chanSelList [*] [4,5] = 0 // scaling and offset not used for images
+			chanSelList [*] [4,5] =6 // scaling and offset 
 			chanList [*] [0] = num2str(p) // ai channel numbers
 			chanList [*] [4] = num2str (1) // scaling = 1
 			chanList [*] [5] = num2str (0) // offset = 0
@@ -429,7 +430,7 @@ Function twoP_PrefsMakeGlobals ()
 	chanSelList [*] [1] = 2	 // channel name, editable
 	chanSelList [*] [2] = 0 // not editable -have to use popMenu for PDIFF,RSE, etc.
 	chanSelList [*] [3] = 0 // not editable -have to use popMenu for gains
-	chanSelList [*] [4,5] = 6 // scaling and offset not used for images
+	chanSelList [*] [4,5] = 6 // scaling and offset
 	chanList [*] [0] = num2str(p) // ao channel numbers
 	chanList [*] [4] = num2str (1) // scaling = 1
 	chanList [*] [5] = num2str (0) // offset = 0
@@ -479,7 +480,7 @@ Function twoP_PrefsMakeGlobals ()
 	chanSelList [*] [1] = 2	 // channel name, editable
 	chanSelList [*] [2] = 0 // not editable -have to use popMenu for PDIFF,RSE, etc.
 	chanSelList [*] [3] = 0 // not editable -have to use popMenu for gains
-	chanSelList [*] [4,5] = 6 // scaling and offset not used for images
+	chanSelList [*] [4,5] = 6 // scaling and offset 
 	chanList [*] [0] = num2str(p) // ao channel numbers
 	chanList [0] [1] = "CHAN_NAME"
 	chanList [0] [2] = "A2D_TYPE"
@@ -573,7 +574,7 @@ Function twoP_PrefsLoad (prefsFileName)
 	chanSelList [*] [1] = 2	 // channel name, editable
 	chanSelList [*] [2] = 0 // not editable -have to use popMenu for PDIFF,RSE, etc.
 	chanSelList [*] [3] = 0 // not editable -have to use popMenu for gains
-	chanSelList [*] [4,5] = 0 // scaling and offset not used for images
+	chanSelList [*] [4,5] = 6 // scaling and offset
 	chanList [*] [0] = num2str(p) // ao channel numbers
 	chanList [*] [4] = num2str (1) // scaling = 1
 	chanList [*] [5] = num2str (0) // offset = 0
@@ -626,7 +627,7 @@ Function twoP_PrefsLoad (prefsFileName)
 	chanSelList [*] [1] = 2	 // channel name, editable
 	chanSelList [*] [2] = 0 // not editable -have to use popMenu for PDIFF,RSE, etc.
 	chanSelList [*] [3] = 0 // not editable -have to use popMenu for gains
-	chanSelList [*] [4,5] = 0 // scaling and offset not used for images
+	chanSelList [*] [4,5] = 6 // scaling and offset
 	chanList [*] [0] = num2str(p) // ao channel numbers
 	for(iChan =0; iCHan < numChans; iChan +=1)
 		chanList [iChan] [1] = thePrefs.ePhysChans[iChan].chanName
@@ -816,7 +817,7 @@ Function twoP_PrefsSave(ba) : ButtonControl
 			thePrefs.minLiveFrameTime = minLiveFrameTime
 			// image channels
 			WAVE/T imChanList = root:packages:twoP:acquire:imChanList
-			variable iChan,  numChans = dimsize (imChanList, 0)
+			variable iChan,  numChans = min (4, dimsize (imChanList, 0))
 			thePrefs.numImChans = numChans
 			for (iChan=0;ichan< numChans;iChan += 1)
 				thePrefs.imageChans[iChan].chanName = imChanList[iChan] [1]
@@ -1006,17 +1007,17 @@ Function twoP_PrefsMakePanel()
 	SetVariable PixTimeSetVar,pos={11.00,302.00},size={180.00,18.00},proc=GUIPSIsetVarProc
 	SetVariable PixTimeSetVar,title="Pixel Scan Time"
 	SetVariable PixTimeSetVar,help={"Sets the clock rate that determines the time for each pixel"}
-	SetVariable PixTimeSetVar,userdata="ValMin:0.4E-6;ValMax:1E-3;AutoIncr:TRUE;MinIncr:1e-7;addFuncStr:NQ_SetTimesProc;"
+	SetVariable PixTimeSetVar,userdata="ValMin:0.4E-6;ValMax:1E-3;AutoIncr:TRUE;MinIncr:1e-7;addFuncStr:twoP_PrefsSetTimesProc;"
 	SetVariable PixTimeSetVar,format="%.3W1PSec"
 	SetVariable PixTimeSetVar,limits={-inf,inf,1e-07},value=root:Packages:twoP:Acquire:PixTime
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "SetVariable PixTimeSetVar 0;")
 	SetVariable DutyCycleSetVar,pos={200.00,302.00},size={104.00,18.00}
 	SetVariable DutyCycleSetVar,help={"Sets the proportion of the galvo X-scan that is used to collect data, relative to sum of data collection and flyback time "}
-	SetVariable DutyCycleSetVar,userdata="ValMin:0;ValMax:1E-3;AutoIncr:TRUE;addFuncStr:NQ_SetTimesProc;"
+	SetVariable DutyCycleSetVar,userdata="ValMin:0;ValMax:1E-3;AutoIncr:TRUE;addFuncStr:twoP_PrefsSetTimesProc;"
 	SetVariable DutyCycleSetVar,format="%g"
 	SetVariable DutyCycleSetVar,limits={0,1,0.05},value=root:Packages:twoP:Acquire:DutyCycle
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "SetVariable DutyCycleSetVar 0;")
-	SetVariable FlybackPropSetVar,pos={11.00,324.00},size={219.00,18.00},proc=NQ_SetTimesProc
+	SetVariable FlybackPropSetVar,pos={11.00,324.00},size={219.00,18.00},proc=twoP_PrefsSetTimesProc
 	SetVariable FlybackPropSetVar,title="Single direction FlyBack Ratio"
 	SetVariable FlybackPropSetVar,help={"For single-direction scanning, sets the time used to return to the  X starting voltage, as a proportion of the time used for scanning an image line"}
 	SetVariable FlybackPropSetVar,limits={0.25,1,0.05},value=root:Packages:twoP:Acquire:FlybackProp
@@ -1024,11 +1025,11 @@ Function twoP_PrefsMakePanel()
 	SetVariable RotateSetvar,pos={11.00,345.00},size={219.00,18.00},proc=GUIPSIsetVarProc
 	SetVariable RotateSetvar,title="Bi-Directional Scan Delay "
 	SetVariable RotateSetvar,help={"Sets the empirically determined period wherby X-Galvo position lags the X-Galvo signal"}
-	SetVariable RotateSetvar,userdata="ValMin:0;ValMax:1E-3;AutoIncr:TRUE;addFuncStr:NQ_SetTimesProc;"
+	SetVariable RotateSetvar,userdata="ValMin:0;ValMax:1E-3;AutoIncr:TRUE;addFuncStr:twoP_PrefsSetTimesProc;"
 	SetVariable RotateSetvar,format="%.2W1PSec"
 	SetVariable RotateSetvar,limits={-inf,inf,1e-06},value=root:Packages:twoP:Acquire:ScanHeadDelay
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "SetVariable RotateSetvar 0;")
-	SetVariable minLiveFrameTimeSetVar,pos={9.00,370.00},size={215.00,18.00},proc=NQ_SetTimesProc
+	SetVariable minLiveFrameTimeSetVar,pos={9.00,370.00},size={215.00,18.00},proc=twoP_PrefsSetTimesProc
 	SetVariable minLiveFrameTimeSetVar,title="Minimum Live Frame Time"
 	SetVariable minLiveFrameTimeSetVar,help={"If frame time is shorter than this, additional frames are collected and averaged "}
 	SetVariable minLiveFrameTimeSetVar,format="%.3f Sec"
@@ -1133,3 +1134,21 @@ Function twoP_PrefsMakePanel()
 end
 
 
+//*************************************************************************************************************************************
+// If the acquire code is loaded,this procedure will call it so all the scan timing settings are updated
+// Last Modified 2025/07/18 by Jamie Boyd
+Function twoP_PrefsSetTimesProc (sva) : SetVariableControl
+	STRUCT WMSetVariableAction &sva
+		
+	switch( sva.eventCode )
+		case 1: // mouse up
+		case 2: // Enter key
+		case 3: // Live update
+		if (Exists ("NQ_SetTimesProc") ==6)	
+			funcref GUIPProtoFuncSetVariable setTimesButtonProc = $"NQ_SetTimesProc"
+			setTimesButtonProc (sva)
+		endif
+			break
+	endswitch
+	return 0
+End
