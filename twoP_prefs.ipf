@@ -432,6 +432,7 @@ Function twoP_PrefsMakeGlobals ()
 	chanSelList [*] [3] = 0 // not editable -have to use popMenu for gains
 	chanSelList [*] [4,5] = 6 // scaling and offset
 	chanList [*] [0] = num2str(p) // ao channel numbers
+	chanList [*] [1] = "ch" + num2str (p)
 	chanList [*] [4] = num2str (1) // scaling = 1
 	chanList [*] [5] = num2str (0) // offset = 0
 	chanList[0] [1] = "CHAN_NAME"
@@ -482,6 +483,7 @@ Function twoP_PrefsMakeGlobals ()
 	chanSelList [*] [3] = 0 // not editable -have to use popMenu for gains
 	chanSelList [*] [4,5] = 6 // scaling and offset 
 	chanList [*] [0] = num2str(p) // ao channel numbers
+	chanList [*] [1] = "ep" + num2str (p)
 	chanList [0] [1] = "CHAN_NAME"
 	chanList [0] [2] = "A2D_TYPE"
 	chanList [0] [3] = "INPUT_RANGE"

@@ -185,9 +185,6 @@ Function NQ_MakeAcquireFolder (overWrite)
 	variable/G root:Packages:twoP:Acquire:liveRawData
 	// Time series
 	variable/G root:Packages:twoP:Acquire:TSeriesFrames = 50
-	// @@@variable/G root:Packages:twoP:Acquire:ePhysAdjChans =0 // value for ephys chans to use when doing ePhys along with image scanning
-	// @@@variable/G root:Packages:twoP:Acquire:scanToDiskFileRefNum
-	// @@@variable/G root:Packages:twoP:Acquire:ePhysToDiskFileRefNum
 	// Average
 	variable/G root:Packages:twoP:Acquire:numAverageFrames = 5
 	// Line Scan
@@ -275,7 +272,7 @@ function/S twoP_listActiveChans (type)
 	variable iChan, nChans = dimsize (chanList, 0)
 	for (iChan =0; iChan < nChans; iChan += 1)
 		if (chanSelList[iChan][0] == 48) // checked, so active channel
-			aChan = num2str (iChan) +":" + chanList [iChan] [1]
+			aChan = chanList [iChan] [1] + ":" +  num2str (iChan)
 			if (FindListItem(aChan, selChans, ";") > -1)
 				outList += "\\M1!"  +num2char(18)
 			endif
@@ -289,17 +286,18 @@ end
 //******************************************************************************************************
 // Adds controls for the acquire functions to the Nidaq Controls panel
 // 
-// Last Modified 2025/07/13 by Jamie Boyd
+// Last Modified 2025/07/22 by Jamie Boyd
 Function NQ_AddAcquireControls ()
 	DoWindow/F twoP_Controls
 	if (!(V_Flag))
 		return 1
 	endif
 	// Controls directly on Acquire tab
-	// Experiment size
-	ValDisplay expSizeDisp,pos={5.00,23.00},size={334.00,14.00},title="Exp size"
-	ValDisplay expSizeDisp,fSize=12,format="%.2W1PB",frame=2
-	ValDisplay expSizeDisp,limits={0,3e+09,0},barmisc={0,62},highColor=(0,0,0),lowColor=(0,0,0)
+	// Experiment size,in termsof physical memory usage
+	ValDisplay expSizeDisp,pos={5.00,23.00},size={334.00,17.00},title="Mem Use"
+	ValDisplay expSizeDisp,help={"Shows Igor's use of physical memory compared to physical memory available to Igor"}
+	ValDisplay expSizeDisp,fSize=12,format="%.2fGb",frame=2
+	ValDisplay expSizeDisp,limits={0,(numberbykey("PHYSMEM", IgorInfo(0), ":", ";")/2^30),0},barmisc={0,50},highColor=(0,0,0),lowColor=(0,0,0)
 	ValDisplay expSizeDisp,value=#"root:packages:twoP:acquire:expSize"
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "ValDisplay expSizeDisp 0;")
 	// Image size controls
@@ -310,37 +308,43 @@ Function NQ_AddAcquireControls ()
 	SetVariable PixWidSetVar,pos={9.00,57.00},size={94.00,18.00},proc=NQ_SetTimesProc
 	SetVariable PixWidSetVar,title="X pix",fSize=12
 	SetVariable PixWidSetVar,limits={2,inf,2},value=root:Packages:twoP:Acquire:PixWidth
+	SetVariable PixWidSetVar help={"Width of the image to be acquired, in pxels. Pixel scaling is determined by X galvo voltage range and objective"}
 	SetVariable PixHeightSetVar,pos={9.00,76.00},size={94.00,18.00},proc=NQ_SetTimesProc
 	SetVariable PixHeightSetVar,title="Y Pix",fSize=12
 	SetVariable PixHeightSetVar,limits={2,inf,2},value=root:Packages:twoP:Acquire:PixHeight
+	SetVariable PixHeightSetVar help={"Height of the image to be acquired, in pxels. Pixel scaling is determined by Y galvo voltage range and objective"}
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "Setvariable PixWidSetVar 0;SetVariable PixHeightSetVar 0;")
 	// Volts
-	SetVariable XStartSetVar,pos={118.00,57.00},size={105.00,18.00},proc=GUIPSIsetVarProc
-	SetVariable XStartSetVar,title="X Start"
-	SetVariable XStartSetVar,userdata="NQ_SetTimesProc;-10;10;autoInc;;",fSize=12
-	SetVariable XStartSetVar,format="%.3W1PV"
-	SetVariable XStartSetVar,limits={-inf,inf,0.1},value=root:Packages:twoP:Acquire:xStartVolts
-	SetVariable XEndSetVar,pos={234.00,57.00},size={99.00,18.00},proc=GUIPSIsetVarProc
-	SetVariable XEndSetVar,title="X End"
-	SetVariable XEndSetVar,userdata="NQ_SetTimesProc;-10;10;autoInc;;",fSize=12
-	SetVariable XEndSetVar,format="%.3W1PV"
-	SetVariable XEndSetVar,limits={-inf,inf,0.1},value=root:Packages:twoP:Acquire:xEndVolts
-	SetVariable YStartSetVar,pos={118.00,76.00},size={105.00,18.00},proc=GUIPSIsetVarProc
-	SetVariable YStartSetVar,title="Y Start"
-	SetVariable YStartSetVar,userdata="NQ_SetTimesProc;-10;10;autoInc;;",fSize=12
-	SetVariable YStartSetVar,format="%.3W1PV"
-	SetVariable YStartSetVar,limits={-inf,inf,0.1},value=root:Packages:twoP:Acquire:yStartVolts
-	SetVariable YEndSetVar,pos={235.00,76.00},size={98.00,18.00},proc=GUIPSIsetVarProc
-	SetVariable YEndSetVar,title="Y End"
-	SetVariable YEndSetVar,userdata="NQ_SetTimesProc;-10;10;aoutoInc;;",fSize=12
-	SetVariable YEndSetVar,format="%.3W1PV"
-	SetVariable YEndSetVar,limits={-inf,inf,0.1},value=root:Packages:twoP:Acquire:yEndVolts
+	NVAR xStartVoltsFS = root:Packages:twoP:Acquire:xStartVoltsFS
+	NVAR xEndVoltsFS = root:Packages:twoP:Acquire:xEndVoltsFS
+	NVAR yStartVoltsFS = root:Packages:twoP:Acquire:yStartVoltsFS
+	NVAR yEndVoltsFS = root:Packages:twoP:Acquire:yEndVoltsFS
+	// x stat
+	SetVariable XStartSetVar,pos={118.00,57.00},size={105.00,18.00},title="X Start",fSize=12
+	SetVariable XStartSetVar,value=root:Packages:twoP:Acquire:xStartVolts
+	SetVariable XStartSetVar, help={"Minimum value of X galvo voltage during image acquisition, defines position of left edge of image"}
+	GUIPSIsetVarEnable ("TwoP_Controls", "XStartSetVar", "NQ_SetTimesProc", xStartVoltsFS, xEndVoltsFS, 0.1, 0, 0, 2, "V")
+	// xend
+	SetVariable XEndSetVar,pos={234.00,57.00},size={99.00,18.00},title="X End",fSize=12
+	SetVariable XEndSetVar,value=root:Packages:twoP:Acquire:xEndVolts
+	SetVariable XEndSetVar, help={"Maximum value of X galvo voltage during image acquisition, defines position of right edge of image"}
+	GUIPSIsetVarEnable ("TwoP_Controls", "XEndSetVar", "NQ_SetTimesProc", xStartVoltsFS, xEndVoltsFS, 0.1, 0, 0, 2, "V")
+	// y start
+	SetVariable YStartSetVar,pos={118.00,76.00},size={105.00,18.00},title="Y Start",fSize=12
+	SetVariable YStartSetVar,value=root:Packages:twoP:Acquire:yStartVolts
+	SetVariable YStartSetVar, help={"Minimum value of Y galvo voltage during image acquisition, defines position of bottom edge of image"}
+	GUIPSIsetVarEnable ("TwoP_Controls", "YStartSetVar", "NQ_SetTimesProc", yStartVoltsFS, yEndVoltsFS, 0.1, 0, 0, 2, "V")
+	// y end
+	SetVariable YEndSetVar,pos={235.00,76.00},size={98.00,18.00},title="Y End",fSize=12
+	SetVariable YEndSetVar,value=root:Packages:twoP:Acquire:yEndVolts
+	SetVariable YEndSetVar,help={"Maximum value of Y galvo voltage during image acquisition, defines position of top edge of image"}
+	GUIPSIsetVarEnable ("TwoP_Controls", "YEndSetVar", "NQ_SetTimesProc", yStartVoltsFS, yEndVoltsFS, 0.1, 0, 0, 2, "V")
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "SetVariable XStartSetVar 0;SetVariable XEndSetVar 0;SetVariable YStartSetVar 0;SetVariable YEndSetVar 0;")
 	// Image sizing controls
 	Button FullScaleButton,pos={8.00,98.00},size={31.00,16.00},proc=NQ_SetFullScaleProc
-	Button FullScaleButton,title="Full"
+	Button FullScaleButton,title="Full", help= {"Sets image pixel sizes and galvo scan voltage endpoints to full scale values defined in setings/preferences."}
 	Button RevertScaleButton,pos={41.00,98.00},size={50.00,16.00},proc=NQ_RevertScaleProc
-	Button RevertScaleButton,title="Revert"
+	Button RevertScaleButton,title="Revert", help={"Sets image pixel sizes and galvo scan voltage endpoints to last used values"}
 	PopupMenu RevertScalePopMenu,pos={93.00,96.00},size={64.00,19.00},proc=RevertSettingstoWaveProc
 	PopupMenu RevertScalePopMenu,title="to Scan:"
 	PopupMenu RevertScalePopMenu,mode=0,value=#"\"LiveWave;\\\\M1(-;\" + NQ_ListScans (\"1,2,4,\")"
@@ -449,26 +453,30 @@ Function NQ_AddAcquireControls ()
 	// ephys chans - TSer;Lines;ePhys;Multi
 	PopupMenu EphysChansPopUp,pos={9.00,199.00},size={89.00,19.00},proc=NQ_ephysChansProc
 	PopupMenu EphysChansPopUp,title="ePhys Chans"
-	PopupMenu EphysChansPopUp,mode=0,value=#"twoP_listActiveChans(2)", disable=1
+	PopupMenu EphysChansPopUp,mode=0,value=#"twoP_listActiveChans(2)"
+	PopupMenu EphysChansPopUp disable = 1
 	TitleBox ePhysChanListTitle,pos={101.00,202.00},size={62.00,15.00},frame=0
-	TitleBox ePhysChanListTitle,variable=root:Packages:twoP:Acquire:selEphysChanList, disable=1
+	TitleBox ePhysChanListTitle,variable=root:Packages:twoP:Acquire:selEphysChanList
+	TitleBox ePhysChanListTitle, disable = 1
 	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "PopupMenu EphysChansPopUp", "Tser;Lines;ePhys;Multi;")
 	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "TitleBox ePhysChanListTitle", "TSer;Lines;ePhys;Multi;")
 	// triggers - TSer;Lines;ePhys
-	CheckBox Trig1Check,disable=1,pos={9.00,335.00},size={44.00,15.00},title="Trig 1"
-	CheckBox Trig1Check,fSize=12,value=1
+	NVAR frameTime = root:packages:twoP:acquire:frameTime
+	// trigger 1
+	CheckBox Trig1Check,pos={9.00,335.00},size={44.00,15.00},title="Trig 1",fSize=12,value=0
+	CheckBox Trig1Check,disable=1
+	SetVariable Trig1SecsSetvar,pos={194.00,333.00},size={82.00,18.00},title=" "
+	SetVariable Trig1SecsSetvar,value=root:Packages:twoP:Acquire:DelaySecs1
+	GUIPSIsetVarEnable ("TwoP_Controls", "Trig1SecsSetvar", "NQ_TrigSecsProc", 1e-7, 100, frameTime, 1, 0.1e-7, 2, "s")
+	SetVariable Trig1SecsSetvar disable=1
+	// trigger 2
 	CheckBox Trig2Check,pos={9.00,355.00},size={44.00,15.00},title="Trig 2"
-	CheckBox Trig2Check,fSize=12,value=1, disable=1
-	SetVariable Trig1SecsSetvar,pos={194.00,333.00},size={82.00,18.00},proc=GUIPSIsetVarProc
-	SetVariable Trig1SecsSetvar,title=" "
-	SetVariable Trig1SecsSetvar,userdata="NQ_TrigSecsProc;addFuncStr:NQ_TrigSecsProc;ValMin:0;ValMax:10000;AutoIncr:1;MinIncr:0.001;"
-	SetVariable Trig1SecsSetvar,fSize=12,format="%.2W1Ps"
-	SetVariable Trig1SecsSetvar,limits={-inf,inf,0.1},value=root:Packages:twoP:Acquire:DelaySecs1, disable=1
-	SetVariable Trig2SecsSetvar,pos={194.00,353.00},size={82.00,18.00},proc=GUIPSIsetVarProc
-	SetVariable Trig2SecsSetvar,title=" "
-	SetVariable Trig2SecsSetvar,userdata="NQ_TrigSecsProc;addFuncStr:NQ_TrigSecsProc;ValMin:0;ValMax:10000;AutoIncr:1;MinIncr:0.001;"
-	SetVariable Trig2SecsSetvar,fSize=12,format="%.2W1Ps"
-	SetVariable Trig2SecsSetvar,limits={-inf,inf,0.01},value=root:Packages:twoP:Acquire:DelaySecs2, disable=1
+	CheckBox Trig2Check,fSize=12,value=1
+	CheckBox Trig2Check, disable=1
+	SetVariable Trig2SecsSetvar,pos={194.00,353.00},size={82.00,18.00},title=" ",fSize=12
+	SetVariable Trig2SecsSetvar,value=root:Packages:twoP:Acquire:DelaySecs2
+	GUIPSIsetVarEnable ("TwoP_Controls", "Trig2SecsSetvar", "NQ_TrigSecsProc", 1e-7, 100, frameTime, 1, 0.1e-7, 2, "s")
+	SetVariable Trig2SecsSetvar, disable=1
 	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "CheckBox Trig1Check", "TSer;Lines;ePhys")
 	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "CheckBox Trig2Check", "TSer;Lines;ePhys")
 	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "SetVariable Trig1SecsSetvar", "TSer;Lines;ePhys")
@@ -500,14 +508,12 @@ Function NQ_AddAcquireControls ()
 	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "Button VoltagePulseEditButton", "TSer;Lines;ePhys")
 	// Live Roi - Live;Tser"
 	CheckBox LiveROICheck,pos={9.00,235.00},size={59.00,15.00},title="Live ROI"
-	CheckBox LiveROICheck,fSize=12
-	CheckBox LiveROICheck,variable=root:Packages:twoP:Acquire:liveROICheck
-	SetVariable LiveRoiTimeSetVar,pos={74.00,234.00},size={64.00,18.00},proc=GUIPSIsetVarProc
-	SetVariable LiveRoiTimeSetVar,title=" "
-	SetVariable LiveRoiTimeSetVar,help={"If doing Live ROIs, this many seconds will be shown in the scrolling graph below."}
-	SetVariable LiveRoiTimeSetVar,userdata=";0;30;;addFuncStr:;ValMin:1;ValMax:100;AutoIncr:1;MinIncr:0.1;"
-	SetVariable LiveRoiTimeSetVar,fSize=12,format="%.1W1Ps"
+	CheckBox LiveROICheck,fSize=12,variable=root:Packages:twoP:Acquire:liveROICheck
+	CheckBox LiveROICheck, help = {"If you have set a live ROI from graph marquee menu, the results of the ROI will be shown in a graph suring Live scanning"}
+	SetVariable LiveRoiTimeSetVar,pos={74.00,234.00},size={64.00,18.00},title=" ", fSize=12
+	SetVariable LiveRoiTimeSetVar,help={"If doing Live ROIs, this many seconds will be shown in a scrolling graph."}
 	SetVariable LiveRoiTimeSetVar,value=root:Packages:twoP:Acquire:liveROISecs
+	GUIPSIsetVarEnable ("TwoP_Controls", "LiveRoiTimeSetVar", "", 1, 100, 1, 1, 0.1e-3, 1, "s")
 	CheckBox LroiRatioCheck,pos={33.00,258.00},size={43.00,15.00},title="Ratio"
 	CheckBox LroiRatioCheck,fSize=12
 	CheckBox LroiRatioCheck,variable=root:Packages:twoP:Acquire:liveROIRatioCheck
@@ -550,40 +556,46 @@ Function NQ_AddAcquireControls ()
 	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Live", "SetVariable LiveAvgFramesSetVar;CheckBox LiveHistCheck;")
 	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Live", "Button Trig1ManualButton;Button Trig2ManualButton;CheckBox LiveRawDataCheck;")
 	// Time series specific
-	SetVariable NumTSeriesFramesSetVar,pos={9.00,304.00},size={174.00,22.00},proc=NQ_SetTimesProc, disable=1
+	SetVariable NumTSeriesFramesSetVar,pos={9.00,304.00},size={174.00,22.00},proc=NQ_SetTimesProc
 	SetVariable NumTSeriesFramesSetVar,title="Time Series Frames",fSize=14
 	SetVariable NumTSeriesFramesSetVar,limits={0,inf,1},value=root:Packages:twoP:Acquire:TSeriesFrames
-	SetVariable FramesTrig1SetVar,pos={77.00,333.00},size={110.00,18.00},proc=NQ_SetTimesProc, disable=1
-	SetVariable FramesTrig1SetVar,title="on Frame",userdata="NQ_TrigSecsFrameProc"
-	SetVariable FramesTrig1SetVar,fSize=12
+	SetVariable NumTSeriesFramesSetVar, disable=1
+	SetVariable FramesTrig1SetVar,pos={77.00,333.00},size={110.00,18.00},proc=NQ_SetTimesProc
+	SetVariable FramesTrig1SetVar,title="on Frame",fSize=12
 	SetVariable FramesTrig1SetVar,limits={0,inf,1},value=root:Packages:twoP:Acquire:DelayFrames1
-	SetVariable FramesTrig2SetVar,pos={77.00,353.00},size={110.00,18.00},proc=NQ_SetTimesProc, disable=1
-	SetVariable FramesTrig2SetVar,title="on Frame",userdata="NQ_TrigSecsFrameProc"
-	SetVariable FramesTrig2SetVar,fSize=12
+	SetVariable FramesTrig1SetVa, disable=1
+	SetVariable FramesTrig2SetVar,pos={77.00,353.00},size={110.00,18.00},proc=NQ_SetTimesProc
+	SetVariable FramesTrig2SetVar,title="on Frame",fSize=12
 	SetVariable FramesTrig2SetVar,limits={0,inf,1},value=root:Packages:twoP:Acquire:DelayFrames2
+	SetVariable FramesTrig2SetVar disable=1
 	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Tser", "SetVariable NumTSeriesFramesSetVar;SetVariable FramesTrig1SetVar;SetVariable FramesTrig2SetVar")
 	// Avg specific
-	SetVariable AvgNumFramesSetVar,pos={9.00,303.00},size={176.00,22.00},proc=NQ_SetTimesProc, disable=1
+	SetVariable AvgNumFramesSetVar,pos={9.00,303.00},size={176.00,22.00},proc=NQ_SetTimesProc
 	SetVariable AvgNumFramesSetVar,title="Frames to Average",fSize=14
 	SetVariable AvgNumFramesSetVar,limits={0,inf,1},value=root:Packages:twoP:Acquire:numAverageFrames
+	SetVariable AvgNumFramesSetVar, disable=1
 	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Avg", "SetVariable AvgNumFramesSetVar;")
 	// lines specific
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Avg", "SetVariable AvgNumFramesSetVar;")
-	SetVariable LineScanWidthSetVar,title="X Pix",fSize=12,pos={8.00,228.00},size={91.00,15.00},proc=NQ_SetTimesProc, disable=1
+	SetVariable LineScanWidthSetVar,title="X Pix",fSize=12,pos={8.00,228.00},size={91.00,15.00},proc=NQ_SetTimesProc
 	SetVariable LineScanWidthSetVar,limits={2,inf,2},value=root:Packages:twoP:Acquire:LSWidth
-	SetVariable LineScanXStartSetVar,pos={110.00,229.00},size={98.00,15.00},proc=GUIPSIsetVarProc, disable=1
-	SetVariable LineScanXStartSetVar,title="X Strt",fSize=10,format="%.2W1PV"
-	SetVariable LineScanXStartSetVar,limits={-7.5,7.5,0.1},value=root:Packages:twoP:Acquire:LSStartVolts
-	SetVariable LineScanXEndSetVar,pos={220.00,229.00},size={103.00,15.00},proc=GUIPSIsetVarProc, disable=1
-	SetVariable LineScanXEndSetVar,title="X End",fSize=12,format="%.2W1PV", disable=1
-	SetVariable LineScanXEndSetVar,limits={-7.5,7.5,0.1},value=root:Packages:twoP:Acquire:LSEndVolts
-	SetVariable LineScanPixSizeSetVar,pos={5.00,248.00},size={106.00,18.00}, disable=1
+	SetVariable LineScanWidthSetVar, disable=1
+	SetVariable LineScanXStartSetVar,pos={110.00,228.00},size={98.00,15.00},title="X Start",fSize=12
+	SetVariable LineScanXStartSetVar,value=root:Packages:twoP:Acquire:LSStartVolts
+	GUIPSIsetVarEnable ("TwoP_Controls", "LineScanXStartSetVar", "NQ_SetTimesProc", xStartVoltsFS, xEndVoltsFS, 0.1, 0, 0, 2, "V")
+	SetVariable LineScanXStartSetVar disable=1	
+	SetVariable LineScanXEndSetVar,pos={220.00,228.00},size={103.00,15.00},title="X End",fSize=12
+	SetVariable LineScanXEndSetVar,value=root:Packages:twoP:Acquire:LSEndVolts
+	GUIPSIsetVarEnable ("TwoP_Controls", "LineScanXEndSetVar", "NQ_SetTimesProc", xStartVoltsFS, xEndVoltsFS, 0.1, 0, 0, 2, "V")
+	SetVariable LineScanXEndSetVar disable=1
+	SetVariable LineScanYSetVar,pos={128.00,248.00},size={80.00,15.00},title="Y",fSize=12
+	SetVariable LineScanYSetVar,value=root:Packages:twoP:Acquire:LSYVolts
+	GUIPSIsetVarEnable ("TwoP_Controls", "LineScanYSetVar", "NQ_SetTimesProc", yStartVoltsFS, yEndVoltsFS, 0.1, 0, 0, 2, "V")
+	SetVariable LineScanYSetVar disable=1
+	SetVariable LineScanPixSizeSetVar,pos={5.00,248.00},size={106.00,18.00}
 	SetVariable LineScanPixSizeSetVar,title=" ",fSize=12,format="Size %.1W1Pm/pix"
 	SetVariable LineScanPixSizeSetVar,frame=0, disable=1
 	SetVariable LineScanPixSizeSetVar,limits={0,inf,0},value=root:Packages:twoP:Acquire:LSPixSize,noedit=1,live=1
-	SetVariable LineScanYSetVar,pos={128.00,248.00},size={80.00,15.00},title="Y", disable=1
-	SetVariable LineScanYSetVar,fSize=10,format="%.2W1PV"
-	SetVariable LineScanYSetVar,limits={-7.5,7.5,0.1},value=root:Packages:twoP:Acquire:LSYVolts
+	SetVariable LineScanPixSizeSetVar disable=1
 	PopupMenu LineScanLinktoPopMenu,pos={9.00,272.00},size={44.00,19.00},proc=NQ_LineScanLinkToProc
 	PopupMenu LineScanLinktoPopMenu,title="Link", disable=1
 	PopupMenu LineScanLinktoPopMenu,mode=0,value=#"NQ_ListScans (\"1,2,4,\") + \";Don't Link\""
@@ -604,39 +616,48 @@ Function NQ_AddAcquireControls ()
 	SetVariable LineScanTrig2SetVar disable =1,pos={81.00,353.00},size={110.00,18.00},proc=NQ_SetTimesProc
 	SetVariable LineScanTrig2SetVar,title="on Line"
 	SetVariable LineScanTrig2SetVar,limits={0,inf,1},value=root:Packages:twoP:Acquire:DelayLines2
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "SetVariable LineScanWidthSetVar;SetVariable LineScanXStartSetVar;SetVariable LineScanXStartSetVar;")
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "SetVariable LineScanWidthSetVar;SetVariable LineScanXStartSetVar;SetVariable LineScanXStartSetVar; setvariable LineScanXEndSetVar")
 	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "SetVariable LineScanYSetVar;PopupMenu LineScanLinktoPopMenu;TitleBox LineScanLinktoTitleBox;")
 	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "Button LineScanRevertScaleButton;PopupMenu LineScanRevertScalePopMenu;SetVariable LineScanHeightSetVar")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "SetVariable LineScanTrig1SetVar;SetVariable LineScanTrig2SetVar;")
-	// Zser specific
-	Button FirstZButton,disable =1,pos={13.00,221.00},size={29.00,18.00},proc=NQ_ZfirstLastButtonProc
-	Button FirstZButton,title="Get"
-	SetVariable zFirstZSetVar,disable =1,pos={56.00,222.00},size={115.00,18.00},proc=GUIPSIsetVarProc
-	SetVariable zFirstZSetVar,title="First Z"
-	SetVariable zFirstZSetVar,userdata="NQ_zSetVarProc;-1e-3;1e-3;;;1e-07"
-	SetVariable zFirstZSetVar,fSize=12,format="%.3W1Pm"
-	SetVariable zFirstZSetVar,limits={-inf,inf,1e-06},value=root:Packages:twoP:Acquire:ZFirstZ
-	Button LastZButton,disable =1,pos={11.00,254.00},size={30.00,17.00},proc=NQ_ZfirstLastButtonProc
-	Button LastZButton,title="Get"
-	SetVariable ZLastZSetVar, disable =1,pos={58.00,253.00},size={116.00,18.00},proc=GUIPSIsetVarProc
-	SetVariable ZLastZSetVar,title="Last Z"
-	SetVariable ZLastZSetVar,userdata="NQ_zSetVarProc;-1e-3;1e-3;;;1e-07",fSize=12
-	SetVariable ZLastZSetVar,format="%.3W1Pm"
-	SetVariable ZLastZSetVar,limits={-inf,inf,1e-06},value=root:Packages:twoP:Acquire:ZLastZ
-	SetVariable zStepSizeSetvar, disable =1,pos={38.00,280.00},size={132.00,18.00},proc=GUIPSIsetVarProc
-	SetVariable zStepSizeSetvar,title="Step Size "
-	SetVariable zStepSizeSetvar,userdata="NQ_zSetVarProc;-10e-06;10e-06;;;1e-07"
-	SetVariable zStepSizeSetvar,fSize=12,format="%.3W1Pm"
-	SetVariable zStepSizeSetvar,limits={-inf,inf,1e-07},value=root:Packages:twoP:Acquire:ZStepSize
-	SetVariable NumZframesSetvar,disable =1,pos={9.00,304.00},size={148.00,22.00},proc=NQ_zSetVarProc
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "SetVariable LineScanTrig1SetVar;SetVariable LineScanTrig2SetVar;SetVariable LineScanPixSizeSetVar")
+	// Z ser specific
+	SVAR stageProc = root:packages:twoP:acquire:StageProc
+	NVAR/z minZStepSize = $"root:packages:" + stageProc + ":zRes"
+	NVAR/z minZ = $"root:packages:" + stageProc + ":zMin"
+	NVAR/z maxZ = $"root:packages:" + stageProc + ":zMax"
+	NVAR stepSize = root:Packages:twoP:Acquire:zStepSize
+	// first z
+	Button FirstZButton,pos={13.00,221.00},size={29.00,18.00}, title="Get", proc=NQ_ZfirstLastButtonProc
+	Button FirstZButton disable =1
+	SetVariable zFirstZSetVar,pos={56.00,222.00},size={115.00,18.00},title="First Z",fSize=12
+	SetVariable zFirstZSetVar,value=root:Packages:twoP:Acquire:ZFirstZ
+	GUIPSIsetVarEnable ("TwoP_Controls", "zFirstZSetVar", "NQ_zSetVarProc", minZ, maxZ, minZStepSize, 1, minZStepSize, 2, "m")
+	SetVariable zFirstZSetVar,disable =1
+	// last Z
+	Button LastZButton,pos={11.00,254.00},size={30.00,17.00},proc=NQ_ZfirstLastButtonProc, title="Get"
+	Button LastZButton,disable =1
+	SetVariable ZLastZSetVar,pos={58.00,253.00},size={116.00,18.00},title="Last Z", fSize=12
+	SetVariable ZLastZSetVar,value=root:Packages:twoP:Acquire:ZLastZ
+	GUIPSIsetVarEnable ("TwoP_Controls", "ZLastZSetVar", "NQ_zSetVarProc", minZ, maxZ, stepSize, 1, minZStepSize, 2, "m")
+	SetVariable ZLastZSetVar, disable =1
+	// Z step SIze
+	SetVariable zStepSizeSetvar,pos={38.00,280.00},size={132.00,18.00},title="Step Size ",fSize=12
+	SetVariable zStepSizeSetvar value=root:Packages:twoP:Acquire:zStepSize
+	GUIPSIsetVarEnable ("TwoP_Controls", "zStepSizeSetvar", "NQ_zSetVarProc", stepSize, 100e-6, minZStepSize, 1, minZStepSize, 2, "m")
+	SetVariable zStepSizeSetvar, disable =1
+	// number of frames 
+	SetVariable NumZframesSetvar,pos={9.00,304.00},size={148.00,22.00},proc=NQ_zSetVarProc
 	SetVariable NumZframesSetvar,title="Z Slices   ",fSize=14
 	SetVariable NumZframesSetvar,limits={0,inf,1},value=root:Packages:twoP:Acquire:NumZseriesFrames
-	SetVariable zKalmanAvgSetvar, disable =1,pos={9.00,334.00},size={147.00,18.00},proc=NQ_SetTimesProc
+	SetVariable NumZframesSetvar,disable =1
+	// num frames to average
+	SetVariable zKalmanAvgSetvar,pos={9.00,334.00},size={147.00,18.00},proc=NQ_SetTimesProc
 	SetVariable zKalmanAvgSetvar,title="Avg. each slice",fSize=12
 	SetVariable zKalmanAvgSetvar,limits={1,inf,1},value=root:Packages:twoP:Acquire:NumZseriesAvg
-	PopupMenu ZdjustPopMenu,disable =1,pos={182.00,224.00},size={116.00,19.00},proc=NQ_ZAdjustPopMenuProc
-	PopupMenu ZdjustPopMenu,title="adjust"
+	SetVariable zKalmanAvgSetvar, disable = 1
+	PopupMenu ZdjustPopMenu pos={182.00,224.00},size={116.00,19.00},proc=NQ_ZAdjustPopMenuProc,title="adjust"
 	PopupMenu ZdjustPopMenu,mode=1,popvalue="Num Slices",value=#"\"Num Slices;Step Size;First Z;Last Z;\""
+	PopupMenu ZdjustPopMenu disable = 1
 	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Zser", "Button FirstZButton;SetVariable zFirstZSetVar;Button LastZButton;SetVariable ZLastZSetVar;SetVariable zStepSizeSetvar;")
 	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Zser", "SetVariable NumZframesSetvar;SetVariable zKalmanAvgSetvar;PopupMenu ZdjustPopMenu")
 	// Muti specific
@@ -978,12 +999,12 @@ Function NQ_ZAdjustPopMenuProc(pa) : PopupMenuControl
 			String popStr = pa.popStr
 			// DIsable controls based on selection
 			// ZSLices;Step Size;First Z;Last Z
-			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Z_ser", "NumZframesSetvar;",  ((popNum == 1)*2), 1)
-			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Z_ser", "zStepSizeSetvar;",  ((popNum == 2)*2), 1)
-			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Z_ser", "FirstZButton;",  ((popNum == 3)*2), 1)
-			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Z_ser", "zFirstZSetVar;",  ((popNum == 3)*2), 1)
-			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Z_ser", "LastZButton;",  ((popNum == 4)*2), 1)
-			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Z_ser", "ZLastZSetVar;",  ((popNum == 4)*2), 1)
+			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Zser", "NumZframesSetvar;",  ((popNum == 1)*2), 1)
+			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Zser", "zStepSizeSetvar;",  ((popNum == 2)*2), 1)
+			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Zser", "FirstZButton;",  ((popNum == 3)*2), 1)
+			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Zser", "zFirstZSetVar;",  ((popNum == 3)*2), 1)
+			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Zser", "LastZButton;",  ((popNum == 4)*2), 1)
+			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Zser", "ZLastZSetVar;",  ((popNum == 4)*2), 1)
 			break
 	endswitch
 	return 0
@@ -991,7 +1012,7 @@ End
 
 //******************************************************************************************************
 // Adjusts Z variables, based on selection in ZdjustPopMenu
-// Last Modified Aug 03 2010 by Jamie Boyd
+// Last Modified 2025/07/21 by Jamie Boyd - getting zres from Stage proc folder
 Function NQ_zSetVarProc(sva) : SetVariableControl
 	STRUCT WMSetVariableAction &sva
 
@@ -1020,9 +1041,13 @@ Function NQ_zSetVarProc(sva) : SetVariableControl
 					endif
 					break
 				case 2: //Step Size
-					NVAR ZStepSizeMin = root:packages:twoP:Acquire:ZStepSizeMin
+					SVAR stageProc = root:packages:twoP:Acquire:stageProc
+					NVAR/z ZStepSizeMin = $"root:packages:" + stageProc + ":zRes"
+					if (!(NVAR_Exists(ZStepSizeMin)))
+						ZStepSizeMin = 1e-6
+					endif
 					ZStepSize = round (((LastZ - FirstZ)/NumZFrames)/ZStepSizeMin)*ZStepSizeMin
-					//LastZ = (NumZFrames * ZStepSize) + FirstZ
+					LastZ = (NumZFrames * ZStepSize) + FirstZ
 					break
 				case 3: // First Z
 					FirstZ =  (NumZFrames * ZStepSize) - LastZ
@@ -1130,13 +1155,24 @@ Function NQ_DelObjPopMenuProc(pa) : PopupMenuControl
 End
 
 //*************************************************************************************************************************************
-// Calculates the experiment size and puts it in a global variable
+// Returns the physicalmemory usage of Igor,not the same as the experiment size, but proabbly more helpful
+// Last Modified 2025/07/22 by Jamie Boyd - divided by 2^30 to return value in  GigaBytes
 // Last Modified 2025/07/15 by Jamie Boyd - use Igor's memory usage from get info
 Function NQ_GetExpSize ()
 	
-	return numberbykey("USEDPHYSMEM", IgorInfo(0), ":", ";")
+	return numberbykey("USEDPHYSMEM", IgorInfo(0), ":", ";")/2^30
 end
- 
+
+
+//*************************************************************************************************************************************
+// Puts updated memory usage in the global variable used for the setvariable on the twoP control panel
+// Last Modified 2025/07/22 by Jamie Boyd - divided by 2^30 to return value in  GigaBytes
+function NQ_UpdateExpSize ()
+	NVAR expSize= root:packages:twoP:acquire:expSize
+	expSize =  numberbykey("USEDPHYSMEM", IgorInfo(0), ":", ";")/2^30
+end
+
+
 //*************************************************************************************************************************************
 // Sets the scanMode variable and various options in the control panel
 // Last Modified 2025/07/13 by Jamie Boyd
@@ -1344,8 +1380,8 @@ Function NQ_SetTimes ()
 		case kTimeSeries:
 			FrameTime = (LineTime * PixHeight)
 			RunTime = (FrameTime * NumFrames)
-			setvariable Trig1SecsSetvar limits = {-inf, inf, FrameTime}
-			setvariable Trig2SecsSetvar limits = {-inf, inf, FrameTime}
+			setvariable Trig1SecsSetvar win = twoP_Controls, limits = {-inf, inf, FrameTime}
+			setvariable Trig2SecsSetvar win = twoP_Controls, limits = {-inf, inf, FrameTime}
 			break
 		case kZseries:
 			NVAR ZFrames = root:Packages:twoP:Acquire:NumZseriesFrames
@@ -1359,8 +1395,8 @@ Function NQ_SetTimes ()
 			break
 		case kLineScan:
 			RunTime = FrameTime
-			setvariable Trig1SecsSetvar limits = {-inf, inf, LineTime*100}
-			setvariable Trig2SecsSetvar limits = {-inf, inf, LineTime*100}
+			setvariable Trig1SecsSetvar win = twoP_Controls, limits = {-inf, inf, LineTime*100}
+			setvariable Trig2SecsSetvar win = twoP_Controls,limits = {-inf, inf, LineTime*100}
 			break
 	endSwitch
 	// check ePhys situation
@@ -1413,49 +1449,8 @@ Function NQ_SetTimes ()
 	//NQ_ScanNoter (s, "root:packages:twoP:Acquire:LiveModeScanStr")
 end
 
-//*************************************************************************************************************************************
-// converts trigger seconds to frames
-Function NQ_TrigSecsFrameProc (sva) : SetVariableControl
-	STRUCT WMSetVariableAction &sva
- 
-	switch( sva.eventCode )
-		case 1: // mouse up
-		case 2: // Enter key
-		case 3: // Live update
-			//Set number of frames for given seconds for triggers
-			NVAR FrameTime = root:Packages:twoP:acquire:FrameTime
-			NVAR DelayFrames1 = root:Packages:twoP:Acquire:DelayFrames1
-			NVAR DelayFrames2 = root:Packages:twoP:Acquire:DelayFrames2
-			NVAR DelayFramesSecs1 = root:Packages:twoP:Acquire:DelayFramesSec1
-			NVAR DelayFramesSecs2 = root:Packages:twoP:Acquire:DelayFramesSec2
-			DelayFrames1 = DelayFramesSecs1/FrameTime
-			DelayFrames2 = DelayFramesSecs2/FrameTime
-			break
-	endswitch
-	return 0
-End
 
-//*************************************************************************************************************************************
-// converts trigger seconds to number of lines for a l inescan
-Function NQ_TrigSecsLinesProc (sva) : SetVariableControl
-	STRUCT WMSetVariableAction &sva
- 
-	switch( sva.eventCode )
-		case 1: // mouse up
-		case 2: // Enter key
-		case 3: // Live update
-			//Set number of frames for given seconds for triggers
-			NVAR LineTime = root:Packages:twoP:acquire:LineTime
-			NVAR DelayLines1 = root:Packages:twoP:Acquire:DelayLines1
-			NVAR DelayLines2 = root:Packages:twoP:Acquire:DelayLines2
-			NVAR  DelayLinesSecs1 = root:Packages:twoP:Acquire:DelayLinesSec1
-			NVAR DelayLinesSecs2 = root:Packages:twoP:Acquire:DelayLinesSec2
-			DelayLines1 = DelayLinesSecs1/LineTime
-			DelayLines2= DelayLinesSecs2/LineTime	
-			break
-	endswitch
-	return 0
-End
+
 
 //*************************************************************************************************************************************
 // looks at times for an ephys scan to see if there are more than 2^24 points and calculates size of  buffer if needed
@@ -2390,22 +2385,21 @@ end
 //******************************************************************************************************
 // A structure to hold all the various globals so  that we can pass them easily between functions
 // Last Modified:
-// 2025/07/10 by Jamie Boyd 
+// 2025/07/21 by Jamie Boyd 
 // 2016/11/15 by Jamie Boyd - added support for separate back ground tasks for each channel plus merge
 
 Structure NQ_ScanStruct
 // general scan/run settings
 	variable scanMode
-	variable isMulti
 	string newScanName
 	string scanNote
 	variable overWriteWarn
 	variable inPutTrigger
 	variable RunTime
 	// image settings
-	variable ScanChans			// old-style, for backwards compatibility
+	variable imChans			// old-style, for backwards compatibility
 	string selImageChanList		// new style
-	string scanWavePath // string containing paths to image waves to scan and channels on which to scan them, in NIDAQ format "root:twoP_Scans:Scan_000:Scan_000_ch1, 0/DIFF, -5, 5;
+	string scanWavePath			 // string containing paths to image waves to scan and channels on which to scan them, in NIDAQ format "root:twoP_Scans:Scan_000:Scan_000_ch1, 0/DIFF, -5, 5;
 	string imageBoard
 	variable numFrames
 	variable pixHeight
@@ -2432,15 +2426,15 @@ Structure NQ_ScanStruct
 	variable lineTime
 	variable scanIsCyclic
 	// Live mode specific 
-	variable liveAvgFrames
+	variable minLiveFrameTime
 	variable liveHist
+	variable liveRaw
 	//live but also T-series for live ROI
 	variable liveROI // set if doing live roi
 	variable liveROISecs  // or 0 if not doing a live ROI
 	variable liveRatio	// set if doing live ratio
 	string liveRatioTopChan 	// name of top chan for live ratio, or "" if not doing ratio
 	string liveRatioBottomChan
-	
 	// LineScan specific
 	string LSLinkWave
 	// stage
@@ -2460,6 +2454,10 @@ Structure NQ_ScanStruct
 	string ePhysPath  // string containing paths to ePhys waves to scan and channels on which to scan them, in NIDAQ format
 	variable ePhysFreq
 	variable ePhysIsCyclic
+	// multiMode
+	variable isMulti
+	variable multiAqiAq
+	variable multiAqNaqs
 	// triggers
 	variable trigChans	// old-style bitwise, 1 for ctr 0, 2 for ctr 1, 3 for both
 	variable trig1Secs	// seconds to delay, already converted from frames, or lines
@@ -2475,47 +2473,23 @@ endStructure
 
 //******************************************************************************************************
 // Reads values appropriate for this scan into the scanStructure, s
-// Last Modified 2025/07/15 by Jamie Boyd
+// Last Modified 2025/07/21 by Jamie Boyd
 Function NQ_LoadScanStruct (s)
 	STRUCT NQ_ScanStruct &s
 	
 	// scan mode
 	NVAR scanMode = root:packages:twoP:Acquire:ScanMode
 	s.ScanMode = scanMode
-	
-	SVAR ephysBoard = root:packages:twoP:acquire:ePhysBoard
-	s.ePhysBoard = ephysBoard
-	
-	SVAR selePhysChanList = root:packages:twoP:acquire:selePhysChanList
-	
-	
-
-	// Live ROI
-	if ((scanmode == kLiveMode) || (scanMode == kTimeSeries))
-		NVAR liveROICheck =  root:Packages:twoP:Acquire:liveROICheck
-		s.liveROI = liveROICheck
-		if (liveROICheck)
-			NVAR liveROIsecs = root:Packages:twoP:acquire:LiveROIsecs
-			s.liveROISecs = liveROIsecs
-			NVAR liveROIRatioCheck = root:Packages:twoP:Acquire:liveROIRatioCheck
-			if (liveROIRatioCheck)
-				SVAR topChan = root:Packages:twoP:Acquire:liveROItopChan
-				SVAR bottomChan = root:Packages:twoP:Acquire:liveROIBottomChan
-				if ((cmpStr (bottomChan, "") ==0) || (cmpStr (bottomChan, "") !=0)) 
-					liveROIRatioCheck = 0
-				else
-					s.liveRatioTopChan = topChan
-					s.liveRatioBottomChan = bottomChan
-				endif
-			endif
-			s.liveRatio = liveROIRatioCheck
-		endif
-	endif
-
 	// Scan name and general checks for imaging and/or ephys not applicable to live mode
 	if (scanMode != kLiveMode)
 		NVAR isMulti = root:packages:twoP:acquire:multiModeIsMulti
 		s.isMulti = isMulti
+		if (isMulti)
+			NVAR multiAqNaqs = root:packages:twoP:acquire:multiAqNaqs
+			NVAR multiAqiaq =root:packages:twoP:acquire:multiAqiaq
+			s.multiAqiAq = multiAqiaq
+			s.multiAqNaqs = multiAqNaqs
+		endif
 		SVAR newScanName = root:Packages:twoP:acquire:NewScanName
 		s.NewScanName = NewScanName
 		NVAR inPutTrigger = root:packages:twoP:acquire:inputTriggerCheck
@@ -2523,50 +2497,32 @@ Function NQ_LoadScanStruct (s)
 		NVAR overWriteWarn = root:packages:twoP:acquire:overwriteWarnCheck
 		s.overWriteWarn = overWriteWarn
 		notebook twoP_Controls#EXPNOTEBOOK getData=2
+		variable iChar, nChars = strlen (S_Value)
+		For (iChar = 0; iChar < nChars; iChar +=1)
+			if  (char2num (S_Value [iChar]) == 58)
+				S_Value [iChar, iChar]= "="
+			elseif (char2num (S_Value [iChar]) == 13)
+				S_Value [iChar, iChar]= ";"
+			endif
+		endfor
 		s.scanNote = S_Value
-		if (s.ScanMode == kePhysOnly)
+		if (scanMode == kEphysOnly)
 			NVAR runTime = root:Packages:twoP:acquire:EphysOnlyTime
 		else
 			NVAR runTime = root:Packages:twoP:acquire:RunTime
 		endif
 		s.runTime = runTime
 	endif
-	// settings for image scan
-	variable iChan, nChans
-	string ai_chanName, ai,chanName, type, range, scaling, offset
+	// settings for image scan, live more or otherwise
 	if (scanMode != kEPhysOnly)
 		SVAR imageBoard = root:packages:twoP:acquire:imageBoard
 		s.imageBoard = imageBoard
 		SVAR selImageChanList = root:packages:twoP:acquire:selImageChanList
-		WAVE/T chanList = root:packages:twoP:acquire:imChanList
-		nChans = itemsinlist (selImageChanList, ";")
-		if (nChans == 0)
+		s.selImageChanList = SelImageChanList
+		if (itemsinlist (selImageChanList, ";") ==0)
 			doAlert 0, "Select some image channels before starting."
 			return 1
 		endif
-		//string ai_chanName, ai,chanName, type, range
-		s.scanWavePath = ""
-		s.scanChans =0
-		for (iChan=0; iChan < nChans;iChan +=1)
-			ai_chanName = stringFromList(iChan, selImageChanList,";")
-			ai = stringFromList (0, ai_chanName)
-			chanName = stringFromList (1, ai_chanName)
-			if (cmpStr(chanName, "ch1") ==0)
-				s.scanChans += 1
-			elseif (cmpStr (chanName, "ch2") ==0)
-				s.scanChans += 2
-			endif
-			type = chanList [str2num(ai)] [2]
-			range =  chanList [str2num(ai)] [3]
-			Scaling = chanList [str2num(ai)] [4]
-			Offset = chanList [str2num(ai)] [5]
-			if (scanMode == kLiveMode)
-				s.scanWavePath +="root:packages:twoP:acquire:LiveWave" + ":_" + chanName
-			else
-				s.scanWavePath += "root:twoP_Scans:" + s.NewScanName  + ":" + s.NewScanName + "_" + chanName
-			endif
-			s.scanWavePath += ", " + ai + "/" + type +", -" +  range + ", " + range + "," + scaling + ", " + offset + ";"
-		endfor
 		// objective used for scaling
 		SVAR obj = root:Packages:twoP:Acquire:curObj 
 		NVAR objNum = root:Packages:twoP:Acquire:curObjNum
@@ -2615,8 +2571,8 @@ Function NQ_LoadScanStruct (s)
 		NVAR pixWidthTotal = root:Packages:twoP:Acquire:PixWidthTotal
 		NVAR frameTime = root:packages:twoP:Acquire:FrameTime
 		NVAR lineTime = root:packages:twoP:Acquire:LineTime
+		NVAR minLiveFrameTime =  root:packages:twoP:acquire:minLiveFrameTime
 		NVAR scanIsCyclic = root:packages:twoP:Acquire:isCyclic
-		s.scanIsCyclic = scanIsCyclic
 		s.pixTime = pixTime
 		s.DutyCycle = DutyCycle
 		s.FlybackMode = flybackMode
@@ -2625,39 +2581,80 @@ Function NQ_LoadScanStruct (s)
 		s.pixWidthTotal = pixWidthTotal
 		s.frameTime = frameTime
 		s.lineTime = LineTime
-	endif	
-	
+		s.minLiveFrameTime = minLiveFrameTime
+		s.scanIsCyclic = scanIsCyclic
+		// Live ROI for live mode or time series
+		if ((scanmode == kLiveMode) || (scanMode == kTimeSeries))
+			NVAR liveROICheck =  root:Packages:twoP:Acquire:liveROICheck
+			s.liveROI = liveROICheck
+			if (liveROICheck)
+				NVAR liveROIsecs = root:Packages:twoP:acquire:LiveROIsecs
+				s.liveROISecs = liveROIsecs
+				NVAR liveROIRatioCheck = root:Packages:twoP:Acquire:liveROIRatioCheck
+				if (liveROIRatioCheck)
+					SVAR topChan = root:Packages:twoP:Acquire:liveROItopChan
+					SVAR bottomChan = root:Packages:twoP:Acquire:liveROIBottomChan
+					if ((cmpStr (bottomChan, "") ==0) || (cmpStr (bottomChan, "") !=0)) 
+						liveROIRatioCheck = 0
+					else
+						s.liveRatioTopChan = topChan
+						s.liveRatioBottomChan = bottomChan
+					endif
+				endif
+				s.liveRatio = liveROIRatioCheck
+			endif
+		endif
+		// Get position
+		// Stage - Call stage doUpdate function so we get accurate values for positions
+		// X and Y position will be the position of the start of the image.
+		// Relative zero (i.e., 0 offset from the current reading of the stage values) is halfway between
+		// min and max of  voltage full size defined in the constants kNQxVoltStart etc. plus the offset for 
+		// the objective being used.
+		// Thus, for a full scale wave (kNQxVoltStart to kNQxVoltEnd), xPos should be (kNQxVoltEnd - kNQxVoltStart)/2  * Xscaling
+		WAVE/t ObjWave = root:Packages:twoP:Acquire:ObjWave
+		NVAR curObjNum = root:packages:twoP:Acquire:CurObjNum
+		SVAR StageProc = root:Packages:twoP:Acquire:StageProc
+		SVAR stagePort = root:Packages:twoP:Acquire:StagePort
+		NVAR xStartVoltsFS = root:packages:twoP:acquire:xStartVoltsFS
+		NVAR xEndVoltsFS = root:packages:twoP:acquire:xEndVoltsFS
+		NVAR yStartVoltsFS = root:packages:twoP:acquire:yStartVoltsFS
+		NVAR yEndVoltsFS = root:packages:twoP:acquire:yEndVoltsFS
+		s.stageProc = StageProc
+		s.stagePort = stagePort
+		variable xS=1, yS=1, zS=1, axS=NaN
+		NVAR multiAqiAq = root:packages:twoP:acquire:multiAqiAq
+		if ((!isMulti)	|| (multiAqiAq == 0))	// no need to keep calling stage proc for multiscan, call it once at MultiStart
+			funcref  StageUpdate_Template UpdateStage=$"StageUpDate_" + StageProc
+			UpdateStage (xS, yS, zS, axS)
+		endif
+		variable xCenterV = (xStartVoltsFS + xEndVoltsFS)/2
+		variable yCenterV = (yStartVoltsFS + yEndVoltsFS)/2
+		s.xPos = xS + ((s.XSV - xCenterV) * str2num (ObjWave [curObjNum] [1])) +  str2num (ObjWave [curObjNum] [3])
+		s.yPos = yS + ((s.YSV - yCenterV) * str2num (ObjWave [curObjNum] [2])) +  str2num (ObjWave [curObjNum] [4])	// if a Zstack, z pos will be start of stack, which is set above, and may not be current z pos
+		if (s.ScanMode != kzSeries)
+			s.zPos=zS
+		endif
+		// if reading stage fails, set values to 0
+		if (((numtype (s.xPos) != 0) ||  (numtype (s.yPos) != 0)) ||(numtype (s.zPos) != 0))
+			s.xPos = 0
+			s.yPos =0
+			s.zPos =0
+			print "Stage reading failed; XYZ positions for " + newScanName + " set arbitrarily to 0"
+		endif
+	endif
 	// board and channels for ePhys, triggers, and voltage waves
 	if (((scanMode == kTimeSeries) || (scanMode == kLinescan)) || (scanMode == kephysOnly))
 		SVAR ephysBoard = root:packages:twoP:acquire:ePhysBoard
 		s.ePhysBoard = ephysBoard
 		SVAR selePhysChanList = root:packages:twoP:acquire:selePhysChanList
-		nChans = itemsinlist (selePhysChanList)
-		if (nChans == 0)
+		s.selePhysChanList = selePhysChanList
+		if (itemsinlist (selePhysChanList, ";") == 0)
 			if (scanMode == kephysOnly)
 				doAlert 0, "Select some ePhys channels before starting ePhys scanning."
 				return 1
 			endif
 		else			// we have ePhys channels
-			WAVE/T chanList = root:packages:twoP:acquire:ePhysChanList
-			s.ePhysPath = ""
-			s.ePhysChans = 0
-			for (iChan=0; iChan < nChans;iChan +=1)
-				ai_chanName = stringFromList(iChan, selePhysChanList,";")
-				ai = stringFromList (0, ai_chanName)
-				chanName = stringFromList (1, ai_chanName)
-				if (cmpStr(chanName, "ch1") ==0)
-					s.ePhysChans += 1
-				elseif (cmpStr(chanName, "ch2") ==0)
-					s.ePhysChans += 2
-				endif
-				type = chanList [str2num(ai)] [2]
-				range =  chanList [str2num(ai)] [3]
-				s.ePhysPath += "root:twoP_Scans:" + s.NewScanName + ":" + s.NewScanName + "_ep" + chanName
-				s.ePhysPath += ", " + ai + "/" + type +", -" +  range + ", " + range + "," + scaling + ", " + offset + ";"
-			endfor
 			NVAR ePhysFreq = root:Packages:twoP:acquire:ePhysFreq
-			NVAR ePhysGain = root:Packages:twoP:Acquire:ePhysGain
 			s.ePhysFreq = ePhysFreq
 			NVAR ePhysIsCyclic =  root:packages:twoP:Acquire:ePhysisCyclic
 			s.ePhysIsCyclic = ePhysIsCyclic
@@ -2690,82 +2687,17 @@ Function NQ_LoadScanStruct (s)
 			s.vOutStart = V_Value
 		endif
 	endif
-	
-	// Live ROI for live mode or time series
-	if ((scanmode == kLiveMode) || (scanMode == kTimeSeries))
-		NVAR liveROICheck =  root:Packages:twoP:Acquire:liveROICheck
-		s.liveROI = liveROICheck
-		if (liveROICheck)
-			NVAR liveROIsecs = root:Packages:twoP:acquire:LiveROIsecs
-			s.liveROISecs = liveROIsecs
-			NVAR liveROIRatioCheck = root:Packages:twoP:Acquire:liveROIRatioCheck
-			if (liveROIRatioCheck)
-				SVAR topChan = root:Packages:twoP:Acquire:liveROItopChan
-				SVAR bottomChan = root:Packages:twoP:Acquire:liveROIBottomChan
-				if ((cmpStr (bottomChan, "") ==0) || (cmpStr (bottomChan, "") !=0)) 
-					liveROIRatioCheck = 0
-				else
-					s.liveRatioTopChan = topChan
-					s.liveRatioBottomChan = bottomChan
-				endif
-			endif
-			s.liveRatio = liveROIRatioCheck
-		endif
-	endif
-
-	// get position info except for live mode, or ePhys only. 
-	 if  (!((scanMode == kLiveMode) || (scanMode == kePhysOnly)))
-		// Stage - Call stage doUpdate function so we get accurate values for positions
-		// X and Y position will be the position of the start of the image.
-		// Relative zero (i.e., 0 offset from the current reading of the stage values) is halfway between
-		// min and max of  voltage full size defined in the constants kNQxVoltStart etc. plus the offset for 
-		// the objective being used.
-		// Thus, for a full scale wave (kNQxVoltStart to kNQxVoltEnd), xPos should be (kNQxVoltEnd - kNQxVoltStart)/2  * Xscaling
-		WAVE/t ObjWave = root:Packages:twoP:Acquire:ObjWave
-		NVAR curObjNum = root:packages:twoP:Acquire:CurObjNum
-		SVAR StageProc = root:Packages:twoP:Acquire:StageProc
-		SVAR stagePort = root:Packages:twoP:Acquire:StagePort
-		NVAR xStartVoltsFS = root:packages:twoP:acquire:xStartVoltsFS
-		NVAR xEndVoltsFS = root:packages:twoP:acquire:xEndVoltsFS
-		NVAR yStartVoltsFS = root:packages:twoP:acquire:yStartVoltsFS
-		NVAR yEndVoltsFS = root:packages:twoP:acquire:yEndVoltsFS
-		s.stageProc = StageProc
-		s.stagePort = stagePort
-		variable xS=1, yS=1, zS=1, axS=NaN
-		if (!(isMulti))		// no need to keep calling stage proc for multiscan, call it once at MultiStart
-			funcref  StageUpdate_Template UpdateStage=$"StageUpDate_" + StageProc
-			UpdateStage (xS, yS, zS, axS)
-		endif
-		variable xCenterV = (xStartVoltsFS + xEndVoltsFS)/2
-		variable yCenterV = (yStartVoltsFS + yEndVoltsFS)/2
-		s.xPos = xS + ((s.XSV - xCenterV) * str2num (ObjWave [curObjNum] [1])) +  str2num (ObjWave [curObjNum] [3])
-		s.yPos = yS + ((s.YSV - yCenterV) * str2num (ObjWave [curObjNum] [2])) +  str2num (ObjWave [curObjNum] [4])	// if a Zstack, z pos will be start of stack, which is set above, and may not be current z pos
-		if (s.ScanMode != kzSeries)
-			s.zPos=zS
-		endif
-		// if reading stage fails, set values to 0
-		if (((numtype (s.xPos) != 0) ||  (numtype (s.yPos) != 0)) ||(numtype (s.zPos) != 0))
-			s.xPos = 0
-			s.yPos =0
-			s.zPos =0
-			print "Stage reading failed; XYZ positions for " + newScanName + " set arbitrarily to 0"
-		endif
-	else
-		s.xPos = 0
-		s.yPos =0
-		s.zPos =0
-	endif
 	// switch for scan mode specific things
 	switch (scanMode)
 		case kLiveMode:	// Live mode specific - average frames and live histogram
 			s.NewScanName = "LiveWave"
-			NVAR liveAvgFrames = root:Packages:twoP:acquire:numLiveAvgFrames
-			s.liveAvgFrames = liveAvgFrames
 			NVAR liveHistCheck = root:Packages:twoP:acquire:liveHistCheck
 			s.liveHist = liveHistCheck
+			NVAR liveAvgFrames = root:Packages:twoP:acquire:numLiveAvgFrames
+			s.numFrames =liveAvgFrames
 			variable/G root:packages:twoP:acquire:xRelOffset = s.xPos -xS  //((s.XSV - (kNQxVoltStart + (kNQxVoltEnd - kNQxVoltStart)/2)) * str2num (ObjWave [curObjNum] [1]))  + str2num (ObjWave [curObjNum] [3]) 
 			variable/G root:packages:twoP:acquire:yRelOffset=  s.yPos - yS  //((s.YSV - (kNQyVoltStart  + (kNQyVoltEnd - kNQyVoltStart)/2)) * str2num (ObjWave [curObjNum] [2]))  + str2num (ObjWave [curObjNum] [4]) 
-			s.numFrames = 1
+			s.numFrames =liveAvgFrames
 			s.ePhysChans = 0
 			break
 		case kTimeSeries:
@@ -2795,25 +2727,6 @@ Function NQ_LoadScanStruct (s)
 			s.ePhysChans = 0
 			break
 	endswitch
-	// voltage waves
-	if (((s.ScanMode == kLiveMode) || (s.ScanMode == kTimeSeries)) || (s.ScanMode == kephysOnly))
-		controlinfo/w=twoP_Controls Voltage1Check
-		s.vOutChans = V_Value
-		if (V_Value)
-			controlinfo/w=twoP_Controls VoltagePulse1Popup
-			s.VoutWave1 = S_Value
-		endif
-		controlinfo/w=twoP_Controls Voltage2Check
-		s.vOutChans+= V_Value*2
-		if (V_Value)
-			controlinfo/w=twoP_Controls VoltagePulse2Popup
-			s.VoutWave2 = S_Value
-		endif
-		if (S.VoutChans)
-			controlinfo/w=twoP_Controls VoltagePulsePopUp
-			s.vOutStart = V_Value
-		endif
-	endif
 	return 0
 end
 
@@ -2848,16 +2761,18 @@ end
 // Some variables are used in calculations, and need to be accessed later, some are just for maintaining
 // a record of settings for the user. The latter can be printed with easier to read but harder to parse %W formatting
 // Last Modified 2025/07/14 by Jamie Boyd
-Function NQ_ScanNoter (s, gStrName)
+Function NQ_ScanNoter (s)
 	STRUCT NQ_ScanStruct &s
-	string gStrName
 	
+	string gStrName
+	if (s.scanMode == kLiveMode)
+		gStrName = "root:packages:twoP:Acquire:LiveModeScanStr"
+	else
+		gStrName = "root:twoP_Scans:" + s.newScanName + ":" + s.newScanName + "_info"
+	endif
 	try
-		SVAR/Z NoteStr = $gStrName
-		if (!(SVAR_EXISTS (NoteStr)))
-			String/G  $gStrName ;ABORTONRTE
-			SVAR NoteStr = $gStrName
-		endif
+		String/G $gStrName ;ABORTONRTE
+		SVAR NoteStr = $gStrName
 	catch
 		variable err= GetRTError (1)
 		string errMsg = GetErrMessage(err, 3)
@@ -2893,16 +2808,9 @@ Function NQ_ScanNoter (s, gStrName)
 	NoteStr +=  tempStr
 	// image specific stuff
 	// image channels, bitwise, 1 for ch1, 2 for ch2, 3 for both channels
-	NoteStr += "ImChans:" + num2str (s.scanChans) + "\r"
+	NoteStr += "ImChans:" + num2str (s.ImChans) + "\r"
 	// channel descriptions, for forwards compatibility
-	NoteStr += "imChanDesc:"
-	variable ii
-	for (ii =1; ii<3; ii+=1)
-		//if (ii & s.scanChans)
-			NoteStr += "ch" + num2str (ii) + ","
-		//endif
-	endfor
-	NoteStr += "\r"
+	NoteStr += "imChanDesc:" + s.selImageChanList + "\r"
 	// stage positions
 	noteStr += "Xpos:" + num2str (s.xPos) + "\r"
 	noteStr += "Ypos:" + num2str (s.yPos) + "\r"
@@ -2957,26 +2865,274 @@ Function NQ_ScanNoter (s, gStrName)
 	endif
 	// was ePhys also collected?
 	notestr += "ephys:" + num2str (s.ePhysChans) + "\r"
-	NoteStr += "ePhysChanDesc:"
-	for (ii =1; ii<3; ii+=1)
-		if (ii & s.ePhysChans)
-			NoteStr += "ep" + num2str (ii) + ","
-		endif
-	endfor
-	NoteStr += "\r"
+	NoteStr += "ePhysChanDesc:" + s.selEphysChanList + "\r"
+	
 	// Need to add extra info for ePhys?
 	return 0
 end
 
 //******************************************************************************************************
-// Makes the image waves for scanning in a new folder, for all the different scan modes. 
-// Sets NIDAQ string for channels and paths to created waves in s.scanWavePath
-// Makes waveNote in folder for new scan
-// Last Modified 2017/08/12 by Jamie Boyd @@@@
+// Makes the image and eohys waves for scanning in a new folder, for all the different scan modes. 
+// Sets string for channels and paths to created waves in s.scanWavePath
+// Last Modified 2025/07/21 by Jamie Boyd @@@@
 Function NQ_MakeImageScanWaves (s)
 	STRUCT NQ_ScanStruct &s
 	
 	// if not live mode, make a folder for this scan
+	string baseName
+	if (s.ScanMode == kLiveMode)
+		baseName = "root:packages:twoP:acquire:LiveWave_"
+	else
+		newDataFolder/O $"root:twoP_Scans:" + s.newScanName
+		baseName = "root:twoP_Scans:" + s.newScanName +":" +  s.newScanName + "_"
+	endif
+	s.scanWavePath = ""
+	s.ImChans =0
+	WAVE/T chanList = root:packages:twoP:acquire:imChanList
+	string ai_chanName, ai,chanName, type, range, scaling, offset
+	variable iChan, nChans = itemsInList(s.selImageChanList)
+	for (iChan=0; iChan < nChans; iChan +=1)
+		ai_chanName = stringFromList(iChan, s.selImageChanList,";")
+		ai = stringFromList (1, ai_chanName)
+		chanName = stringFromList (0, ai_chanName)
+		// old-school tracking of channels for examine procedures - name your channels ch1 and ch2
+		if (cmpStr(chanName, "ch1") ==0)		
+			s.ImChans += 1
+		elseif (cmpStr (chanName, "ch2") ==0)
+			s.ImChans += 2
+		endif
+		type = chanList [str2num(ai)] [2]
+		range =  chanList [str2num(ai)] [3]
+		Scaling = chanList [str2num(ai)] [4]
+		Offset = chanList [str2num(ai)] [5]
+		s.scanWavePath += "root:packages:twoP:acquire:LiveAcq1D_" + chanName
+		s.scanWavePath += ", " + ai + "/" + type +", -" +  range + ", " + range + "," + scaling + ", " + offset + ";"
+		Switch (s.Scanmode)
+			case kLiveMode:
+				// make the wave we display
+				WAVE/Z scanWave= $baseName + chanName
+				if (waveExists (scanWave))
+					redimension/n = ((s.PixWidth), (s.PixHeight)) scanWave
+				else
+					make/w/u/n = ((s.PixWidth), (s.PixHeight)) $baseName + chanName
+				endif
+				SetScale/P x s.xPos, s.XPixSize, "m", scanWave
+				SetScale/P Y s.yPos, s.YPixSize, "m", scanWave
+				// make the wave we copy linear data into and process into 1 frame we display
+				// in repeated scan hook, we scan 1 frame, insert it into correct frame position, replacing oldest frame, and kalmanSpecframes to outPut Channel
+				//make the 1D wave we directly acquire into - needs to be scaled somewhat appopriately or NIDAQ tools will complain, though we don't use the scaling
+				if (s.FrameTime > s.minLiveFrameTime)
+					make/o/w/u/n=(s.PixWidth * s.PixHeight) $"root:packages:twoP:acquire:LiveAcq1D_" + chanName
+					Variable/G root:packages:twoP:acquire:liveAvg_nFrames = s.numFrames
+					Variable/G root:packages:twoP:acquire:liveAvg_iFrame = 0
+				else
+					make/o/w/u/n=(s.PixWidth * s.PixHeight * s.numFrames) $"root:packages:twoP:acquire:LiveAcq1D_" + chanName
+				endif
+				setscale/p x 0, 1e-06, "s" $"root:packages:twoP:acquire:LiveAcq1D_" + chanName
+				// make the 3D stack of frames that gets averaged 
+				make/o/w/u/n=((s.PixWidth), (s.PixHeight),(s.numFrames)) $ "root:packages:twoP:acquire:LiveAcq3D_" + chanName
+				break
+		endswitch
+	endfor
+end
+		endtry
+	// kill remaining waves left on graph from last scan, if any
+	// check ephys waves as well
+	For (theChannel = 1; theChannel < 3; theChannel +=1)
+		if (s.ePhysChans & theChannel)
+			dontKill += s.NewScanName + "_ep" + num2str (theChannel)
+		endif
+	endfor
+	NQ_KillNotInList (s, dontKill)
+	NVAR expSize = root:packages:twoP:acquire:expSize
+	expSize = NQ_GetExpSize ()
+	s.scanWavePath = DataWave_Path
+	doupdate
+		
+		
+		
+		
+//		case kSingleImage:	// Averaging Frames (time series with averaging at the end)
+//			case kTimeSeries:	// time series
+//				
+//				
+//					redimension/n = ((s.PixWidth), (s.PixHeight))root:packages:twoP:examine:scanGraph_ch1,root:packages:twoP:examine:scanGraph_ch2
+//					SetScale/P x s.xPos, s.XPixSize, "m", root:packages:twoP:examine:scanGraph_ch1, root:packages:twoP:examine:scanGraph_ch2
+//					SetScale/P x s.yPos, s.YPixSize, "m", root:packages:twoP:examine:scanGraph_ch1, root:packages:twoP:examine:scanGraph_ch2
+//					//SetScale/P x 0, 1e-06, "", root:packages:twoP:examine:scanGraph_ch2
+//					if (s.scanIsCyclic)
+//						NVAR bufferSize = root:packages:twoP:acquire:tSeriesBufferSize
+//						s.numFrames = ceil (s.numFrames / bufferSize) * bufferSize
+//					endif
+//					For (theChannel = 0; theChannel < nChannels; theChannel +=1)
+//						if (1)//(s.ScanChans) & (2^theChannel))	// Then the current channel is selected
+//							// don't kill this wave
+//							dontKill +=  s.NewScanName + "_ch" + num2str (theChannel + 1) + ";"
+//							//Make WaveName
+//							theWaveName = "root:twoP_Scans:" +  s.NewScanName + ":" + s.NewScanName + "_ch" + num2str (theChannel +1)
+//							// Make the wave
+//							WAVE/Z theWave = $theWaveName
+//							if (s.scanIsCyclic)
+//								if (WaveExists (theWave))
+//									redimension/n= ((s.PixWidth), (s.PixHeight), (s.numFrames))  $theWaveName
+//								else
+//									make/w/u/o/n= ((s.PixWidth), (s.PixHeight), (s.numFrames))  $theWaveName
+//								endif
+//							else
+//								if (WaveExists (theWave)) // acquire directly into the wave so make sure it is 1 dimensional
+//									redimension /n= (s.PixWidth * s.PixHeight * s.numFrames)  $theWaveName
+//								else
+//									make/w/u/o/n= (s.PixWidth * s.PixHeight * s.numFrames)  $theWaveName
+//								endif
+//							endif
+//
+//							// check that the wave was made
+//							err = GetRTError(0)
+//							abortonvalue err, 1
+//							// Set scaling
+//							WAVE DataWave = $theWaveName
+//							if (s.scanIsCyclic)
+//								SetScale/P x s.xPos, s.XPixSize, "m", Datawave
+//								SetScale/P y  s.yPos, s.YPixSize,"m", Datawave
+//								SetScale/P z  0, s.frameTime ,"s", Datawave
+//							else
+//								SetScale/P x 0 , 1e-06,"m", Datawave
+//							endif
+//							SetScale d, 0, 2e12-1, "raw A/D", DataWave 
+//							if (s.scanIsCyclic)
+//								// Make a tempWave to acquire into directly
+//								string tempWaveName = "root:packages:twoP:acquire:TempZWave" + "_ch" + num2str (theChannel + 1)
+//								WAVE/Z tempWave = $tempWaveName
+//								if (WaveExists (tempWave))
+//									redimension/n= (s.PixWidth * s.PixHeight * bufferSize) $tempWaveName
+//								else
+//									make/w/u/o/n= (s.PixWidth * s.PixHeight * bufferSize) $tempWaveName
+//								endif
+//								// Add path info for tempWave
+//								DataWave_Path  +=  tempWaveName + ", " + num2str (theChannel) + ", -5, 5;"
+//							else
+//								// Add path info for data wave
+//								DataWave_Path  +=  thewavename + ", " + num2str (theChannel) + ", -5, 5;"
+//							endif
+//							// 0 the wave
+//							fastop DataWave = 0
+//							SetScale d, 0, 2e12-1, "raw A/D", DataWave 
+//						endif
+//					endfor
+//				break
+//			case kLineScan:
+//				For (theChannel = 1; theChannel < 3; theChannel +=1)
+//					if(1)// ((s.ScanChans) & theChannel)	// Then the current channel is selected
+//						// don't kill this wave
+//						dontKill +=  s.NewScanName + "_ch" + num2str (theChannel + 1) + ";"
+//						//Make WaveName
+//						theWaveName =  "root:twoP_Scans:" +  s.NewScanName + ":" + s.NewScanName + "_ch" + num2str (theChannel +1)
+//						// Make the wave
+//						wave/Z theWave = $theWaveName
+//						if (waveExists (theWave))
+//							redimension/n = ((s.PixWidth), (s.pixHeight)) theWave
+//						else
+//							make/w/u/o/n= ((s.PixWidth), (s.PixHeight))  $theWaveName
+//						endif
+//						// check that the wave was made
+//						err = GetRTError(0)
+//						abortonvalue err, 1
+//						// Set scaling
+//						WAVE DataWave = $theWaveName
+//						SetScale/P x 0,1e-06,"s", Datawave
+//						//SetScale/P x (s.xPos) , (s.xPixSize),"m", Datawave
+//						//SetScale/P y  0 , (s.lineTime),"s", Datawave
+//						SetScale d, -2e-11, 2e11-1, "raw A/D", DataWave
+//						if (s.scanIsCyclic)
+//							tempWaveName1 = "root:packages:twoP:acquire:TempL1Wave" + "_ch" + num2str (theChannel)
+//							tempWaveName2 = "root:packages:twoP:acquire:TempL2Wave" + "_ch" + num2str (theChannel)
+//							NVAR bufferSize = root:packages:twoP:acquire:lScanBufferSize
+//							WAVE/z tempWave1 = $tempWaveName1
+//							if (!(waveExists (tempWave1)))
+//								make/w/u/o/n= ((s.PixWidth), (bufferSize)) $tempWaveName1
+//							elseif ((dimSize (tempWave1, 0) != s.PixWidth) || (dimSize (tempWave1, 1) != bufferSize))
+//								redimension/n= ((s.PixWidth), (bufferSize)) $tempWaveName1
+//							endif
+//							WAVE/z tempWave2 = $tempWaveName2
+//							if (!(waveExists (tempWave2)))
+//								make/w/u/o/n= ((s.PixWidth), (bufferSize)) $tempWaveName2
+//							elseif ((dimSize (tempWave2, 0) != s.PixWidth) || (dimSize (tempWave2, 1) != bufferSize))
+//								redimension/n= ((s.PixWidth), (bufferSize)) $tempWaveName2
+//							endif
+//							// Add path info to first tempWave
+//							DataWave_Path  +=  tempWaveName1 + ", " + num2str (theChannel-1) + ", -5, 5;"
+//						else
+//							// Add path info for data wave
+//							DataWave_Path  +=  thewavename + ", " + num2str (theChannel-1) + ", -5, 5;"
+//						endif
+//					endif
+//				endfor
+//				break
+//			case kzSeries:
+//				// Do we need multiple frames for timing issues
+//				//NVAR frameTime = root:packages:twoP:acquire:frametime
+//				NVAR minLiveFrameTime = root:packages:twoP:acquire:minLiveFrameTime
+//				if (s.frameTime < minLiveFrameTime)
+//					s.zAvgStackAtOnce =1
+//					s.zAvg = ceil (minLiveFrameTime/s.frameTime)
+//				else
+//					s.zAvgStackAtOnce =0
+//				endif
+//				variable/G root:packages:twoP:acquire:zAvgStackAtOnce = s.zAvgStackAtOnce
+//				For (theChannel = 0; theChannel < nCHannels; theChannel +=1)
+//					if (1) //(s.ScanChans) & (2^theChannel))	// Then the current channel is selected
+//						// don't kill this wave
+//						dontKill +=  s.NewScanName + "_ch" + num2str (theChannel + 1) + ";"
+//						//Make WaveName
+//						theWaveName = "root:twoP_Scans:" +  s.NewScanName + ":" + s.NewScanName + "_ch" + num2str (theChannel +1)
+//						// Make the wave
+//						WAVE/Z theWave = $theWaveName
+//						if (!(waveExists (theWave)))
+//							make/w/u/o/n= ((s.PixWidth), (s.PixHeight), (s.numFrames))  $theWaveName
+//							// 0 the wave
+//							wave theWave = $theWaveName
+//							fastop theWave = 0	
+//						else
+//							redimension/n= ((s.PixWidth), (s.PixHeight), (s.numFrames))  theWave
+//							// 0 the wave
+//							wave theWave =  $theWaveName
+//							fastop theWave = 0	
+//						endif
+//						// check that the wave was made
+//						err = GetRTError(0)
+//						abortonvalue err, 1
+//						// Set scaling
+//						WAVE theWave = $theWaveName
+//						SetScale/P x (s.xPos) , (s.xPixSize),"m", theWave
+//						SetScale/P y  (s.yPos) , (s.yPixSize),"m", theWave
+//						SetScale/P z  (s.Zpos), (s.zStepSize),"m", theWave
+//						SetScale d, -2e-11, 2e11-1, "raw A/D", theWave
+//						// Also make a tempWave to acquire into directly, and transfer to 3D wave as acquired
+//						tempWaveName = "root:packages:twoP:acquire:TempZWave" + "_ch" + num2str (theChannel +1)
+//						wave/Z tempWave = $tempWaveName
+//						if (s.zAvgStackAtOnce)
+//							if (!(waveExists (tempWave)))
+//								make/w/u/o/n= (s.PixWidth * s.PixHeight * s.zAvg)$tempWaveName
+//								wave/Z tempWave = $tempWaveName
+//							else
+//								redimension/n= (s.PixWidth * s.PixHeight  * s.zAvg)tempWave
+//							endif
+//						else  // just a 2D wave
+//							if (!(waveExists (tempWave)))
+//								make/w/u/o/n= (s.PixWidth * s.PixHeight)$tempWaveName
+//							else
+//								redimension/n= (s.PixWidth * s.PixHeight) tempWave
+//							endif
+//						endif
+//						wave tempWave = $tempWaveName
+//						SetScale/P x 0, 1e-06, "s", tempWave
+//						DataWave_Path  +=  tempWaveName + ", " + num2str (theChannel) + ", -5, 5;"
+//					endif
+//				endfor
+				break
+		endSwitch
+	
+	
 	// Also make a string for wave Note -  contains info about scan settings for this scan
 	if (s.ScanMode == kLiveMode)
 		NQ_ScanNoter (s, "root:packages:twoP:Acquire:LiveModeScanStr")
@@ -3222,7 +3378,7 @@ end
 //******************************************************************************************************
 // Makes the waves to scan ephys. Returns path and channel info in ePhysPath field of the scanStruct
 // Last Modified 2013/07/24 by Jamie Boyd 
-Function NQ_MakeEPhysWaves (s) 
+Function NQ_MakeScanWaves (s) 
 	STRUCT NQ_ScanStruct &s
 	
 	string eDataWave_Path = ""
@@ -3284,7 +3440,7 @@ Function NQ_MakeEPhysWaves (s)
 		expSize = NQ_GetExpSize ()
 		newDataFolder/O $"root:twoP_Scans:" + s.newScanName
 		//string/G $"root:twoP_Scans:" + s.newScanName + ":" +  s.newScanName + "_info"
-		NQ_ScanNoter (s, "root:twoP_Scans:" + s.newScanName + ":" +  s.newScanName + "_info")
+		NQ_ScanNoter (s)
 	endif
 	doupdate
 	return 0
@@ -3654,19 +3810,22 @@ Function NQ_StartScan (ba) : ButtonControl
 		NVAR ScanStartMode = root:packages:twoP:Acquire:ScanStartMode
 		ScanStartMode=scanMode
 		//or just lock the tabcontrol to keep user from switching
-		TabControl SmodeTabControl disable=2 
+		TabControl SmodeTabControl win =twoP_Controls, disable=2 
 		// start percent complete going so abort is handled properly right away
 		NVAR percentComplete =root:packages:twoP:Acquire:PercentComplete
 		percentComplete = 0.01
 		// stage
-		SVAR stageProc = root:Packages:twoP:Acquire:StageProc
-		SVAR stagePort = root:packages:twoP:acquire:StagePort
+		
 		STRUCT NQ_ScanStruct s
 		NQ_LoadScanStruct (s)
+		
+		
+		NQ_MakeScanWaves(s)
+		
 		switch (ScanStartMode)
 			case kLiveMode:
 				Button AqStartButton, win = twoP_Controls, title="STOP",fColor=(65535,0,0), proc= twoP_LiveStop
-				NQ_ScanNoter (s, "root:packages:twoP:Acquire:LiveModeScanStr")
+				NQ_ScanNoter (s)
 				break
 			case kTimeSeries:
 			
@@ -4633,7 +4792,7 @@ Function  NQ_ScanEnd (scanMode, ScanIsAbort)
 				break
 			case kSingleImage: // do Kalman averaging
 				// stop background task
-				GUIPbkg_RemoveTask ("NQ_SingleImage_Bkg(*)")
+				//GUIPbkg_RemoveTask ("NQ_SingleImage_Bkg(*)")
 				if (scanChans & 1)
 					WAVE dataWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch1"
 					KalmanWaveToFrame (dataWave, 16)
@@ -5131,7 +5290,7 @@ Function NQ_MultiAqReset ()
 			nAqs = periodNum
 			break
 		case kMultiUseWave:
-			GUIPbkg_RemoveTask("NQ_MultiBkg_Wave(*)")
+			//GUIPbkg_RemoveTask("NQ_MultiBkg_Wave(*)")
 			SVAR WaveStr = root:packages:twoP:Acquire:multiAqWaveWaveStr
 			WAVE/z maqWave = $"root:packages:twoP:acquire:multiAqWaves:" + WaveStr
 			if (WaveExists (maqWave))
@@ -5141,7 +5300,7 @@ Function NQ_MultiAqReset ()
 			endif
 			break
 		case kMultiUseTrigger:
-			GUIPbkg_RemoveTask("NQ_MultiBkg_Trigger(*)")
+			//GUIPbkg_RemoveTask("NQ_MultiBkg_Trigger(*)")
 			NVAR trigNum =root:packages:twoP:acquire:multiAqTriggerNum
 			nAqs = trigNum
 			break
@@ -6124,11 +6283,11 @@ Function NQ_TrigSecsProc(sva) : SetVariableControl
 		NVAR scanMode = root:packages:twoP:acquire:scanMode
 		if (scanMode ==  kTimeSeries)
 			NVAR frameTime = root:packages:twoP:acquire:frameTime
-			delayFrames = floor (sva.dval/frameTime)
+			delayFrames = round (sva.dval/frameTime)
 			NQ_SetTimes()
 		elseif (scanMode ==  kLineScan)
 			NVAR lineTime = root:packages:twoP:acquire:lineTime				
-			delayLines = floor (sva.dval/lineTime)
+			delayLines = round (sva.dval/lineTime)
 			NQ_SetTimes()
 		endif
 			
