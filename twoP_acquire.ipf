@@ -563,7 +563,7 @@ Function NQ_AddAcquireControls ()
 	SetVariable FramesTrig1SetVar,pos={77.00,333.00},size={110.00,18.00},proc=NQ_SetTimesProc
 	SetVariable FramesTrig1SetVar,title="on Frame",fSize=12
 	SetVariable FramesTrig1SetVar,limits={0,inf,1},value=root:Packages:twoP:Acquire:DelayFrames1
-	SetVariable FramesTrig1SetVa, disable=1
+	SetVariable FramesTrig1SetVar, disable=1
 	SetVariable FramesTrig2SetVar,pos={77.00,353.00},size={110.00,18.00},proc=NQ_SetTimesProc
 	SetVariable FramesTrig2SetVar,title="on Frame",fSize=12
 	SetVariable FramesTrig2SetVar,limits={0,inf,1},value=root:Packages:twoP:Acquire:DelayFrames2
@@ -5457,7 +5457,7 @@ Function NQ_MultiPreMakeProc(ba) : ButtonControl
 					NQ_MakeImageScanWaves (s)
 				endif
 				if (s.ePhysChans)
-					NQ_MakeEPhysWaves (s) 
+					//NQ_MakeEPhysWaves (s) 
 				endif
 				// adjust scan Name
 				s.NewScanName =  NQ_autinc (s.NewScanName, 1)
