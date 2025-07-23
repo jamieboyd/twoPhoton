@@ -345,6 +345,34 @@ Function NQ_ProjSubtracter (ba) : ButtonControl
 	return 0
 End
 
+// makes a 2D Gaussian kernel un
+function/wave NQ_make2DKernel (width)
+	variable width
+	if (mod (width, 2) ==0)
+		width +=1
+	endif
+	make/FREE/o/s/n= (width, width) gWave
+	setscale/I x -pi,pi, "m" gWave
+	setscale/I y -pi, pi, "m" gWave
+	gWave = Gauss (x, 0, 1, y, 0, 1)
+	variable sumVal =  sum (gwave)
+	gwave /= sumVal
+	return gwave
+end
+
+// makes a 1D Gaussian kernel 
+function/wave NQ_makeSymkernel (width)
+	variable width
+	if (mod (width, 2) ==0)
+		width +=1
+	endif
+	make/FREE/o/s/n= (width) gWave
+	setscale/I x -pi,pi, "m" gWave
+	gWave = Gauss (x, 0, 1)
+	variable sumVal =  sum (gwave)
+	gwave /= sumVal
+	return gwave
+end
 
 //******************************************************************************************************
 //Filters each frame in a 3D image, or filters a single 2D image
@@ -463,13 +491,12 @@ Function NQ_GausConvolve (theWave, passes, width, outputPath)
 	variable width
 	string outputPath
 	
-	WAVE gk = GUIPGaussianLine2 (width, 2)
-	SymConvolveFrames (theWave, outputPath, 0, gk, 1)
+	SymConvolveFrames (theWave, outputPath, 0, NQ_makeSymkernel (width), 1)
 	if (passes > 1)
 		variable iPass
 		WAVE outWave = $outputPath
 		for (iPass =1; iPass < passes; iPass +=1)
-			SymConvolveFrames (outWave, outputPath, 0, gk, 1) 
+			SymConvolveFrames (outWave, outputPath, 0, NQ_makeSymkernel (width), 1) 
 		endfor
 	endif
 end
