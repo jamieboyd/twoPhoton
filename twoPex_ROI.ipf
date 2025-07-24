@@ -1,6 +1,6 @@
 #pragma rtGlobals=3
-#pragma version = 2  	// Last Modified: 2014/09/18 by Jamie Boyd.
-#pragma IgorVersion = 6.2
+#pragma version = 3  	// Last Modified: 2025/07/23 by Jamie Boyd.
+#pragma IgorVersion = 9
 
 //******************************************************************************************************
 //------------------------------- Code for The ROI tab on the 2P Examine TabControl--------------------------------------------
@@ -14,7 +14,6 @@ Menu "GraphMarquee"
 		"Do ROI", /Q,NQ_DoRoi()
 	end
 end
-
 
 // NQ_Set_Dark_Fluorescence grabs the graph marquee and sets some values a) in the Examine globals folder and B) in the note of the current scan.
 // These values will be used to subtract dark fluorescence in the ROI functions. 
@@ -51,7 +50,7 @@ end
 
 // ********************************************************************************************************************
 // function for adding  the ROI tab
-// Last Modified 2014/08/13 by jamie Boyd
+// Last Modified 2025/07/23 by Jamie Boyd
 Function NQexROI_add (able)
 	variable able
 
@@ -66,78 +65,133 @@ Function NQexROI_add (able)
 	variable/G root:packages:twoP:examine:ROIChan =1
 	variable/G root:packages:twoP:examine:ROIDoMatch = 0
 	String/G root:packages:twoP:examine:ROIScanMatchStr = "*"
+	String/G root:packages:twoP:examine:ROInoteMatchStr = "*"
+	String/G root:packages:twoP:examine:ROIselChans = ""
+	Variable/G root:packages:twoP:examine:ROIscanSelMode = 0
 	make/o/t/n= 0 root:Packages:twoP:examine:ROIListWave
 	make/o/n= 0 root:Packages:twoP:examine:ROIListSelWave
-	// ROI controls
 	// Saving and Loading ROIs to disk
-	Button ROILoadButton, win =twoP_Controls,disable =able, pos={9,409},size={44,20},proc=NQ_RoiLoadProc,title="Load"
-	Button ROISaveButton, win =twoP_Controls,disable =able,pos={56,409},size={44,20},proc=NQ_ROISaveProc,title="Save"
-	Button ROISetFolderButton, win =twoP_Controls,disable =able,pos={103,410},size={68,20},proc=NQ_ROIsetPathProc,title="Set Folder"
+	Button ROILoadButton win =twoP_Controls,pos={9.00,412.00},size={44.00,20.00},proc=NQ_RoiLoadProc
+	Button ROILoadButton win =twoP_Controls,title="Load"
+	Button ROILoadButton win =twoP_Controls, disable = able
+	Button ROISaveButton win =twoP_Controls,pos={56.00,412.00},size={44.00,20.00},proc=NQ_ROISaveProc
+	Button ROISaveButton win =twoP_Controls,title="Save"
+	Button ROISaveButton win =twoP_Controls, disable = able
+	Button ROISetFolderButton win =twoP_Controls,pos={103.00,412.00},size={68.00,20.00},proc=NQ_ROIsetPathProc
+	Button ROISetFolderButton win =twoP_Controls,title="Set Path"
+	Button ROISetFolderButton win=twoP_Controls, disable = able
+	TitleBox ROIImpathtitle win=twoP_Controls,pos={173.00,416.00},size={578.00,15.00},fSize=12
+	TitleBox ROIImpathtitle win=twoP_Controls,frame=0,variable=root:packages:twoP:examine:ROIimPath
+	TitleBox ROIImpathtitle win=twoP_Controls, disable = able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI","Button ROILoadButton 0;Button ROISaveButton 0;Button ROISetFolderButton 0;Titlebox ROIImpathtitle 0;",applyAbleState=0)
+	// List box for displaying existing ROIs
+	ListBox ROIListBox win=twoP_Controls,pos={214.00,439.00},size={125.00,100.00},proc=NQ_ROIListBoxProc
+	ListBox ROIListBox win=twoP_Controls,fSize=12,listWave=root:packages:twoP:examine:ROIListWave
+	ListBox ROIListBox win=twoP_Controls,selWave=root:packages:twoP:examine:ROIListSelWave,mode=4
+	ListBox ROIListBox win=twoP_Controls, disable = able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI","ListBox ROIListBox 0;",applyAbleState=0)
+	// making a new ROI
+	Button RoiNewbutton win=twoP_Controls,pos={8.00,439.00},size={64.00,20.00},proc=NQ_NewRoiButtonProc
+	Button RoiNewbutton win=twoP_Controls,title="New ROI"
+	Button RoiNewbutton win=twoP_Controls, disable = able
+	SetVariable RoiNameSetVar win=twoP_Controls,pos={80.00,439.00},size={88.00,18.00},title="Name"
+	SetVariable RoiNameSetVar win=twoP_Controls,fSize=12,value=root:packages:twoP:examine:NewRoiName
+	SetVariable RoiNameSetVar win=twoP_Controls, disable = able
+	PopupMenu ROIDrawPopup win=twoP_Controls,pos={8.00,466.00},size={89.00,20.00}
+	PopupMenu ROIDrawPopup win=twoP_Controls,mode=1,popvalue="Freehand",value=#"\"Freehand;Vertices;Marquee\""
+	PopupMenu ROIDrawPopup win=twoP_Controls, disable = able
+	PopupMenu RoiColorPopup win=twoP_Controls,pos={101.00,466.00},size={83.00,20.00},title="Color"
+	PopupMenu RoiColorPopup win=twoP_Controls,fSize=12
+	PopupMenu RoiColorPopup win=twoP_Controls,mode=1,popColor=(65535,0,0),value=#"\"*COLORPOP*\""
+	PopupMenu RoiColorPopup win=twoP_Controls, disable = able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "Button RoiNewbutton;SetVariable RoiNameSetVar;PopupMenu ROIDrawPopup;PopupMenu RoiColorPopup",applyAbleState=0)
+	// editing existing ROI
+	Button ROINudgeButton win=twoP_Controls,pos={8.00,488.00},size={50.00,23.00},proc=NQ_RoiNudgeProc
+	Button ROINudgeButton win=twoP_Controls,title="Nudge"
+	Button ROINudgeButton win=twoP_Controls, disable = able
+	PopupMenu ROIonWindowPopup win=twoP_Controls,pos={63.00,491.00},size={147.00,20.00},title="On"
+	PopupMenu ROIonWindowPopup win=twoP_Controls,fSize=12
+	PopupMenu ROIonWindowPopup win=twoP_Controls,mode=1,popvalue="twoPscanGraph",value=#"WinList(\"*\", \";\", \"WIN:1\" )"
+	PopupMenu ROIonWindowPopup win=twoP_Controls,disable=able
+	Button ROIDuplButton win=twoP_Controls,pos={8.00,515.00},size={65.00,20.00},proc=NQ_ROIDuplicateButtonProc
+	Button ROIDuplButton win=twoP_Controls,title="Duplicate",fSize=12
+	Button RoiDelbutton win=twoP_Controls,pos={90.00,515.00},size={60.00,20.00},proc=NQ_DelRoiButtonProc
+	Button RoiDelbutton win=twoP_Controls,title="Delete",fSize=12
+	Button RoiDelbutton win=twoP_Controls, disable = able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "Button ROINudgeButton;PopupMenu ROIonWindowPopup;Button ROIDuplButton;Button RoiDelbutton",applyAbleState=0)
+	// Do the ROI with options
+	Button ROIAvgButton win=twoP_Controls,pos={8.00,547.00},size={57.00,20.00},proc=NQ_ROIRunButtonProc
+	Button ROIAvgButton win=twoP_Controls,title="ROI Avg"
+	Button ROIAvgButton win=twoP_Controls, disable =able
+	PopupMenu ROIchansPopup win=twoP_Controls,pos={69.00,547.00},size={47.00,20.00},proc=ROISelChan_PopMenuProc
+	PopupMenu ROIchansPopup win=twoP_Controls,title="of",mode=0,value=#"twoP_SelectROIChans()"
+	PopupMenu ROIchansPopup win=twoP_Controls, disable = able
+	TitleBox ROIchansTitle win=twoP_Controls,pos={120.00,550.00},size={23.00,15.00},fSize=12,frame=0
+	TitleBox ROIchansTitle win=twoP_Controls,variable=root:packages:twoP:examine:ROIselChans
+	TitleBox ROIchansTitle win=twoP_Controls, disable = able
+	CheckBox ROIratioCheck win=twoP_Controls,pos={170.00,549.00},size={73.00,16.00},proc=NQ_ROIchanCheckProc
+	CheckBox ROIratioCheck win=twoP_Controls,title="Also Ratio",fSize=12,value=0
+	CheckBox ROIratioCheck win=twoP_Controls, disable = able
+	PopupMenu ROIRatPopUp win=twoP_Controls,pos={248.00,547.00},size={84.00,20.00},proc=NQ_DROIPopMenuProc
+	PopupMenu ROIRatPopUp win=twoP_Controls,fSize=12
+	PopupMenu ROIRatPopUp win=twoP_Controls,mode=1,popvalue="Ch1/Ch2",value=#"\"Ch1/Ch2;Ch2/Ch1\""
+	PopupMenu ROIRatPopUp win=twoP_Controls, disable = able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "Button ROIAvgButton;PopupMenu ROIchansPopup;TitleBox ROIchansTitle;",applyAbleState=0)
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "CheckBox ROIratioCheck;PopupMenu ROIRatPopUp;",applyAbleState=0)
+	// deltaF/F and background options
+	CheckBox ROIDeltaFCheck win=twoP_Controls,pos={14.00,572.00},size={133.00,16.00}
+	CheckBox ROIDeltaFCheck win=twoP_Controls,title="ΔF/F    Baseline from",fSize=12,value=1
+	CheckBox ROIDeltaFCheck win=twoP_Controls, disable = able
+	SetVariable ROIbaseFirstSetvar win=twoP_Controls,pos={155.00,571.00},size={65.00,18.00},proc=GUIPSIsetVarProc
+	SetVariable ROIbaseFirstSetvar win=twoP_Controls,title=" ",userdata=";0;INF;.001;",fSize=12
+	SetVariable ROIbaseFirstSetvar win=twoP_Controls,format="%.1W1Ps"
+	SetVariable ROIbaseFirstSetvar win=twoP_Controls,limits={-inf,inf,0.1},value=root:packages:twoP:examine:ROIBaseStart
+	SetVariable ROIbaseFirstSetvar win=twoP_Controls, disable = able
+	SetVariable ROIbaseLastSetvar win=twoP_Controls,pos={233.00,571.00},size={88.00,18.00},proc=GUIPSIsetVarProc
+	SetVariable ROIbaseLastSetvar win=twoP_Controls,title="to",userdata=";0;INF;.001;",fSize=12
+	SetVariable ROIbaseLastSetvar win=twoP_Controls,format="%.1W1Ps"
+	SetVariable ROIbaseLastSetvar win=twoP_Controls,limits={-inf,inf,0.1},value=root:packages:twoP:examine:ROIBaseEnd
+	SetVariable ROIbaseLastSetvar win=twoP_Controls,disable = able
+	CheckBox ROIBackGrdCheck win=twoP_Controls,pos={14.00,593.00},size={113.00,16.00}
+	CheckBox ROIBackGrdCheck win=twoP_Controls,title="Subtract BkGrnd",fSize=12,value=1
+	CheckBox ROIBackGrdCheck win=twoP_Controls, disable = able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "CheckBox ROIDeltaFCheck;SetVariable ROIbaseFirstSetvar;",applyAbleState=0)
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "SetVariable ROIbaseLastSetvar;CheckBox ROIBackGrdCheck;",applyAbleState=0)
+	// Seecting multiple scans
+	CheckBox ROICurScanCheck win=twoP_Controls,pos={14.00,615.00},size={92.00,15.00},proc=GUIPControls#GUIPRadioButtonProc
+	CheckBox ROICurScanCheck win=twoP_Controls,title="Current Scan"
+	CheckBox ROICurScanCheck win=twoP_Controls,userdata="ROICurScanCheck;ROInameMatchCheck;ROInoteMatchCheck"
+	CheckBox ROICurScanCheck win=twoP_Controls,userdata (gValue) = "root:packages:twoP:examine:ROIscanSelMode"
+	CheckBox ROICurScanCheck win=twoP_Controls,fSize=12,value=1,mode=1
+	CheckBox ROICurScanCheck win=twoP_Controls,disable = able
 	
-	//BMB edit
-	Button NMultiROIButton, win=twoP_Controls,disable=able,pos={279,410},size={55,20},proc=NMultiROIButtonProc,title="MultiROI"
-	//BMB edit
+	CheckBox ROInameMatchCheck win=twoP_Controls,pos={113.00,617.00},size={105.00,15.00},proc=GUIPControls#GUIPRadioButtonProc
+	CheckBox ROInameMatchCheck win=twoP_Controls,title="Name Matching"
+	CheckBox ROInameMatchCheck win=twoP_Controls,userdata="ROICurScanCheck;ROInameMatchCheck;ROInoteMatchCheck"
+	CheckBox ROInameMatchCheck win=twoP_Controls,userdata (gValue) = "root:packages:twoP:examine:ROIscanSelMode"
+	CheckBox ROInameMatchCheck win=twoP_Controls,fSize=12,value=0,mode=1
+	CheckBox ROInameMatchCheck win=twoP_Controls,disable =able
 	
-	TitleBox ROIImpathtitle, win =twoP_Controls,disable =able,pos={172,411},size={197,20}
-	TitleBox ROIImpathtitle,win =twoP_Controls,variable= root:packages:twoP:examine:ROIimPath
-	// List box for displaying ROIs
-	ListBox ROIListBox,win =twoP_Controls,disable = able, pos={8,432},size={272,83},proc=NQ_ROIListBoxProc
-	ListBox ROIListBox,win =twoP_Controls,listWave=root:packages:twoP:examine:ROIListWave
-	ListBox ROIListBox,win =twoP_Controls,selWave=root:packages:twoP:examine:ROIListSelWave
-	ListBox ROIListBox,win =twoP_Controls,mode= 4
-	// making, duplicating, nudging ROIs
-	Button ROIDuplButton,win =twoP_Controls,disable =able,pos={8,520},size={44,20},proc = NQ_ROIDuplicateButtonProc,title="Dupl"
-	Button RoiNewbutton,win =twoP_Controls, disable = able, pos={53,520},size={42,20},proc=NQ_NewRoiButtonProc
-	Button RoiDelbutton, win =twoP_Controls,disable =able,pos={96,520},size={42,20},proc=NQ_DelRoiButtonProc,title="Del"
-	SetVariable RoiNameSetVar,win =twoP_Controls,disable = able,pos={141,523},size={64,15},title="Name"
-	SetVariable RoiNameSetVar,win =twoP_Controls,value= root:packages:twoP:examine:NewRoiName
-	PopupMenu RoiColorPopup,win =twoP_Controls,disable = able,pos={206,521},size={75,20},title="Color"
-	PopupMenu RoiColorPopup,win =twoP_Controls,mode=1,popColor= (65535,0,0),value= #"\"*COLORPOP*\""
-	Button ROINudgeButton,win =twoP_Controls,disable = able,pos={8,545},size={44,20},proc=NQ_RoiNudgeProc,title="Nudge"
-	PopupMenu ROIonWindowPopup,win =twoP_Controls,disable = 1,pos={56,547},size={144,20},title="On"
-	PopupMenu ROIonWindowPopup,win =twoP_Controls,mode=2,popvalue="twoPScanGraph",value= #"WinList(\"*\", \";\", \"WIN:1\" )"
-	PopupMenu ROIDrawPopup,win =twoP_Controls,disable = able,pos={202,549},size={77,20}
-	PopupMenu ROIDrawPopup,win =twoP_Controls,mode=3,popvalue="Marquee",value= #"\"Freehand;Vertices;Marquee\""
-	// channel selection
-	CheckBox ROICheck1, win =twoP_Controls,disable = able,pos={63,580},size={41,16},proc=NQ_ROIchanCheckProc,title="Ch1"
-	CheckBox ROICheck1,win =twoP_Controls,fSize=12,value= 1,mode=1
-	CheckBox ROICheck2, win =twoP_Controls,disable = able,pos={106,580},size={41,16},proc=NQ_ROIchanCheckProc,title="Ch2"
-	CheckBox ROICheck2,win =twoP_Controls,fSize=12,value= 0,mode=1
-	CheckBox ROICheck3, win =twoP_Controls,disable = able,pos={150,580},size={47,16},proc=NQ_ROIchanCheckProc,title="Ratio"
-	CheckBox ROICheck3,win =twoP_Controls,fSize=12,value= 0,mode=1
-	PopupMenu ROIRatPopUp, win =twoP_Controls,disable = able,pos={203,578},size={80,20},proc=NQ_DROIPopMenuProc
-	PopupMenu ROIRatPopUp,win =twoP_Controls,fSize=12
-	PopupMenu ROIRatPopUp,win =twoP_Controls,mode=1,popvalue="Ch1/Ch2",value= #"\"Ch1/Ch2;Ch2/Ch1\""
-	// ROI avgerage
-	Button ROIAvgButton, win =twoP_Controls,disable = able,pos={7,578},size={54,20},proc=NQ_ROIRunButtonProc,title="ROI Avg"
-	CheckBox ROIBackGrdCheck, win =twoP_Controls,disable = able,pos={8,602},size={89,14},title="Subtract BkGrnd"
-	CheckBox ROIBackGrdCheck,win =twoP_Controls,value= 0
-	CheckBox ROIDeltaFCheck, win =twoP_Controls,disable = able,pos={8,619},size={58,14},title="Delta F/F",value= 0
-	SetVariable ROIbaseFirstSetvar, win =twoP_Controls,disable = able,pos={72,619},size={104,15},proc=GUIPSIsetVarProc,title="start"
-	SetVariable ROIbaseFirstSetvar,win =twoP_Controls,userdata=  ";0;INF;.001;",format="%.1W1Ps"
-	SetVariable ROIbaseFirstSetvar, win =twoP_Controls,disable = able,limits={-inf,inf,0.1},value= root:packages:twoP:examine:ROIBaseStart
-	SetVariable ROIbaseLastSetvar,win =twoP_Controls,disable =able,pos={180,620},size={102,15},proc=GUIPSIsetVarProc,title="end"
-	SetVariable ROIbaseLastSetvar,win =twoP_Controls,userdata=  ";0;INF;.001;",format="%.1W1Ps"
-	SetVariable ROIbaseLastSetvar,win =twoP_Controls,limits={-inf,inf,0.1},value= root:packages:twoP:examine:ROIBaseEnd
-	// scan selection
-	CheckBox ROICurScanCheck,win =twoP_Controls,disable =able,pos={9,638},size={80,14},proc=TCU_RadioButtonProcSetGlobal,title="Current Scan"
-	CheckBox ROICurScanCheck,win =twoP_Controls,userdata= A"Ec5l<3cJM;CLLjeF#lo[?VX0\\5uB[SG[YH'DIkk,:J!rm9jr-RBK\\%2;GTk_@ps7L@<?!m6YL%@CB"
-	CheckBox ROICurScanCheck,win =twoP_Controls,fSize=10,value= 1,mode=1
-	CheckBox ROIScanMatchCheck,win =twoP_Controls,disable =able,pos={95,638},size={95,14},proc=TCU_RadioButtonProcSetGlobal,title="Scans Matching"
-	CheckBox ROIScanMatchCheck,win =twoP_Controls,userdata= A"Ec5l<3cJM;CLLjeF#lo[?VX0\\5uB[SG[YH'DIkk,:J!rm9jr-RBK\\(3;GTkOF`LDj@;\\GGARfK"
-	CheckBox ROIScanMatchCheck,win =twoP_Controls,fSize=10,value= 0,mode=1
-	SetVariable ROIMatchSetVar,win =twoP_Controls,disable =able,pos={194,637},size={90,16},title=" "
-	SetVariable ROIMatchSetVar,win =twoP_Controls,help={"This string is wild-card enabled. Use \"*\" to save all scans."}
-	SetVariable ROIMatchSetVar,win =twoP_Controls,fSize=10
-	SetVariable ROIMatchSetVar,win =twoP_Controls,value= root:Packages:twoP:examine:ROIScanMatchStr
-	// Add "ROI" controls to database
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI","Button ROILoadButton 0;Button ROISaveButton 0;Button ROISetFolderButton 0;Titlebox ROIImpathtitle 0;Button NMultiROIButton 0;",applyAbleState=0)
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI","Listbox ROIListBox 0;Button ROIDuplButton 0;Button RoiNewbutton 0;Button RoiDelbutton 0;",applyAbleState=0)
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI","Setvariable RoiNameSetVar 0;PopupMenu RoiColorPopup 0;Button ROINudgeButton 0;",applyAbleState=0)
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI","Popupmenu ROIonWindowPopup 0;Popupmenu ROIDrawPopup 0;Button ROIAvgButton 0;Checkbox ROICheck1 0;",applyAbleState=0)
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI","Checkbox ROICheck2 0;Checkbox ROICheck3 0;Popupmenu ROIRatPopUp 0;Checkbox ROIBackGrdCheck 0;",applyAbleState=0)
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI","Checkbox ROIDeltaFCheck 0;Setvariable ROIbaseFirstSetvar 0;Setvariable ROIbaseLastSetvar 0;",applyAbleState=0)
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI","Checkbox ROICurScanCheck 0;Checkbox ROIScanMatchCheck 0;Setvariable ROIMatchSetVar 0;",applyAbleState=0)
+	CheckBox ROInoteMatchCheck win=twoP_Controls,pos={14.00,635.00},size={124.00,15.00},proc=GUIPControls#GUIPRadioButtonProc
+	CheckBox ROInoteMatchCheck win=twoP_Controls,title="Exp Note Matching"
+	CheckBox ROInoteMatchCheck win=twoP_Controls,userdata="ROICurScanCheck;ROInameMatchCheck;ROInoteMatchCheck"
+	CheckBox ROInoteMatchCheck win=twoP_Controls,userdata(gValue) = "root:packages:twoP:examine:ROIscanSelMode"
+	CheckBox ROInoteMatchCheck win=twoP_Controls,fSize=12,value=0,mode=1
+	CheckBox ROInoteMatchCheck win=twoP_Controls, disable =able
+
+	SetVariable ROInameMatchSetVar win=twoP_Controls,pos={223.00,617.00},size={71.00,18.00},title=" "
+	SetVariable ROInameMatchSetVar win=twoP_Controls,help={"This string is wild-card enabled. Use \"*\" to save all scans."}
+	SetVariable ROInameMatchSetVar win=twoP_Controls,fSize=12
+	SetVariable ROInameMatchSetVar win=twoP_Controls,value=root:packages:twoP:examine:ROIScanMatchStr
+	SetVariable ROInameMatchSetVar win=twoP_Controls, disable =able
+	
+	SetVariable ROInoteMatchSetVar win=twoP_Controls,pos={145.00,635.00},size={71.00,18.00},title=" "
+	SetVariable ROInoteMatchSetVar win=twoP_Controls,help={"This string is wild-card enabled. Use \"*\" to save all scans."}
+	SetVariable ROInoteMatchSetVar win=twoP_Controls,fSize=12
+	SetVariable ROInoteMatchSetVar win=twoP_Controls,value=root:packages:twoP:examine:ROInoteMatchStr
+	SetVariable ROInoteMatchSetVar win=twoP_Controls, disable =able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "CheckBox ROICurScanCheck;CheckBox ROInameMatchCheck;CheckBox ROInoteMatchCheck;", applyAbleState=0)
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "SetVariable ROInameMatchSetVar;SetVariable ROInoteMatchSetVar;",applyAbleState=0)
 end
 
 
