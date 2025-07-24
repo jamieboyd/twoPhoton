@@ -763,7 +763,7 @@ Function twoP_PrefsTest()
 	DAQmx_CTR_OutputPulse /DEV=ePhysBoard /SEC={duration, duration} /IDLE =(!polarity) /NPLS=1 /KEEP=1 /STRT=1/TRIG="/" + imBoard + "/ao/StartTrigger" 0
 	tempStr = fDAQmx_ErrorString ()
 	if (cmpStr (tempStr, "") != 0)
-		DoAlert 0, "COnfiguration for trigger 1 pulse failed"
+		DoAlert 0, "Configuration for trigger 1 pulse failed"
 		print tempStr
 	endif
 	NVAR polarity =  root:packages:twoP:acquire:Trig2Polarity
@@ -771,7 +771,7 @@ Function twoP_PrefsTest()
 	DAQmx_CTR_OutputPulse /DEV=ePhysBoard /SEC={duration, duration} /IDLE =(!polarity) /NPLS=1 /KEEP=1 /STRT=1/TRIG="/" + imBoard + "/ao/StartTrigger" 1
 	tempStr = fDAQmx_ErrorString ()
 	if (cmpStr (tempStr, "") != 0)
-		DoAlert 0, "COnfiguration for trigger 1 pulse failed"
+		DoAlert 0, "Configuration for trigger 2 pulse failed"
 		print tempStr
 	endif
 end
