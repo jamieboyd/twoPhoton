@@ -3008,7 +3008,7 @@ Function NQ_DROICheckProc(cba) : CheckBoxControl
 				NVAR doCh2 = root:Packages:twoP:examine:doDROIch2
 				NVAR doRatio = root:Packages:twoP:examine:doDROIratio
 				// make waves so they can be appened later, even if not selected now
-				if (imChans && 1)
+				if (imChans & 1)
 					WAVE data1Wave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch1"
 					make/o/n= (ROIpnts) root:Packages:twoP:examine:Droi_ch1
 					WAVE Droi_ch1 = root:Packages:twoP:examine:Droi_ch1
@@ -3016,7 +3016,7 @@ Function NQ_DROICheckProc(cba) : CheckBoxControl
 				else
 					doCh1 = 0
 				endif
-				if (imChans && 2)
+				if (imChans & 2)
 					WAVE data2Wave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch2"
 					make/o/n= (ROIpnts) root:Packages:twoP:examine:Droi_ch2
 					WAVE Droi_ch2 = root:Packages:twoP:examine:Droi_ch2

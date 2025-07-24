@@ -24,7 +24,7 @@ STATIC CONSTANT kNQyVoltEnd =7.5
 // drive the galvos, collect the image data, and open and close the shutter
 // An E or X series board with at least 1M Samples/second per input channel, 2 output channels that update
 // at 1MHz, 2 counter\timers, and at least1 DIO port
-
+  
 // The other, optional, board (referred to as the ePhysBoard) is used to collect the ephys trace(s), 
 // output TTL triggers, and output clamp waves. Slower sampling rates are acceptable here, 
 // but 2 counter/timers and 2 analog outputs are still expected.
