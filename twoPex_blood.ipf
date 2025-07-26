@@ -25,13 +25,17 @@ Menu "Macros"
 	end
 end
 
+constant kNQxVoltStart =-7.5
+constant kNQxVoltEnd =7.5
+constant kNQyVoltStart = -7.5
+constant kNQyVoltEnd = -7.5
 
 function bloodToFront ()
 	dowindow/f blood_SW
 end
 
 function HB ()
-	svar curscan = root:packages:jb_nidaq:examine:curScan
+	svar curscan = root:packages:twoP:examine:curScan
 	WAVE blood_FFT = root:blood_FFT
 	WAVE/Z theWave = $"root:Nidaq_Scans:" + curScan + ":" +curScan + "_R0_ch1avg"
 	if (!(WaveExists (theWave)))
@@ -62,8 +66,9 @@ function HB ()
 end
 
 function mf ()
-	wave theWave = $sc1()
-	NQ_Median (theWave, 3, 1, thewave)
+	string theName = sc1()
+	wave theWave = $theName
+	medianFrames (theWave, theName, 3, 1)
 end
 
 
@@ -78,132 +83,132 @@ Function NQexBlood_add (able)
 	
 	// globals for blood tab
 	// One or many scans to do
-	variable/G root:packages:JB_NIDAQ:examine:BloodDoMatch = 0
-	String/G root:packages:JB_NIDAQ:examine:BloodMatchStr
+	variable/G root:packages:twoP:examine:BloodDoMatch = 0
+	String/G root:packages:twoP:examine:BloodMatchStr
 	// which channel to analyze (only one channel can be selected at a time for blood)
-	 variable/G root:packages:jb_nidaq:examine:BloodChan =1
+	 variable/G root:packages:twoP:examine:BloodChan =1
 	// left and right boundaries of area to analyze
-	variable/g root:Packages:JB_NIDAQ:examine:bloodWinLeft
-	variable/g root:Packages:JB_NIDAQ:examine:bloodWinRight
+	variable/g root:Packages:twoP:examine:bloodWinLeft
+	variable/g root:Packages:twoP:examine:bloodWinRight
 	// Do all image at once, or sample by time
-	variable/g root:Packages:JB_NIDAQ:examine:bloodDoSample =0
+	variable/g root:Packages:twoP:examine:bloodDoSample =0
 	// sampling frequency and overlap
-	variable/g root:Packages:JB_NIDAQ:examine:bloodSampleFreq = 30 // samples/second
-	variable/g root:Packages:JB_NIDAQ:examine:bloodSampleOverlap = 150 // overlap of each sample with previous and subsequent sample
+	variable/g root:Packages:twoP:examine:bloodSampleFreq = 30 // samples/second
+	variable/g root:Packages:twoP:examine:bloodSampleOverlap = 150 // overlap of each sample with previous and subsequent sample
 	// For Radon Method
-	variable/g root:Packages:JB_NIDAQ:examine:bloodDoRadon =1
-	variable/G root:packages:jb_nidaq:examine:bloodRadonRays =1 // 0 to do whole range of angles from -¹/2 to ¹/2, 1 to do selected range
-	variable/g root:Packages:JB_NIDAQ:examine:bloodEstVelocity = 1.5e-03 // when doing selected range, center speed in M/sec
-	variable/g root:Packages:JB_NIDAQ:examine:bloodVelocitySpace = 0.25e-03 // when doing selected range, space on either side of center speed
-	variable/g root:Packages:JB_NIDAQ:examine:bloodVelocityPrecision=1e03 // #angles to draw per ¹ radians (more angles translatees to greater precision of result)
-	variable/G root:packages:JB_Nidaq:examine:bloodRadonAngle
+	variable/g root:Packages:twoP:examine:bloodDoRadon =1
+	variable/G root:packages:twoP:examine:bloodRadonRays =1 // 0 to do whole range of angles from -¹/2 to ¹/2, 1 to do selected range
+	variable/g root:Packages:twoP:examine:bloodEstVelocity = 1.5e-03 // when doing selected range, center speed in M/sec
+	variable/g root:Packages:twoP:examine:bloodVelocitySpace = 0.25e-03 // when doing selected range, space on either side of center speed
+	variable/g root:Packages:twoP:examine:bloodVelocityPrecision=1e03 // #angles to draw per ¹ radians (more angles translatees to greater precision of result)
+	variable/G root:packages:twoP:examine:bloodRadonAngle
 	// For Counting blood cells
-	variable/G root:packages:JB_Nidaq:examine:bloodDoCount =0
-	variable/G root:packages:JB_Nidaq:examine:bloodCountHighCut = 10
-	variable/G root:packages:JB_Nidaq:examine:bloodCountLowCut = 200
-	variable/G root:packages:JB_Nidaq:examine:bloodCountProfileWidth = 50
-	variable/G root:packages:JB_Nidaq:examine:bloodCountMaxPeakPos = -0.1
-	variable/G root:packages:JB_Nidaq:examine:bloodCountMinPeakSIze= .1
-	variable/G root:packages:jb_nidaq:examine:bloodDrmb =0 // used to monitor recursion in blood display graphs
+	variable/G root:packages:twoP:examine:bloodDoCount =0
+	variable/G root:packages:twoP:examine:bloodCountHighCut = 10
+	variable/G root:packages:twoP:examine:bloodCountLowCut = 200
+	variable/G root:packages:twoP:examine:bloodCountProfileWidth = 50
+	variable/G root:packages:twoP:examine:bloodCountMaxPeakPos = -0.1
+	variable/G root:packages:twoP:examine:bloodCountMinPeakSIze= .1
+	variable/G root:packages:twoP:examine:bloodDrmb =0 // used to monitor recursion in blood display graphs
 	// Check to show intermediate steps
-	variable/g root:Packages:JB_NIDAQ:examine:bloodShowMe = 0 // variable for check box to show each calculation
+	variable/g root:Packages:twoP:examine:bloodShowMe = 0 // variable for check box to show each calculation
 	// Controls for Blood Tab
 	// One or many Scans
-	CheckBox BloodCurScanCheck win=Nidaq_controls,disable = able, pos={8,411},size={80,14},proc=TCU_RadioButtonProcSetGlobal,title="Current Scan"
-	CheckBox BloodCurScanCheck win=Nidaq_controls,userdata= A"Ec5l<3cJM;CLLjeF#lo[?VX0\\5uB[SG[YH'DIkjqCi=6&6uPe.FCSuI0KVU;Df9/PCi!$[@;^-RBOt[h3r"
-	CheckBox BloodCurScanCheck win=Nidaq_controls,fSize=10,value= 1,mode=1
-	CheckBox BloodAllScansCheck win=Nidaq_controls,disable = able,pos={100,412},size={109,14},proc=TCU_RadioButtonProcSetGlobal,title="All Scans matching"
-	CheckBox BloodAllScansCheck win=Nidaq_controls,userdata= A"Ec5l<3cJM;CLLjeF#lo[?VX0\\5uB[SG[YH'DIkjqCi=6&6uPe.FCSuI0fq^<Df9/RF`LDj@;\\GGARfL;"
-	CheckBox BloodAllScansCheck win=Nidaq_controls,fSize=10,value= 0,mode=1
-	SetVariable BloodMatchSetVar win=Nidaq_controls,disable = able, pos={212,411},size={68,16},title=" "
-	SetVariable BloodMatchSetVar win=Nidaq_controls,help={"This string is wild-card enabled. Use \"*\" to save all scans."}
-	SetVariable BloodMatchSetVar win=Nidaq_controls,fSize=10
-	SetVariable BloodMatchSetVar win=Nidaq_controls,value= root:Packages:JB_NIDAQ:examine:BloodMatchStr
+	CheckBox BloodCurScanCheck win=twoP_Controls,disable = able, pos={8,411},size={80,14},proc=TCU_RadioButtonProcSetGlobal,title="Current Scan"
+	CheckBox BloodCurScanCheck win=twoP_Controls,userdata= A"Ec5l<3cJM;CLLjeF#lo[?VX0\\5uB[SG[YH'DIkjqCi=6&6uPe.FCSuI0KVU;Df9/PCi!$[@;^-RBOt[h3r"
+	CheckBox BloodCurScanCheck win=twoP_Controls,fSize=10,value= 1,mode=1
+	CheckBox BloodAllScansCheck win=twoP_Controls,disable = able,pos={100,412},size={109,14},proc=TCU_RadioButtonProcSetGlobal,title="All Scans matching"
+	CheckBox BloodAllScansCheck win=twoP_Controls,userdata= A"Ec5l<3cJM;CLLjeF#lo[?VX0\\5uB[SG[YH'DIkjqCi=6&6uPe.FCSuI0fq^<Df9/RF`LDj@;\\GGARfL;"
+	CheckBox BloodAllScansCheck win=twoP_Controls,fSize=10,value= 0,mode=1
+	SetVariable BloodMatchSetVar win=twoP_Controls,disable = able, pos={212,411},size={68,16},title=" "
+	SetVariable BloodMatchSetVar win=twoP_Controls,help={"This string is wild-card enabled. Use \"*\" to save all scans."}
+	SetVariable BloodMatchSetVar win=twoP_Controls,fSize=10
+	SetVariable BloodMatchSetVar win=twoP_Controls,value= root:Packages:twoP:examine:BloodMatchStr
 	// show position buttom
-	Button bloodShowLineScanButton win=Nidaq_controls, disable=able, pos={121,427},size={78,19},proc=NQ_BloodShowLSposButtonProc,title="Show Position"
+	Button bloodShowLineScanButton win=twoP_Controls, disable=able, pos={121,427},size={78,19},proc=NQ_BloodShowLSposButtonProc,title="Show Position"
 	// Channel checks
-	CheckBox BloodCheck1 win=Nidaq_controls,disable = able,pos={9,430},size={48,14},proc=TCU_RadioButtonProcSetGlobal,title="Chan 1"
-	CheckBox BloodCheck1 win=Nidaq_controls,userdata= A"Ec5l<3cJM;CLLjeF#n&F?Z'Rg@<\">>G[YH'DIkjqCi=6&6YKnG4Y]#bCi=6&6YL%@CGIs"
-	CheckBox BloodCheck1 win=Nidaq_controls,value= 1,mode=1
-	CheckBox BloodCheck2 win=Nidaq_controls,disable = able, pos={63,430},size={48,14},proc=TCU_RadioButtonProcSetGlobal,title="Chan 2"
-	CheckBox BloodCheck2 win=Nidaq_controls,userdata= A"Ec5l<3cJM;CLLjeF#n&F?Z'Rg@<\">>G[YH'DIkjqCi=6&6YKnG4Yf)cCi=6&6YL%@CG@m"
-	CheckBox BloodCheck2 win=Nidaq_controls,value= 0,mode=1
+	CheckBox BloodCheck1 win=twoP_Controls,disable = able,pos={9,430},size={48,14},proc=TCU_RadioButtonProcSetGlobal,title="Chan 1"
+	CheckBox BloodCheck1 win=twoP_Controls,userdata= A"Ec5l<3cJM;CLLjeF#n&F?Z'Rg@<\">>G[YH'DIkjqCi=6&6YKnG4Y]#bCi=6&6YL%@CGIs"
+	CheckBox BloodCheck1 win=twoP_Controls,value= 1,mode=1
+	CheckBox BloodCheck2 win=twoP_Controls,disable = able, pos={63,430},size={48,14},proc=TCU_RadioButtonProcSetGlobal,title="Chan 2"
+	CheckBox BloodCheck2 win=twoP_Controls,userdata= A"Ec5l<3cJM;CLLjeF#n&F?Z'Rg@<\">>G[YH'DIkjqCi=6&6YKnG4Yf)cCi=6&6YL%@CG@m"
+	CheckBox BloodCheck2 win=twoP_Controls,value= 0,mode=1
 	// window position
-	SetVariable bloodWinLeftSetVar win=Nidaq_controls,disable = able, pos={8,449},size={131,15},proc=SIformattedSetVarProc2,title="Window Left"
-	SetVariable bloodWinLeftSetVar win=Nidaq_controls,format="%.2W0Pm"
-	SetVariable bloodWinLeftSetVar win=Nidaq_controls,limits={-inf,inf,1e-05},value= root:Packages:JB_NIDAQ:examine:bloodWinLeft
-	SetVariable bloodWinRightSetVar win=Nidaq_controls,disable =able, pos={145,449},size={100,15},proc=SIformattedSetVarProc2,title="Right"
-	SetVariable bloodWinRightSetVar win=Nidaq_controls,format="%.2W0Pm"
-	SetVariable bloodWinRightSetVar win=Nidaq_controls,limits={-inf,inf,1e-05},value= root:Packages:JB_NIDAQ:examine:bloodWinRight
-	Button bloodFullScaleButton win=Nidaq_controls,disable = able,pos={248,446},size={36,20},proc=NQ_BloodFullScaleProc,title="Full"
+	SetVariable bloodWinLeftSetVar win=twoP_Controls,disable = able, pos={8,449},size={131,15},proc=SIformattedSetVarProc2,title="Window Left"
+	SetVariable bloodWinLeftSetVar win=twoP_Controls,format="%.2W0Pm"
+	SetVariable bloodWinLeftSetVar win=twoP_Controls,limits={-inf,inf,1e-05},value= root:Packages:twoP:examine:bloodWinLeft
+	SetVariable bloodWinRightSetVar win=twoP_Controls,disable =able, pos={145,449},size={100,15},proc=SIformattedSetVarProc2,title="Right"
+	SetVariable bloodWinRightSetVar win=twoP_Controls,format="%.2W0Pm"
+	SetVariable bloodWinRightSetVar win=twoP_Controls,limits={-inf,inf,1e-05},value= root:Packages:twoP:examine:bloodWinRight
+	Button bloodFullScaleButton win=twoP_Controls,disable = able,pos={248,446},size={36,20},proc=NQ_BloodFullScaleProc,title="Full"
 	// Timing
-	TitleBox BloodTimeTitle win=Nidaq_controls,disable = able,pos={8,472},size={21,12},title="Time",frame=0
-	CheckBox BloodAllAtOnceCheck win=Nidaq_controls,pos={34,471},size={29,14},proc=TCU_RadioButtonProcSetGlobal,title="All"
-	CheckBox BloodAllAtOnceCheck win=Nidaq_controls,disable = able,userdata= A"Ec5l<3`'6pCLLjeF#lo[?VX0\\5uB[SG[YH'DIkk<Ci=6&6uQ\"4D/a<&4YSraCi=6&;djN^Ch5tIARfL;"
-	CheckBox BloodAllAtOnceCheck win=Nidaq_controls,value= 1,mode=1
-	CheckBox BloodSampleCheck win=Nidaq_controls,disable = able,pos={67,471},size={49,14},proc=TCU_RadioButtonProcSetGlobal,title="Sample"
-	CheckBox BloodSampleCheck win=Nidaq_controls,userdata= A"Ec5l<3`'6pCLLjeF#lo[?VX0\\5uB[SG[YH'DIkk<Ci=6&6uQ\"4D/a<&4Y]#bCi=6&6#:@'FAHdaAOC-B@qu"
-	CheckBox BloodSampleCheck win=Nidaq_controls, value= 0,mode=1
-	SetVariable BloodTimeSpacingSetvar win=Nidaq_controls,disable = able,pos={120,471},size={74,15},title="freq"
-	SetVariable BloodTimeSpacingSetvar win=Nidaq_controls,format="%g Hz"
-	SetVariable BloodTimeSpacingSetvar win=Nidaq_controls,limits={1,1000,1},value= root:Packages:JB_NIDAQ:examine:bloodSampleFreq
-	SetVariable BloodTimeOverlapSetvar win=Nidaq_controls,disable = able,pos={195,471},size={89,15},title="Overlap"
-	SetVariable BloodTimeOverlapSetvar win=Nidaq_controls,format="%g %"
-	SetVariable BloodTimeOverlapSetvar win=Nidaq_controls,limits={1,inf,5},value= root:Packages:JB_NIDAQ:examine:bloodSampleOverlap
+	TitleBox BloodTimeTitle win=twoP_Controls,disable = able,pos={8,472},size={21,12},title="Time",frame=0
+	CheckBox BloodAllAtOnceCheck win=twoP_Controls,pos={34,471},size={29,14},proc=TCU_RadioButtonProcSetGlobal,title="All"
+	CheckBox BloodAllAtOnceCheck win=twoP_Controls,disable = able,userdata= A"Ec5l<3`'6pCLLjeF#lo[?VX0\\5uB[SG[YH'DIkk<Ci=6&6uQ\"4D/a<&4YSraCi=6&;djN^Ch5tIARfL;"
+	CheckBox BloodAllAtOnceCheck win=twoP_Controls,value= 1,mode=1
+	CheckBox BloodSampleCheck win=twoP_Controls,disable = able,pos={67,471},size={49,14},proc=TCU_RadioButtonProcSetGlobal,title="Sample"
+	CheckBox BloodSampleCheck win=twoP_Controls,userdata= A"Ec5l<3`'6pCLLjeF#lo[?VX0\\5uB[SG[YH'DIkk<Ci=6&6uQ\"4D/a<&4Y]#bCi=6&6#:@'FAHdaAOC-B@qu"
+	CheckBox BloodSampleCheck win=twoP_Controls, value= 0,mode=1
+	SetVariable BloodTimeSpacingSetvar win=twoP_Controls,disable = able,pos={120,471},size={74,15},title="freq"
+	SetVariable BloodTimeSpacingSetvar win=twoP_Controls,format="%g Hz"
+	SetVariable BloodTimeSpacingSetvar win=twoP_Controls,limits={1,1000,1},value= root:Packages:twoP:examine:bloodSampleFreq
+	SetVariable BloodTimeOverlapSetvar win=twoP_Controls,disable = able,pos={195,471},size={89,15},title="Overlap"
+	SetVariable BloodTimeOverlapSetvar win=twoP_Controls,format="%g %"
+	SetVariable BloodTimeOverlapSetvar win=twoP_Controls,limits={1,inf,5},value= root:Packages:twoP:examine:bloodSampleOverlap
 	// Radon
-	CheckBox BloodRadonCheck win=Nidaq_controls,disable = able,pos={9,495},size={45,14},title="Radon"
-	CheckBox BloodRadonCheck win=Nidaq_controls,variable= root:Packages:JB_NIDAQ:examine:bloodDoRadon
-	SetVariable BloodPrecisionSetvar win=Nidaq_controls,disable = able,pos={62,495},size={146,15},title="Ray Density"
-	SetVariable BloodPrecisionSetvar win=Nidaq_controls,format="%g/¹ radians"
-	SetVariable BloodPrecisionSetvar win=Nidaq_controls,limits={-inf,inf,1e-06},value= root:Packages:JB_NIDAQ:examine:bloodVelocityPrecision
-	Button BloodMaxRaysButton win=Nidaq_controls,disable = able,pos={223,493},size={58,20},proc=NQ_BloodEstMaxRaysButtonProc,title="Est Max"
-	TitleBox BloodVelocityRangeTitle win=Nidaq_controls,disable = able,pos={15,516},size={65,12},title="Velocity Range"
-	TitleBox BloodVelocityRangeTitle win=Nidaq_controls,frame=0
-	CheckBox BloodAngleRangeCheck1 win=Nidaq_controls,disable = able,pos={85,515},size={43,14},proc=TCU_RadioButtonProcSetGlobal,title="Entire"
-	CheckBox BloodAngleRangeCheck1 win=Nidaq_controls,userdata= A"Ec5l<3cJM;CLLjeF#n&F?Z'Rg@<\">>G[YH'DIkk<Ci=6&;IO*SDGjngF$23=6>URYA3k*GCh6LQDJ*NJBOt[h1-5"
-	CheckBox BloodAngleRangeCheck1 win=Nidaq_controls,value= 1,mode=1
-	CheckBox BloodAngleRangeCheck2 win=Nidaq_controls,pos={131,515},size={55,14},proc=TCU_RadioButtonProcSetGlobal,title="Selected"
-	CheckBox BloodAngleRangeCheck2 win=Nidaq_controls,disable = able,userdata= A"Ec5l<3cJM;CLLjeF#n&F?Z'Rg@<\">>G[YH'DIkk<Ci=6&;IO*SDGjngF$26>6>URYA3k*GCh6LQDJ*NJBOt[h0fo"
-	CheckBox BloodAngleRangeCheck2 win=Nidaq_controls,value= 0,mode=1
-	SetVariable BloodEstSpeedSetvar win=Nidaq_controls,disable = able,pos={188,515},size={94,15},proc=SIformattedSetVarProc2,title=" "
-	SetVariable BloodEstSpeedSetvar win=Nidaq_controls,userdata= A"4\"W0u/MJqA0kDpj1-74%/MK(E@<H[1Bl7D"
-	SetVariable BloodEstSpeedSetvar win=Nidaq_controls,format="%.2W1Pm/sec"
-	SetVariable BloodEstSpeedSetvar win=Nidaq_controls,limits={-inf,inf,0.0001},value= root:Packages:JB_NIDAQ:examine:bloodEstVelocity
-	SetVariable BloodVelocityRangeSetvar win=Nidaq_controls,disable = able,pos={187,535},size={95,15},proc=SIformattedSetVarProc2,title="+/-"
-	SetVariable BloodVelocityRangeSetvar win=Nidaq_controls,format="%.2W1Pm/s"
-	SetVariable BloodVelocityRangeSetvar win=Nidaq_controls,limits={-inf,inf,0.0001},value= root:Packages:JB_NIDAQ:examine:bloodVelocitySpace
+	CheckBox BloodRadonCheck win=twoP_Controls,disable = able,pos={9,495},size={45,14},title="Radon"
+	CheckBox BloodRadonCheck win=twoP_Controls,variable= root:Packages:twoP:examine:bloodDoRadon
+	SetVariable BloodPrecisionSetvar win=twoP_Controls,disable = able,pos={62,495},size={146,15},title="Ray Density"
+	SetVariable BloodPrecisionSetvar win=twoP_Controls,format="%g/¹ radians"
+	SetVariable BloodPrecisionSetvar win=twoP_Controls,limits={-inf,inf,1e-06},value= root:Packages:twoP:examine:bloodVelocityPrecision
+	Button BloodMaxRaysButton win=twoP_Controls,disable = able,pos={223,493},size={58,20},proc=NQ_BloodEstMaxRaysButtonProc,title="Est Max"
+	TitleBox BloodVelocityRangeTitle win=twoP_Controls,disable = able,pos={15,516},size={65,12},title="Velocity Range"
+	TitleBox BloodVelocityRangeTitle win=twoP_Controls,frame=0
+	CheckBox BloodAngleRangeCheck1 win=twoP_Controls,disable = able,pos={85,515},size={43,14},proc=TCU_RadioButtonProcSetGlobal,title="Entire"
+	CheckBox BloodAngleRangeCheck1 win=twoP_Controls,userdata= A"Ec5l<3cJM;CLLjeF#n&F?Z'Rg@<\">>G[YH'DIkk<Ci=6&;IO*SDGjngF$23=6>URYA3k*GCh6LQDJ*NJBOt[h1-5"
+	CheckBox BloodAngleRangeCheck1 win=twoP_Controls,value= 1,mode=1
+	CheckBox BloodAngleRangeCheck2 win=twoP_Controls,pos={131,515},size={55,14},proc=TCU_RadioButtonProcSetGlobal,title="Selected"
+	CheckBox BloodAngleRangeCheck2 win=twoP_Controls,disable = able,userdata= A"Ec5l<3cJM;CLLjeF#n&F?Z'Rg@<\">>G[YH'DIkk<Ci=6&;IO*SDGjngF$26>6>URYA3k*GCh6LQDJ*NJBOt[h0fo"
+	CheckBox BloodAngleRangeCheck2 win=twoP_Controls,value= 0,mode=1
+	SetVariable BloodEstSpeedSetvar win=twoP_Controls,disable = able,pos={188,515},size={94,15},proc=SIformattedSetVarProc2,title=" "
+	SetVariable BloodEstSpeedSetvar win=twoP_Controls,userdata= A"4\"W0u/MJqA0kDpj1-74%/MK(E@<H[1Bl7D"
+	SetVariable BloodEstSpeedSetvar win=twoP_Controls,format="%.2W1Pm/sec"
+	SetVariable BloodEstSpeedSetvar win=twoP_Controls,limits={-inf,inf,0.0001},value= root:Packages:twoP:examine:bloodEstVelocity
+	SetVariable BloodVelocityRangeSetvar win=twoP_Controls,disable = able,pos={187,535},size={95,15},proc=SIformattedSetVarProc2,title="+/-"
+	SetVariable BloodVelocityRangeSetvar win=twoP_Controls,format="%.2W1Pm/s"
+	SetVariable BloodVelocityRangeSetvar win=twoP_Controls,limits={-inf,inf,0.0001},value= root:Packages:twoP:examine:bloodVelocitySpace
 	// Blood Cell Count
-	CheckBox bloodCountCellscheck win=Nidaq_controls,disable = able,pos={9,581},size={44,14},title="Count"
-	CheckBox bloodCountCellscheck win=Nidaq_controls,variable= root:Packages:JB_NIDAQ:examine:bloodDoCount
-	SetVariable bloodCountMinSizeSetVar win=Nidaq_controls,disable = able,pos={70,581},size={111,15},title="Peak Min Size"
-	SetVariable bloodCountMinSizeSetVar win=Nidaq_controls,limits={0,0.5,0.05},value= root:Packages:JB_NIDAQ:examine:bloodCountMinPeakSIze
-	SetVariable bloodCountMaxPosSetVar win=Nidaq_controls,disable = able,pos={190,581},size={95,15},title="Max Pos"
-	SetVariable bloodCountMaxPosSetVar win=Nidaq_controls,limits={-2,2,0.05},value= root:Packages:JB_NIDAQ:examine:bloodCountMaxPeakPos
-	SetVariable BloodCountProfileWidthSetvar win=Nidaq_controls,disable = able,pos={26,600},size={94,15},title="Profile Width"
-	SetVariable BloodCountProfileWidthSetvar win=Nidaq_controls,limits={1,inf,1},value= root:Packages:JB_NIDAQ:examine:bloodCountProfileWidth
-	SetVariable BloodCountHighCutSetvar win=Nidaq_controls,disable = able,pos={118,600},size={87,15},proc=SIformattedSetVarProc2,title="Cut Hi"
-	SetVariable BloodCountHighCutSetvar win=Nidaq_controls,format="%.2W1PHz"
-	SetVariable BloodCountHighCutSetvar win=Nidaq_controls,limits={0,inf,0.5},value= root:Packages:JB_NIDAQ:examine:bloodCountHighCut
-	SetVariable BloodCountLowCutSetvar win=Nidaq_controls,disable = able,pos={203,600},size={84,15},proc=SIformattedSetVarProc2,title="Lo"
-	SetVariable BloodCountLowCutSetvar win=Nidaq_controls,format="%.2W1PHz"
-	SetVariable BloodCountLowCutSetvar win=Nidaq_controls,limits={0,inf,10},value= root:Packages:JB_NIDAQ:examine:bloodCountLowCut
+	CheckBox bloodCountCellscheck win=twoP_Controls,disable = able,pos={9,581},size={44,14},title="Count"
+	CheckBox bloodCountCellscheck win=twoP_Controls,variable= root:Packages:twoP:examine:bloodDoCount
+	SetVariable bloodCountMinSizeSetVar win=twoP_Controls,disable = able,pos={70,581},size={111,15},title="Peak Min Size"
+	SetVariable bloodCountMinSizeSetVar win=twoP_Controls,limits={0,0.5,0.05},value= root:Packages:twoP:examine:bloodCountMinPeakSIze
+	SetVariable bloodCountMaxPosSetVar win=twoP_Controls,disable = able,pos={190,581},size={95,15},title="Max Pos"
+	SetVariable bloodCountMaxPosSetVar win=twoP_Controls,limits={-2,2,0.05},value= root:Packages:twoP:examine:bloodCountMaxPeakPos
+	SetVariable BloodCountProfileWidthSetvar win=twoP_Controls,disable = able,pos={26,600},size={94,15},title="Profile Width"
+	SetVariable BloodCountProfileWidthSetvar win=twoP_Controls,limits={1,inf,1},value= root:Packages:twoP:examine:bloodCountProfileWidth
+	SetVariable BloodCountHighCutSetvar win=twoP_Controls,disable = able,pos={118,600},size={87,15},proc=SIformattedSetVarProc2,title="Cut Hi"
+	SetVariable BloodCountHighCutSetvar win=twoP_Controls,format="%.2W1PHz"
+	SetVariable BloodCountHighCutSetvar win=twoP_Controls,limits={0,inf,0.5},value= root:Packages:twoP:examine:bloodCountHighCut
+	SetVariable BloodCountLowCutSetvar win=twoP_Controls,disable = able,pos={203,600},size={84,15},proc=SIformattedSetVarProc2,title="Lo"
+	SetVariable BloodCountLowCutSetvar win=twoP_Controls,format="%.2W1PHz"
+	SetVariable BloodCountLowCutSetvar win=twoP_Controls,limits={0,inf,10},value= root:Packages:twoP:examine:bloodCountLowCut
 	// do it
-	CheckBox bloodShowMeCheck win=Nidaq_controls,disable = able,pos={10,635},size={67,14},title="show steps"
-	CheckBox bloodShowMeCheck win=Nidaq_controls,variable= root:Packages:JB_NIDAQ:examine:bloodShowMe
-	Button bloodVelocityButton win=Nidaq_controls,disable = able,pos={153,632},size={129,20},proc=NQ_BloodMeasureButtonProc,title="Meausure Blood flow"
+	CheckBox bloodShowMeCheck win=twoP_Controls,disable = able,pos={10,635},size={67,14},title="show steps"
+	CheckBox bloodShowMeCheck win=twoP_Controls,variable= root:Packages:twoP:examine:bloodShowMe
+	Button bloodVelocityButton win=twoP_Controls,disable = able,pos={153,632},size={129,20},proc=NQ_BloodMeasureButtonProc,title="Meausure Blood flow"
 	// add Blood controls to database
-	TCU4_AddCtrls ("Nidaq_Controls", "ExamineTabCtrl", "Blood","Checkbox,BloodCurScanCheck,0;CheckBox,BloodAllScansCheck,0;setvariable,BloodMatchSetVar,0;")
-	TCU4_AddCtrls ("Nidaq_Controls", "ExamineTabCtrl", "Blood","CheckBox,BloodCheck1,0;CheckBox,BloodCheck2,0;Button,bloodShowLineScanButton,0;")
-	TCU4_AddCtrls ("Nidaq_Controls", "ExamineTabCtrl", "Blood","Setvariable,bloodWinLeftSetVar,0;Setvariable,bloodWinRightSetVar,0;Button,bloodFullScaleButton,0;")
-	TCU4_AddCtrls ("Nidaq_Controls", "ExamineTabCtrl", "Blood","Titlebox,BloodTimeTitle,0;CheckBox,BloodAllAtOnceCheck,0;CheckBox,BloodSampleCheck,0;")
-	TCU4_AddCtrls ("Nidaq_Controls", "ExamineTabCtrl", "Blood","Setvariable,BloodTimeSpacingSetvar,0;Setvariable,BloodTimeOverlapSetvar,0;")
-	TCU4_AddCtrls ("Nidaq_Controls", "ExamineTabCtrl", "Blood","CheckBox,BloodRadonCheck,0;Setvariable,BloodPrecisionSetvar,0;Button,BloodMaxRaysButton,0;")
-	TCU4_AddCtrls ("Nidaq_Controls", "ExamineTabCtrl", "Blood","TitleBox,BloodVelocityRangeTitle,0;CheckBox,BloodAngleRangeCheck1,0;")
-	TCU4_AddCtrls ("Nidaq_Controls", "ExamineTabCtrl", "Blood","CheckBox,BloodAngleRangeCheck2,0;Setvariable,BloodEstSpeedSetvar,0;")
-	TCU4_AddCtrls ("Nidaq_Controls", "ExamineTabCtrl", "Blood","Setvariable,BloodVelocityRangeSetvar,0;CheckBox,bloodCountCellscheck,0;")
-	TCU4_AddCtrls ("Nidaq_Controls", "ExamineTabCtrl", "Blood","Setvariable,bloodCountMinSizeSetVar,0;Setvariable,bloodCountMaxPosSetVar,0;")
-	TCU4_AddCtrls ("Nidaq_Controls", "ExamineTabCtrl", "Blood","Setvariable,BloodCountProfileWidthSetvar,0;Setvariable,BloodCountHighCutSetvar,0;")
-	TCU4_AddCtrls ("Nidaq_Controls", "ExamineTabCtrl", "Blood","Setvariable,BloodCountLowCutSetvar,0;CheckBox,bloodShowMeCheck,0;Button,bloodVelocityButton,0")
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Blood","Checkbox BloodCurScanCheck;CheckBox BloodAllScansCheck;setvariable BloodMatchSetVar;")
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Blood","CheckBox BloodCheck1;CheckBox BloodCheck2;Button bloodShowLineScanButton;")
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Blood","Setvariable bloodWinLeftSetVar;Setvariable bloodWinRightSetVar;Button bloodFullScaleButton;")
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Blood","Titlebox BloodTimeTitle;CheckBox BloodAllAtOnceCheck;CheckBox BloodSampleCheck;")
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Blood","Setvariable BloodTimeSpacingSetvar;Setvariable BloodTimeOverlapSetvar;")
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Blood","CheckBox BloodRadonCheck;Setvariable BloodPrecisionSetvar,0;Button BloodMaxRaysButton;")
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Blood","TitleBox BloodVelocityRangeTitle;CheckBox BloodAngleRangeCheck1;")
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Blood","CheckBox BloodAngleRangeCheck2;Setvariable BloodEstSpeedSetvar;")
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Blood","Setvariable BloodVelocityRangeSetvar;CheckBox bloodCountCellscheck,0;")
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Blood","Setvariable bloodCountMinSizeSetVar;Setvariable bloodCountMaxPosSetVar,0;")
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Blood","Setvariable BloodCountProfileWidthSetvar;Setvariable BloodCountHighCutSetvar;")
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Blood","Setvariable BloodCountLowCutSetvar;CheckBox bloodShowMeCheck;Button bloodVelocityButton")
 
 End
 
@@ -212,27 +217,27 @@ End
 // Delete global variables for blood
 // Last Modified Oct 04 2011 by Jamie Boyd
 Function NQexBlood_remove ()
-	killvariables/z root:packages:JB_NIDAQ:examine:BloodDoMatch
-	killStrings/z root:packages:JB_NIDAQ:examine:BloodMatchStr
-	killvariables/z root:packages:jb_nidaq:examine:BloodChan
-	killvariables/z root:Packages:JB_NIDAQ:examine:bloodWinLeft
-	killvariables/z root:Packages:JB_NIDAQ:examine:bloodWinRight
-	killvariables/z root:Packages:JB_NIDAQ:examine:bloodDoSample
-	killvariables/z root:Packages:JB_NIDAQ:examine:bloodSampleFreq
-	killvariables/z root:Packages:JB_NIDAQ:examine:bloodSampleOverlap
-	killvariables/z root:Packages:JB_NIDAQ:examine:bloodDoRadon 
-	killvariables/z root:packages:jb_nidaq:examine:bloodRadonRays
-	killvariables/z root:Packages:JB_NIDAQ:examine:bloodEstVelocity
-	killvariables/z root:Packages:JB_NIDAQ:examine:bloodVelocitySpace
-	killvariables/z root:Packages:JB_NIDAQ:examine:bloodVelocityPrecision
-	killvariables/z root:packages:JB_Nidaq:examine:bloodDoCount
-	killvariables/z root:packages:JB_Nidaq:examine:bloodCountHighCut
-	killvariables/z root:packages:JB_Nidaq:examine:bloodCountLowCut
-	killvariables/z root:packages:JB_Nidaq:examine:bloodCountProfileWidth
-	killvariables/z root:packages:JB_Nidaq:examine:bloodCountMaxPeakPos
-	killvariables/z root:packages:JB_Nidaq:examine:bloodCountMinPeakSIze
-	killvariables/z root:Packages:JB_NIDAQ:examine:bloodShowMe
-	killVariables/z root:packages:JB_Nidaq:examine:bloodRadonAngle
+	killvariables/z root:packages:twoP:examine:BloodDoMatch
+	killStrings/z root:packages:twoP:examine:BloodMatchStr
+	killvariables/z root:packages:twoP:examine:BloodChan
+	killvariables/z root:Packages:twoP:examine:bloodWinLeft
+	killvariables/z root:Packages:twoP:examine:bloodWinRight
+	killvariables/z root:Packages:twoP:examine:bloodDoSample
+	killvariables/z root:Packages:twoP:examine:bloodSampleFreq
+	killvariables/z root:Packages:twoP:examine:bloodSampleOverlap
+	killvariables/z root:Packages:twoP:examine:bloodDoRadon 
+	killvariables/z root:packages:twoP:examine:bloodRadonRays
+	killvariables/z root:Packages:twoP:examine:bloodEstVelocity
+	killvariables/z root:Packages:twoP:examine:bloodVelocitySpace
+	killvariables/z root:Packages:twoP:examine:bloodVelocityPrecision
+	killvariables/z root:packages:twoP:examine:bloodDoCount
+	killvariables/z root:packages:twoP:examine:bloodCountHighCut
+	killvariables/z root:packages:twoP:examine:bloodCountLowCut
+	killvariables/z root:packages:twoP:examine:bloodCountProfileWidth
+	killvariables/z root:packages:twoP:examine:bloodCountMaxPeakPos
+	killvariables/z root:packages:twoP:examine:bloodCountMinPeakSIze
+	killvariables/z root:Packages:twoP:examine:bloodShowMe
+	killVariables/z root:packages:twoP:examine:bloodRadonAngle
 end
 
 //******************************************************************************************************
@@ -243,8 +248,8 @@ Function NQ_BloodShowLSposButtonProc(ba) : ButtonControl
 
 	switch( ba.eventCode )
 		case 2: // mouse up
-			SVAR curScan = root:packages:jb_nidaq:examine:curScan
-			NVAR bloodChan = root:packages:jb_nidaq:examine:bloodChan
+			SVAR curScan = root:packages:twoP:examine:curScan
+			NVAR bloodChan = root:packages:twoP:examine:bloodChan
 			NQ_ShowLSpos (curScan, "ch" + num2str (bloodChan))
 			break
 		case -1: // control being killed
@@ -263,16 +268,16 @@ Function NQ_BloodFullScaleProc(ba) : ButtonControl
 
 	switch( ba.eventCode )
 		case 2: // mouse up
-			SVAR curScan = root:packages:jb_Nidaq:examine:curScan
+			SVAR curScan = root:packages:twoP:examine:curScan
 			SVAR scanStr = $"root:Nidaq_Scans:" + curScan + ":" + curScan + "_info"
-			NVAR bloodChan =  root:packages:jb_nidaq:examine:BloodChan
+			NVAR bloodChan =  root:packages:twoP:examine:BloodChan
 			variable mode = NumberByKey("mode", scanStr, ":", "\r")
 			if (mode != kLineScan)
 				doAlert 0, "only line scans can be used for this procedure."
 				return 1
 			endif 
-			NVAR WinLeft = root:Packages:JB_NIDAQ:examine:bloodWinLeft
-			NVAR WinRight = root:Packages:JB_NIDAQ:examine:bloodWinRight
+			NVAR WinLeft = root:Packages:twoP:examine:bloodWinLeft
+			NVAR WinRight = root:Packages:twoP:examine:bloodWinRight
 			if (ba.eventMod & 2)
 				if (bloodChan==1)
 					GetAxis /W=Nidaq_ScanGraph#gCh1  bottom
@@ -301,7 +306,7 @@ Function NQ_BloodEstMaxRaysButtonProc(ba) : ButtonControl
 
 	switch( ba.eventCode )
 		case 2: // mouse up
-			SVAR curScan = root:packages:jb_Nidaq:examine:curScan
+			SVAR curScan = root:packages:twoP:examine:curScan
 			SVAR scanStr = $"root:Nidaq_Scans:" + curScan + ":" + curScan + "_info"
 			variable mode = NumberByKey("mode", scanStr, ":", "\r")
 			if (mode != kLineScan)
@@ -310,13 +315,13 @@ Function NQ_BloodEstMaxRaysButtonProc(ba) : ButtonControl
 			endif 
 			variable ySize, ySizeAll=NumberByKey("PixHeight", scanStr, ":", "\r"), yPixSize = NumberByKey("YpixSize", scanStr, ":", "\r")
 			variable xLength=NumberByKey("PixWidth", scanStr, ":", "\r") * NumberByKey("XpixSize", scanStr, ":", "\r")
-			NVAR doAll =root:Packages:JB_NIDAQ:examine:bloodDoAll
-			NVAR estSpeed = root:packages:jb_nidaq:examine:bloodEstVelocity
+			NVAR doAll =root:Packages:twoP:examine:bloodDoAll
+			NVAR estSpeed = root:packages:twoP:examine:bloodEstVelocity
 			if (doAll)
 				ySize = ySizeAll
 			else
-				NVAR sampleFreq = root:packages:jb_nidaq:Examine:BloodSampleFreq
-				NVAR overLap = root:packages:jb_nidaq:Examine:BloodSampleOverLap
+				NVAR sampleFreq = root:packages:twoP:Examine:BloodSampleFreq
+				NVAR overLap = root:packages:twoP:Examine:BloodSampleOverLap
 				variable yDelta = NumberByKey("YpixSize", scanStr, ":", "\r")
 				ySize = ( 1/sampleFreq  * (1 + overlap/100))/yDelta
 			endif
@@ -324,7 +329,7 @@ Function NQ_BloodEstMaxRaysButtonProc(ba) : ButtonControl
 			variable xTime =  xLength/estSpeed
 			ySize = min (ySize,  xTime/yPixSize)
 			variable thetaInc = aTan (1/ySize)
-			NVAR precision = root:Packages:JB_NIDAQ:examine:bloodVelocityPrecision
+			NVAR precision = root:Packages:twoP:examine:bloodVelocityPrecision
 			precision = round (pi/thetaInc)
 			break
 		case -1: // control being killed
@@ -343,14 +348,14 @@ Function NQ_BloodMeasureButtonProc(ba) : ButtonControl
 		case 2: // mouse up
 		// set folder to examine packages folder to avoid spewing out temp waves where we may not want them
 		string savedFolder = getdatafolder (1)
-		setdatafolder root:packages:jb_nidaq:examine
+		setdatafolder root:packages:twoP:examine
 			string doBloodList
-			NVAR bloodDoMatch = root:packages:JB_NIDAQ:examine:BloodDoMatch
+			NVAR bloodDoMatch = root:packages:twoP:examine:BloodDoMatch
 			if (bloodDoMatch) // doing a range of scans
-				SVAR bloodMatchStr = root:packages:jb_nidaq:examine:bloodMatchStr
-				doBloodList  = ListObjects("root:nidaq_Scans", 4, bloodMatchStr, 2, "") 
+				SVAR bloodMatchStr = root:packages:twoP:examine:bloodMatchStr
+				doBloodList  = GUIPListObjs("root:nidaq_Scans", 4, bloodMatchStr, 2, "") 
 			else
-				SVAR curScan = root:packages:jb_Nidaq:examine:curScan
+				SVAR curScan = root:packages:twoP:examine:curScan
 				SVAR scanStr = $"root:Nidaq_Scans:" + curScan + ":" + curScan + "_info"
 				variable mode = NumberByKey("mode", scanStr, ":", "\r")
 				if (mode != kLineScan)
@@ -399,8 +404,8 @@ function NQ_showBloodAnalysis(ScanWave, winLeft, WinRight, winBottom, winTop)
 	endif
 	SetAxis/W=BloodBitsGraph bottom, winLeft, WinRight
 	SetAxis/W=BloodBitsGraph left , winBottom, WinTop
-	NVAR doRadon=root:Packages:JB_NIDAQ:examine:bloodDoRadon 
-	NVAR doCount = root:Packages:JB_NIDAQ:examine:bloodDoCount
+	NVAR doRadon=root:Packages:twoP:examine:bloodDoRadon 
+	NVAR doCount = root:Packages:twoP:examine:bloodDoCount
 	// remove blood count markers, if not doing blood count
 	if ((doCount==0) && (whichlistItem ("jPeakPos", TraceNameList("BloodBitsGraph", ";", 1 ), ";") > -1))
 		removeFromGraph/w=BloodBitsGraph  jPeakPos
@@ -482,9 +487,9 @@ function NQ_showBloodAnalysis(ScanWave, winLeft, WinRight, winBottom, winTop)
 		endif
 	endif
 	// Display  outPut waves for samples
-	NVAR doSample = root:Packages:JB_NIDAQ:examine:bloodDoSample // 0 if doing all at once, 1 for sampling
+	NVAR doSample = root:Packages:twoP:examine:bloodDoSample // 0 if doing all at once, 1 for sampling
 	if (doSample)
-		SVAR curScan = root:packages:jb_nidaq:examine:curScan
+		SVAR curScan = root:packages:twoP:examine:curScan
 		gTop = gBottom + 20
 		gBottom = gTop + 200
 		if (gBottom > 768)
@@ -534,20 +539,20 @@ Function NQ_DoBlood (curScan)
 		return 1
 	endif
 	// check that selected channel exists
-	NVAR bloodChan = root:packages:jb_nidaq:examine:bloodChan
+	NVAR bloodChan = root:packages:twoP:examine:bloodChan
 	WAVE/Z scanWave = $"root:Nidaq_Scans:" + curScan + ":" + curScan + "_ch" + num2str (bloodChan)
 	if (!(waveExists (scanWave)))
 		printf "Selected channel, \"%s\",  does not exist for scan\"%s\".\r", "ch" + num2str (bloodChan), curScan
 		return 1
 	endif
 	// reference global variables needed for all methods
-	NVAR doRadon = root:Packages:JB_NIDAQ:examine:bloodDoRadon // use radon projection method
-	NVAR doBloodCount = root:packages:JB_Nidaq:examine:bloodDoCount // count cells 
-	NVAR WinLeft = root:Packages:JB_NIDAQ:examine:bloodWinLeft // X start
-	NVAR WinRight = root:Packages:JB_NIDAQ:examine:bloodWinRight // X end
-	NVAR doSample = root:Packages:JB_NIDAQ:examine:bloodDoSample // 0 if doing all at once, 1 for sampling
-	NVAR showMe = root:Packages:JB_NIDAQ:examine:bloodShowMe
-	NVAR RadonAngle = root:packages:JB_Nidaq:examine:bloodRadonAngle
+	NVAR doRadon = root:Packages:twoP:examine:bloodDoRadon // use radon projection method
+	NVAR doBloodCount = root:packages:twoP:examine:bloodDoCount // count cells 
+	NVAR WinLeft = root:Packages:twoP:examine:bloodWinLeft // X start
+	NVAR WinRight = root:Packages:twoP:examine:bloodWinRight // X end
+	NVAR doSample = root:Packages:twoP:examine:bloodDoSample // 0 if doing all at once, 1 for sampling
+	NVAR showMe = root:Packages:twoP:examine:bloodShowMe
+	NVAR RadonAngle = root:packages:twoP:examine:bloodRadonAngle
 	// duplicate possibly cropped line scan
 	duplicate/o/R=((WinLeft), (winRight)) scanWave, bloodAllF // copy for filtering
 	WAVE bloodAllF
@@ -561,18 +566,18 @@ Function NQ_DoBlood (curScan)
 	variable radonSpeed =NaN, cellsHz =NaN
 	// check some globals for the different methods
 	if (doRadon)
-		NVAR rayDensity = root:packages:jb_nidaq:examine:bloodVelocityPrecision
-		NVAR doRange = root:packages:jb_nidaq:examine:bloodRadonRays
+		NVAR rayDensity = root:packages:twoP:examine:bloodVelocityPrecision
+		NVAR doRange = root:packages:twoP:examine:bloodRadonRays
 	endif		
 
 	if (doRange)
-		NVAR CenterSpeed = root:packages:jb_nidaq:examine:bloodEstVelocity
-		NVAR speedRange = root:Packages:jb_nidaq:examine:bloodVelocitySpace
+		NVAR CenterSpeed = root:packages:twoP:examine:bloodEstVelocity
+		NVAR speedRange = root:Packages:twoP:examine:bloodVelocitySpace
 	endif
 	// do sample
 	if (doSample)
-		NVAR TimeSpacing= root:Packages:JB_NIDAQ:examine:bloodSampleFreq // in Hz (samples/sec)
-		NVAR TimeOverlap = root:Packages:JB_NIDAQ:examine:bloodSampleOverlap // overlap with previous and next sample in percent
+		NVAR TimeSpacing= root:Packages:twoP:examine:bloodSampleFreq // in Hz (samples/sec)
+		NVAR TimeOverlap = root:Packages:twoP:examine:bloodSampleOverlap // overlap with previous and next sample in percent
 		// calculate number and spacing of samples
 		variable scanTime = dimSize (scanWave, 1) * dimDelta (scanWave,1)
 		variable Overlap = (TimeOverlap/100)/TimeSpacing
@@ -640,7 +645,7 @@ Function NQ_DoBlood (curScan)
 			cellsHz = NQ_BloodCountCells (0, (dimSize (scanWave, 1) * dimDelta (scanWave,1)))
 			printf "Blood cell flux for scan %s was %.2W1PHz\r", curScan, cellsHz 
 		endif
-		NQ_BloodCumResults (curScan, radonSpeed, cellsHz)
+		//NQ_BloodCumResults (curScan, radonSpeed, cellsHz)
 		if (showMe)
 			NQ_showBloodAnalysis(scanWave, WinLeft, winRight, 0,  (dimSize (scanWave, 1) * dimDelta (scanWave,1)))
 			if (doRadon)
@@ -686,7 +691,7 @@ Function NQ_BloodRadon(theWave, rayDensity, doRange, CenterSpeed, speedRange)
 	WAVE RadonVar
 	SetScale /I X startAngle, (EndAngle - incAngle), "radians", RadonVar
 	// Find biggest peak
-	NVAR radonAngle = root:packages:JB_Nidaq:examine:bloodRadonAngle
+	NVAR radonAngle = root:packages:twoP:examine:bloodRadonAngle
 	FindPeak/Q/B=3/R=((startAngle), (endAngle)), RadonVar
 	if (V_Flag)
 		radonAngle = NaN
@@ -726,9 +731,9 @@ Function NQ_BloodWindowHook(s)
 					string trace = stringbykey ("TRACE", hit, ":", ";")
 					if ((cmpStr (trace, "jPeakPos") ==0) || (cmpStr (trace, "jPeakHt") ==0))
 						variable pt = numberbykey ("HITPOINT", hit, ":", ";")
-						wave jPeakHt= root:packages:jb_nidaq:examine:jPeakHt
-						wave jPeakPos=root:packages:jb_nidaq:examine:jPeakPos
-						wave jPeakPosForBB=root:packages:jb_nidaq:examine:jPeakPosForBB
+						wave jPeakHt= root:packages:twoP:examine:jPeakHt
+						wave jPeakPos=root:packages:twoP:examine:jPeakPos
+						wave jPeakPosForBB=root:packages:twoP:examine:jPeakPosForBB
 						variable xPos = jPeakPos[pt]
 						deletepoints pt, 1, jPeakHt, jPeakPos, jPeakPosForBB
 						NQ_BloodCellsModded (xPos, 0)
@@ -736,10 +741,10 @@ Function NQ_BloodWindowHook(s)
 					endif
 				endif
 			elseif ((s.eventMod &8) ==8) //command/ctrl click  to add a point
-				wave jPeakHt= root:packages:jb_nidaq:examine:jPeakHt
-				wave jPeakPos=root:packages:jb_nidaq:examine:jPeakPos
-				wave jPeakPosForBB=root:packages:jb_nidaq:examine:jPeakPosForBB
-				wave profile= root:packages:jb_nidaq:examine:w_imageLineProfile_f
+				wave jPeakHt= root:packages:twoP:examine:jPeakHt
+				wave jPeakPos=root:packages:twoP:examine:jPeakPos
+				wave jPeakPosForBB=root:packages:twoP:examine:jPeakPosForBB
+				wave profile= root:packages:twoP:examine:w_imageLineProfile_f
 				variable xLoc, yLoc
 				if (cmpStr (s.winName, "BloodProfileGraph") ==0)
 					xLoc=AxisValFromPixel(s.winName, "bottom", s.mouseLoc.h )
@@ -774,7 +779,7 @@ Function NQ_BloodWindowHook(s)
 		case 7:   //"cursormoved"
 			string thisAxis, otherAxis, thisGraph=s.winName, otherGraph, otherTrace
 			variable pos, val, axisRange, axisStart
-			NVAR drmb = root:packages:jb_nidaq:examine:bloodDrmb
+			NVAR drmb = root:packages:twoP:examine:bloodDrmb
 			drmb =1
 			if (cmpStr (thisGraph, "bloodBitsGraph") ==0)
 				val = vcsr (A, thisGraph)
@@ -806,7 +811,7 @@ Function NQ_BloodWindowHook(s)
 			hookResult = 1
 			break
 		case 8:	//"modified"
-			NVAR drmb = root:packages:jb_nidaq:examine:bloodDrmb // don't recurse me, bro
+			NVAR drmb = root:packages:twoP:examine:bloodDrmb // don't recurse me, bro
 			if (drmb==1)
 				drmb=0
 			else
@@ -831,9 +836,9 @@ Function NQ_BloodWindowHook(s)
 					pos= pcsr(A,  "BloodProfileGraph")
 					NQ_BloodCellsModded (hcsr(A,  "BloodProfileGraph"), 0)
 				endif
-				wave jPeakHt= root:packages:jb_nidaq:examine:jPeakHt
-				wave jPeakPos=root:packages:jb_nidaq:examine:jPeakPos
-				wave jPeakPosForBB=root:packages:jb_nidaq:examine:jPeakPosForBB
+				wave jPeakHt= root:packages:twoP:examine:jPeakHt
+				wave jPeakPos=root:packages:twoP:examine:jPeakPos
+				wave jPeakPosForBB=root:packages:twoP:examine:jPeakPosForBB
 				deletepoints pos, 1, jPeakHt, jPeakPos, jPeakPosForBB
 				hookResult = 1
 			endif
@@ -849,14 +854,14 @@ function NQ_BloodCellsModded (modX, wasAdded)
 	variable modX // x value of point that was modified
 	variable wasAdded // 0 if point subtracted, non-zero if a point was added
 	
-	SVAR curScan = root:packages:jb_nidaq:examine:Curscan
+	SVAR curScan = root:packages:twoP:examine:Curscan
 	//redo cumulative results
 	SVAR infoStr = $"root:nidaq_Scans:" + curScan + ":" + curScan + "_info"
 	variable nLines = NumberByKey("PixHeight", infoStr, ":", "\r")
 	variable lineTime = NumberByKey("LineTime", infoStr, ":", "\r")
 	variable scanTime = (nLines * lineTime)
-	wave jPeakPos=root:packages:jb_nidaq:examine:jPeakPos 
-	NQ_BloodCumResults (curScan, Nan, numPnts (jPeakPos)/scanTime)
+	wave jPeakPos=root:packages:twoP:examine:jPeakPos 
+	//NQ_BloodCumResults (curScan, Nan, numPnts (jPeakPos)/scanTime)
 	// do we have  cells wave to modify?
 	WAVE/Z cellWave = $"root:nidaq_Scans:" + curScan + ":" + curScan + "_Cells"
 	if (WaveExists (CellWave))
@@ -886,7 +891,7 @@ end
 function NQ_BloodCountCells (timeStart, timeEnd)
 	variable timeStart, timeEnd
 	
-	wave jPeakPos=root:packages:jb_nidaq:examine:jPeakPos
+	wave jPeakPos=root:packages:twoP:examine:jPeakPos
 	variable endP, startP = BinarySearch(jPeakPos, timeStart)
 	if ((startP == -3) || (startP == -2))  //BinarySearch returns -3 if the wave has zero points, -2 if val would fall after the last value 
 		return 0
@@ -911,7 +916,7 @@ function NQ_BloodCountDoProfile (bloodBits)
 	wave bloodBits
 	
 	string savedfldr = GetDataFolder(1)
-	setdatafolder root:packages:jb_nidaq:examine
+	setdatafolder root:packages:twoP:examine
 	NVAR minPeakSize = bloodCountMinPeakSize
 	NVAR maxPeakPos = bloodCountMaxPeakPos
 	NVAR profileWidth =bloodCountProfileWidth
@@ -1042,63 +1047,63 @@ function  NQ_CheckPkHt (w_imagelineProfile_f, jPeakPos, jPeakHt, maxPeakPos, min
 	endif
 end
 
-
-//******************************************************************************************************
-// adds speed and cell flux values to cumulative results.See SharedWavesManager for definition of SharedWavesStruct
-// Last Modified Jan 17 2012 by Jamie Boyd
-Function NQ_BloodCumResults (curScan, SpeedRad, cellHz)
-	string curScan
-	variable speedRad, cellHz
-	
-	STRUCT  SharedWavesStruct s
-	s.swmInstance = "Blood"
-	// 0th pos is run name
-	s.resultWaveNames [0] = "Run"
-	s.resultWaveTypes [0] = 0
-	s.resultStrings[0] = curScan
-	s.resultWaveUnits [0] = ""
-	// 1st pos is Run DateTime - which is used as unique identifier for a scan
-	s.isUnique = 2
-	SVAR scanStr = $"root:Nidaq_Scans:" + curScan + ":" + curScan + "_info" 
-	s.resultWaveNames [1] = "RunDateTime"
-	s.resultWaveTypes [1] = 4
-	s.resultVariables[1] = NumberByKey("ExpTime", scanStr , ":", "\r")
-	s.resultWaveUnits [1] = "dat"
-	// 2nd Pos is date
-	s.resultWaveNames [2] = "ExpDate"
-	s.resultStrings [2] =secs2date (s.resultVariables[1], 2) // 2 is date format
-	s.resultWaveTypes [2] = 0
-	s.resultWaveUnits [2] =""
-	// add whatever data is given from speed and cell flux
-	variable iResult =3
-	if (numtype (SpeedRad) ==0)
-		s.resultVariables [iResult] = speedRad
-		s.resultWaveNames [iresult]= "SpeedRad"
-		s.resultWaveTypes [iResult] = 2
-		s.resultWaveUnits [iresult] = "m/s"
-		iResult += 1
-	endif
-
-	if (numtype (cellHz) ==0)
-		s.resultVariables [iResult] = cellHz
-		s.resultWaveNames [iresult]= "CellHz"
-		s.resultWaveTypes [iResult] = 2
-		s.resultWaveUnits [iresult] = "Hz"
-		iResult += 1
-	endif
-	s.nResults =iresult
-	// Parse key=value pairs in experiment note and add them to struct
-	NQ_ParseNoteKeys(stringByKey ("ExpNote", scanStr, ":", "\r"), s)
-	// add results
-	// look for "vessel" field in new result
-	for (iResult -=1;iResult < s.nResults; iResult +=1)
-		if (Cmpstr (s.resultWaveNames [iResult], "vessel") ==0)
-			s.isUnique += 2^(iResult)
-			break
-		endif
-	endfor
-	SharedWaves_AddResults (s)
-end
+//
+////******************************************************************************************************
+//// adds speed and cell flux values to cumulative results.See SharedWavesManager for definition of SharedWavesStruct
+//// Last Modified Jan 17 2012 by Jamie Boyd
+//Function NQ_BloodCumResults (curScan, SpeedRad, cellHz)
+//	string curScan
+//	variable speedRad, cellHz
+//	
+//	STRUCT  SharedWavesStruct s
+//	s.swmInstance = "Blood"
+//	// 0th pos is run name
+//	s.resultWaveNames [0] = "Run"
+//	s.resultWaveTypes [0] = 0
+//	s.resultStrings[0] = curScan
+//	s.resultWaveUnits [0] = ""
+//	// 1st pos is Run DateTime - which is used as unique identifier for a scan
+//	s.isUnique = 2
+//	SVAR scanStr = $"root:Nidaq_Scans:" + curScan + ":" + curScan + "_info" 
+//	s.resultWaveNames [1] = "RunDateTime"
+//	s.resultWaveTypes [1] = 4
+//	s.resultVariables[1] = NumberByKey("ExpTime", scanStr , ":", "\r")
+//	s.resultWaveUnits [1] = "dat"
+//	// 2nd Pos is date
+//	s.resultWaveNames [2] = "ExpDate"
+//	s.resultStrings [2] =secs2date (s.resultVariables[1], 2) // 2 is date format
+//	s.resultWaveTypes [2] = 0
+//	s.resultWaveUnits [2] =""
+//	// add whatever data is given from speed and cell flux
+//	variable iResult =3
+//	if (numtype (SpeedRad) ==0)
+//		s.resultVariables [iResult] = speedRad
+//		s.resultWaveNames [iresult]= "SpeedRad"
+//		s.resultWaveTypes [iResult] = 2
+//		s.resultWaveUnits [iresult] = "m/s"
+//		iResult += 1
+//	endif
+//
+//	if (numtype (cellHz) ==0)
+//		s.resultVariables [iResult] = cellHz
+//		s.resultWaveNames [iresult]= "CellHz"
+//		s.resultWaveTypes [iResult] = 2
+//		s.resultWaveUnits [iresult] = "Hz"
+//		iResult += 1
+//	endif
+//	s.nResults =iresult
+//	// Parse key=value pairs in experiment note and add them to struct
+//	NQ_ParseNoteKeys(stringByKey ("ExpNote", scanStr, ":", "\r"), s)
+//	// add results
+//	// look for "vessel" field in new result
+//	for (iResult -=1;iResult < s.nResults; iResult +=1)
+//		if (Cmpstr (s.resultWaveNames [iResult], "vessel") ==0)
+//			s.isUnique += 2^(iResult)
+//			break
+//		endif
+//	endfor
+//	SharedWaves_AddResults (s)
+//end
 
 //******************************************************************************************************
 //Processes a range of scans named numericaly from first run to last run
@@ -1107,9 +1112,9 @@ Function NQ_BloodMulti (baseName, firstRun, lastRun)
 	string baseName
 	variable firstRun, lastRun
 	
-	NVAR showMe= root:Packages:JB_NIDAQ:examine:bloodShowMe
-	NVAR doSample = root:Packages:JB_NIDAQ:examine:bloodDoSample
-	NVAR bloodChan = root:packages:jb_nidaq:examine:BloodChan
+	NVAR showMe= root:Packages:twoP:examine:bloodShowMe
+	NVAR doSample = root:Packages:twoP:examine:bloodDoSample
+	NVAR bloodChan = root:packages:twoP:examine:BloodChan
 	doSample =0
 	showMe = 0
 	string theScan
@@ -1133,14 +1138,14 @@ end
 // Last modified Oct 19 2011 by Jamie Boyd
 Function NQ_SetTop ()
 	
-	SVAR curScan = root:packages:jb_nidaq:examine:curScan
+	SVAR curScan = root:packages:twoP:examine:curScan
 	SVAR  infoStr =  $"root:Nidaq_Scans:" + curScan + ":" + curScan + "_info"
 	if (NumberByKey("Mode", infoStr, ":", "\r") != kZSeries)
 		return 1
 	endif
-	NVAR curVal = root:packages:jb_nidaq:examine:curFramePos
+	NVAR curVal = root:packages:twoP:examine:curFramePos
 	variable curPos = numberbyKey ("zPos", sInfo (), ":", "\r") + curval* numberbyKey ("zStepSize", sInfo (), ":", "\r")
-	variable/G root:packages:jb_nidaq:examine:topVal = curPos
+	variable/G root:packages:twoP:examine:topVal = curPos
 end
 
 //******************************************************************************************************
@@ -1148,12 +1153,12 @@ end
 // Last modified Mar 13 2012 by Jamie Boyd
 function NQ_GetDepth ()
 	
-	SVAR curScan = root:packages:jb_nidaq:examine:curScan
+	SVAR curScan = root:packages:twoP:examine:curScan
 	SVAR  infoStr =  $"root:Nidaq_Scans:" + curScan + ":" + curScan + "_info"
 	if (NumberByKey("Mode", infoStr, ":", "\r") == kZSeries)
 		return 1
 	endif
-	NVAR/Z topVal = root:packages:jb_nidaq:examine:topVal
+	NVAR/Z topVal = root:packages:twoP:examine:topVal
 	if (!(NVAR_EXISTS (topVal)))
 		return 1
 	endif
@@ -1202,7 +1207,7 @@ Function NQ_ShowLSPos (theLineScan, chanStr)
 	pa.eventCode =2
 	pa.popStr = linkWaveStr
 	NQ_ScansPopMenuProc(pa)
-	NVAR showCh = $"root:Packages:JB_Nidaq:examine:show" + chanStr
+	NVAR showCh = $"root:Packages:twoP:examine:show" + chanStr
 	showCh =1
 	STRUCT WMCheckboxAction cba
 	 cba.eventCode = 2
@@ -1219,7 +1224,7 @@ end
 Function PseudoLineScan ()
 	
 	string chanStr = "ch1"
-	SVAR curScan = root:packages:JB_Nidaq:Examine:curScan
+	SVAR curScan = root:packages:twoP:Examine:curScan
 	SVAR infoStr = $"root:Nidaq_Scans:" + curScan + ":" + curScan + "_info"
 	if (NumberByKey("Mode", infoStr, ":", "\r") != 1)
 		return 1
@@ -1357,7 +1362,7 @@ end
  	variable flags = GetKeyState(0)
  	variable deadZone
  	// get scan str
-	SVAR curScan = root:packages:JB_Nidaq:Examine:curScan
+	SVAR curScan = root:packages:twoP:Examine:curScan
 	SVAR infoStr = $"root:Nidaq_Scans:" + curScan + ":" + curScan + "_info"
 	if (NumberByKey("Mode", infoStr, ":", "\r") != 3)
 		return 1
@@ -1405,7 +1410,7 @@ end
  
 function/s Un60 ()
  
-	string aScan, scans = ListObjects("root:Nidaq_Scans:", 4, "*", 2, ""), objStr, returnStr = ""
+	string aScan, scans = GUIPListObjs("root:Nidaq_Scans:", 4, "*", 2, ""), objStr, returnStr = ""
 	variable iScan, nScans = itemsinList (scans, ";")
 	for (iScan =0; iscan < nScans; iScan +=1)
 		aScan = stringfromlist (iScan, scans)
@@ -1438,7 +1443,7 @@ end
 		return 1
 	endif
 	
-	WAVE/T objWave = root:Packages:jb_nidaq:acquire:ObjWave
+	WAVE/T objWave = root:Packages:twoP:acquire:ObjWave
 	FindValue /TEXT=fromObj/TXOP=4 objWave
 	variable fromPos = V_value
 	FindValue /TEXT=toObj/TXOP=4 objWave
@@ -1486,23 +1491,23 @@ end
 	scanInfo = replacestringbykey ("Obj", scanInfo, toObj, ":", "\r")
 	// now look at stuff already in Shared Waves Manager
 	variable isValid
-	string swdf = SharedWaves_GetDataFolder ("blood", isValid)
+	//string swdf = SharedWaves_GetDataFolder ("blood", isValid)
 	if (!(isValid))
 		doAlert 0, "No shared Waves Manager for blood"
 		return 1
 	endif
-	wave runDateTimeWave = $swdf + "runDateTime"
-	variable thisRundateTime = NumberByKey ("ExpTime", scanInfo, ":", "\r")
-	wave/T runWave = $swdf + "run"
-	wave speedRad = $swdf + "speedrad"
-	wave diameter = $swdf + "diameter"
-	variable iPt, nPts = numpnts (runDateTimeWave)
-	for (iPt =0;iPt < nPts; iPt +=1)
-		if (((runDateTimeWave [ipt] < thisRundateTime +10) && (runDateTimeWave [ipt] > thisRundateTime - 10)) && (cmpstr (curScan, runWave [ipt]) ==0))
-			speedRad [iPt] *=  (str2num (ObjWave [(toPos)] [1])/str2num (ObjWave [(fromPos)] [1]))
-			diameter [iPt]  *=  (str2num (ObjWave [(toPos)] [1])/str2num (ObjWave [(fromPos)] [1]))
-			printf "Scan %s at point %g.\r", curScan, iPt
-		endif
-	endfor
-	return 0
+	//wave runDateTimeWave = $swdf + "runDateTime"
+	//variable thisRundateTime = NumberByKey ("ExpTime", scanInfo, ":", "\r")
+//	wave/T runWave = $swdf + "run"
+//	wave speedRad = $swdf + "speedrad"
+//	wave diameter = $swdf + "diameter"
+//	variable iPt, nPts = numpnts (runDateTimeWave)
+//	for (iPt =0;iPt < nPts; iPt +=1)
+//		if (((runDateTimeWave [ipt] < thisRundateTime +10) && (runDateTimeWave [ipt] > thisRundateTime - 10)) && (cmpstr (curScan, runWave [ipt]) ==0))
+//			speedRad [iPt] *=  (str2num (ObjWave [(toPos)] [1])/str2num (ObjWave [(fromPos)] [1]))
+//			diameter [iPt]  *=  (str2num (ObjWave [(toPos)] [1])/str2num (ObjWave [(fromPos)] [1]))
+//			printf "Scan %s at point %g.\r", curScan, iPt
+//		endif
+//	endfor
+//	return 0
 end

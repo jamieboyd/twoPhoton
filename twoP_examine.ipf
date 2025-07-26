@@ -72,10 +72,6 @@ Function NQ_MakeExamineFolder ()
 	make/o root:Packages:twoP:examine:ImRangeLeftyCh1 = {1,inf}
 	make/o root:Packages:twoP:examine:ImRangeRightxCh1 = {(0.95 * 2^kNQimageBits) ,(0.95 * 2^kNQimageBits)}
 	make/o root:Packages:twoP:examine:ImRangeRightyCh1 = {1,inf}
-	make/o root:Packages:twoP:examine:ImRangeLeftxCh2 = {(0.05 * 2^kNQimageBits), (0.05 * 2^kNQimageBits)}
-	make/o root:Packages:twoP:examine:ImRangeLeftyCh2 = {1,inf}
-	make/o root:Packages:twoP:examine:ImRangeRightxCh2 = {(0.95 * 2^kNQimageBits) ,(0.95 * 2^kNQimageBits)}
-	make/o root:Packages:twoP:examine:ImRangeRightyCh2 = {1,inf}
 	// Values to control which channels to show in the ScanGraph
 	variable/G root:packages:twoP:examine:showCh1 = 1
 	variable/G root:packages:twoP:examine:showCh2 =0
@@ -86,11 +82,10 @@ Function NQ_MakeExamineFolder ()
 	make/w/u/o/n = (512,512) root:packages:twoP:examine:scanGraph_ch2
 	make/w/u/o/u/n = (512,512,3) root:packages:twoP:examine:scanGraph_mrg
 	// Values to control image appearance with look up table
-	// First and last colors correspond to max range of a 12 bit digitizer minus one on each end to show floor/ceiling
 	// NB: modified 2016/11/08 to use unsigined integers
-	string/G root:Packages:twoP:examine:LUTChan = "ch1" // image channel we are working with
-	variable/G root:Packages:twoP:examine:Ch1FirstLUTColor = 1
-	variable/G root:Packages:twoP:examine:Ch1LastLUTColor =  (2^kNQimageBits)-2
+	string/G root:Packages:twoP:examine:LUTChan = "ch1" // image channel we are working with, ch1 is a pretty good guess. Others made as needed
+	variable/G root:Packages:twoP:examine:Ch1FirstLUTColor = 0
+	variable/G root:Packages:twoP:examine:Ch1LastLUTColor =  (2^kNQimageBits)-1
 	variable/G root:Packages:twoP:examine:Ch1CTable = 1 // Grays
 	string/G  root:Packages:twoP:examine:Ch1CTableStr ="Grays"
 	variable/G root:Packages:twoP:examine:Ch1LUTInvert = 0 //  don't invert
@@ -98,17 +93,7 @@ Function NQ_MakeExamineFolder ()
 	String/G root:Packages:twoP:examine:Ch1BeforeColors = "0,0,65535" // blue
 	variable/G root:Packages:twoP:examine:Ch1AfterMode = 1 // 0 means first color, 1 means selected color, 2 means transparent
 	String/G root:Packages:twoP:examine:Ch1AfterColors = "65535,0,0" // red
-	variable/G root:Packages:twoP:examine:Ch2FirstLUTColor = 1
-	variable/G root:Packages:twoP:examine:Ch2LastLUTColor = (2^kNQimageBits)-2
-	variable/G root:Packages:twoP:examine:Ch2CTable = 1 // Grays
-	string/G  root:Packages:twoP:examine:Ch2CTableStr ="Grays"
-	variable/G root:Packages:twoP:examine:Ch2LUTInvert = 0//  don't invert
-	variable/G root:Packages:twoP:examine:Ch2BeforeMode = 1 // 0 means first color, 1 means selected color, 2 means transparent
-	String/G root:Packages:twoP:examine:Ch2BeforeColors = "0,0,65535" // blue
-	variable/G root:Packages:twoP:examine:Ch2AfterMode = 1 // 0 means first color, 1 means selected color, 2 means transparent
-	String/G root:Packages:twoP:examine:Ch2AfterColors = "65535,0,0" // red
-	variable/G root:packages:twoP:Examine:Ch1LUTAuto =0 // 1 means set LUT to autoscale, 0 means use given first and last values
-	variable/G root:packages:twoP:Examine:Ch2LUTAuto =0
+	variable/G root:packages:twoP:Examine:Ch1LUTAuto =0 // 0 means use given first and last values, 1 means auto LUT,ignoring 1st and last
 	// Window Size/Positions. The default size is set here, and then modified.
 	if (!(datafolderexists("root:packages:SavedWins")))
 		if (!(datafolderexists ("root:packages")))
@@ -146,7 +131,7 @@ Function NQ_MakeExamineFolder ()
 end
 
 //******************************************************************************************************
-// Makes the main control panel. Also makes sure Global Variables and Folders exist, and does Initializing of Acquire Stuff, if Acquire Procedure is present
+// Makes the main control panel. Also makes sure Global Variables and Folders exist, and calls Initializing of Acquire Stuff, if Acquire Procedure is present
 // Last Modified 2017/08/08 by Jamie Boyd
 Function NQ_MakeNidaqPanel (withAcquire)
 	variable withAcquire
@@ -247,7 +232,7 @@ Function NQ_AddExamineControls ()
 	// Channel selector
 	PopupMenu LUTchanMenu win = twoP_Controls, pos={7.00,169.00},size={81.00,20.00},proc=NQ_LUTchanPopMenuProc
 	PopupMenu LUTchanMenu win = twoP_Controls, title="LUT",fSize=12
-	PopupMenu LUTchanMenu win = twoP_Controls, mode=1,popvalue="ch1",value=#"NQ_ListChans()"
+	PopupMenu LUTchanMenu win = twoP_Controls, mode=1,popvalue="ch1",value=#"twoP_ListImChans()"
 	PopupMenu LUTchanMenu win = twoP_Controls, disable=able
 	// LUT popmenu and inverter
 	PopupMenu LUTpopUp win = twoP_Controls,pos={105.00,169.00},size={167.00,20.00},bodyWidth=167,proc=NQ_LUTPopMenuProc
@@ -610,15 +595,12 @@ Function NQ_ScansPopMenuProc(pa) : PopupMenuControl
 		case 2: // mouse up
 			
 			SVAR curScan = root:Packages:twoP:examine:CurScan
+			SVAR scanNote =$"root:twoP_Scans:" + curScan +":" + curScan+ "_info"
 			curScan = pa.popStr
 			NVAR scanNum = root:packages:twoP:Examine:curScanNum
 			scanNum = str2num (stringfromlist (1, pa.popStr, "_"))
 			// Get some variables from scan note
-			if (cmpStr (curScan, "LiveWave") == 0)
-				SVAR ScanNote  = root:packages:twoP:Acquire:LiveModeScanStr
-			else
-				SVAR ScanNote = $"root:twoP_Scans:" + curScan + ":" + curScan+  "_info"
-			endif
+			
 			variable mode = NumberByKey("mode",ScanNote, ":", "\r")
 			variable doephys = NumberByKey("ephys",ScanNote, ":", "\r")
 			if (mode == kePhysOnly)
@@ -641,6 +623,27 @@ Function NQ_ScansPopMenuProc(pa) : PopupMenuControl
 End
 
 
+//********************************************************************************************
+// Lists Image channels in a scan, as strings from imChanDesc. For use in popMenus to select a single channel
+// Last Modified: 2025/07/23 by Jamie Boyd
+function/S twoP_ListImChans()
+	string chanlist
+	SVAR curScan = root:packages:twoP:examine:curScan
+	if (cmpStr (CurScan, "no current scan") ==0)
+		DoAlert 0, "There is no scan selected from which to choose a channel!"
+		chanlist = ""
+	else
+		SVAR/Z scanNote = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
+		if (!(SVAR_Exists(scanNote)))
+			DoAlert 0, "Can't find scan note for current scan!"
+			chanlist = ""
+		else
+			chanlist = replaceString (",", stringbykey ("imChanDesc", scanNote, ":", "\r"), ";")
+		endif
+	endif
+	return chanlist
+end
+
 //******************************************************************************************************
 // This function adjusts the Date and time info and the slider control on the examine scans panel to reflect the time of the current scan.
 // It also disables the movie controls if the current scan is not a stack.
@@ -648,11 +651,8 @@ End
 Function NQ_Adjust_Examine_Controls (curScan)
 	string curScan
 	
-	if (cmpStr (curScan, "LiveWave") == 0)
-		SVAR/z ScanStr =root:packages:twoP:Acquire:LiveModeScanStr
-	else
-		SVAR/z ScanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-	endif
+
+	SVAR/z ScanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 	if (!(SVAR_EXISTS (ScanStr)))
 		return 1
 	endif
@@ -664,11 +664,7 @@ Function NQ_Adjust_Examine_Controls (curScan)
 	Controlinfo /w = twoP_Controls AcquireExamineTab
 	variable ShowNow = (cmpstr (S_Value, "Examine") == 0) // 0 if acquiring, 1 if examining
 	// Change the info displayed about the current scan
-	if (cmpStr (curScan, "LiveWave") == 0)
-		NQ_ShowNote ("root:packages:twoP:Acquire:LiveModeScanStr")
-	else
-		NQ_showNote ("root:twoP_Scans:" + curScan + ":" + curScan + "_info")
-	endif
+	NQ_showNote ("root:twoP_Scans:" + curScan + ":" + curScan + "_info")
 	TitleBox DateTimeTitleBox Win=twoP_Controls, title =  secs2date(numberbykey("ExpTime", ScanStr, ":", "\r"),0) + " " + secs2Time(numberbykey("ExpTime",ScanStr, ":", "\r"),1)
 	string ChanTitleStr = "" 
 	variable scanChans =  numberbykey("ImChans", ScanStr, ":", "\r")
@@ -749,11 +745,7 @@ Function NQ_NewScanGraph (curScan)
 	Controlinfo /w = twoP_Controls AcquireExamineTab
 	variable isAcquire = (cmpstr (S_Value, "Acquire") == 0) // 1 if called from acquiring tab, 0 if examining.
 	// get reference to scan info string
-	if (isAcquire) // use live mode info string (we keep it updated)
-		SVAR/Z ScanStr = root:packages:twoP:Acquire:LiveModeScanStr
-	else
-		SVAR/Z ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
-	endif
+	SVAR/Z ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
 	if (!(SVAR_EXISTS (scanStr)))
 		doAlert 0, "The info string for the scan, \"" + CurScan + "\" was not found."
 		return 1
@@ -1239,11 +1231,7 @@ Function NQ_ScanGraphDisplayCheckProc(cba) : CheckBoxControl
 			variable isAcquire = (cmpstr (S_Value, "Acquire") == 0) // 1 if called from acquiring tab, 0 if examining.
 			// get reference to scan info string
 			SVAR curScan = root:packages:twoP:examine:curScan
-			if (isAcquire) // use live mode info string (we keep it updated)
-				SVAR/Z ScanStr = root:packages:twoP:Acquire:LiveModeScanStr
-			else
-				SVAR/Z ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
-			endif
+			SVAR ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
 			if (!(SVAR_EXISTS (scanStr)))
 				doAlert 0, "The info string for the scan, \"" + CurScan + "\" was not found."
 				return 1
@@ -1734,17 +1722,14 @@ Function NQ_NewTracesGraph (curScan)
 	else
 		isNew =1
 	endif
-	// get reference to scan info string
-	if (cmpstr (curScan, "LiveWave") == 0)
-		SVAR ScanStr = root:packages:twoP:Acquire:LiveModeScanStr
-	else
+
 		// Make sure folder for this scan exists and reference scan Note
 		if (!(dataFolderExists ("root:twoP_Scans:" + CurScan)))
 			doAlert 0, "The datafolder for the scan, \"" + CurScan + "\" was not found."
 			return 1
 		endif
 		SVAR ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
-	endif
+	
 	if (isNew)
 		// Display the graph 
 		Display/K=1/N = twoP_TracesGraph as "Nidaq Traces: " + CurScan
@@ -1801,11 +1786,9 @@ Function NQ_AddTraces (curScan)
 	string curScan
 	
 	variable hasTraces =0
-	if (cmpStr (curScan, "LiveWave") == 0)
-		SVAR scanStr = root:packages:twoP:Acquire:LiveModeScanStr
-	else
+
 		SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-	endif
+
 	//Put up the ephys stuff
 	variable ePhysChans = numberbykey ("ePhys", scanStr, ":", "\r")
 	variable scanmode = numberbykey ("mode", scanStr, ":", "\r")
@@ -1948,7 +1931,7 @@ End
 // examine scans panel. The character width is important here depending on your platform. So change it as necessary. Inelegant, but it's the best you get right now
 // Last Modified:
 // 2016/11/24 by Jamie Boyd
-STATIC CONSTANT NQNOTECHARWID = 38	// Must match the width of our listbox, in characters. If your text is spilling past the end of the line, set CharWid smaller
+STATIC CONSTANT twoPNOTECHARWID = 38	// Must match the width of our listbox, in characters. If your text is spilling past the end of the line, set CharWid smaller
 
 function NQ_showNote (ScanStrName)
 	string ScanStrName
@@ -1959,8 +1942,8 @@ function NQ_showNote (ScanStrName)
 	variable notelen = strlen (theNoteStr)
 	variable ii, ie, ni
 	Redimension/N=0 NoteListWave
-	FOR (ii =0, ni =0, ie = NQNOTECHARWID; ii < noteLen; ii = ie +1, ie += NQNOTECHARWID + 1, ni += 1)
-		if ((ie < notelen) && (cmpstr (theNoteStr [ii + NQNOTECHARWID], " ") != 0))
+	FOR (ii =0, ni =0, ie = twoPNOTECHARWID; ii < noteLen; ii = ie +1, ie += twoPNOTECHARWID + 1, ni += 1)
+		if ((ie < notelen) && (cmpstr (theNoteStr [ii + twoPNOTECHARWID], " ") != 0))
 			do
 				ie -= 1
 				if (((cmpstr (theNoteStr [ie], " ")) == 0) || (cmpstr (theNoteStr [ie], ";") == 0))
@@ -1968,7 +1951,7 @@ function NQ_showNote (ScanStrName)
 				endif
 			while (ie > ii)
 			if ((ie - ii) < 4)
-				ie = ii + NQNOTECHARWID
+				ie = ii + twoPNOTECHARWID
 			endif
 		endif
 		insertpoints ni, 1, NoteListWave
@@ -1985,7 +1968,7 @@ Function NQ_EditNoteProc(lba) : ListBoxControl
 	switch( lba.eventCode )
 		case 3:  // double click
 			SVAR CurScan = root:Packages:twoP:examine:curScan
-			if (cmpStr (CurScan, "LiveWave") == 0)
+			if (cmpStr (CurScan, "LiveScan") == 0)
 				doAlert 0, "You can't edit a note for Live Scanning - it won't be saved anywhere."
 				return 1
 			endif
@@ -2018,7 +2001,7 @@ Function NQ_EditNoteProc(lba) : ListBoxControl
 					AlertStr = "Returns are used to separate key:value pairs "
 				endif
 				if (badChar)
-					doAlert 0, AlertStr + "in the\rkey:value\rkey:value\r map in the scan info string, and are unavailble for use in your experiment notes. key=value;key=value can be used, though."  
+					doAlert 0, AlertStr + "in the\rkey:value\rkey:value\r map in the scan info string,and are unavailable for use in your experiment notes. key=value;key=value can be used, though."  
 				endif
 			endif
 			break
@@ -2028,7 +2011,7 @@ End
 
 
 //******************************************************************************************************
-// ---------Functions for image histogram and for managing LUT and image display-------------
+// ---------------------------Functions for image histogram ------------------------------------------
 //******************************************************************************************************
 
 // Makes graph for histogram display, or just brings it to the front if it already exists
@@ -2153,8 +2136,8 @@ Function NQ_ShowHistogramProc (ba) : ButtonControl
 	switch( ba.eventCode )
 		case 2: // mouse up
 			SVAR  curScan = root:packages:twoP:examine:curScan
-			if (cmpStr (curScan, "LiveWave") == 0)
-				SVAR scanStr =root:packages:twoP:Acquire:LiveModeScanStr
+			if (cmpStr (curScan, "LiveScan") == 0)
+				SVAR scanStr =root:twoP_Scans:LiveScan_info
 			else
 				SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 			endif
@@ -2244,61 +2227,93 @@ Function NQ_HistCheckProc(cba) : CheckBoxControl
 End
 
 
+// ***********************************************************************************************************************************
+// ----------------------------ScanGraph Image LUT Controls on a per channel basis -----------------------------------------------
+// ***********************************************************************************************************************************
 
-//********************************************************************************************
-// Lists channels in scan, as strings from imChanDesc. For use in popMenus to select a channel
-// Last Modified: 2025/07/23 by Jamie Boyd
-function/S NQ_ListChans()
-	SVAR curScan = root:packages:twoP:examine:curScan
-	SVAR scanNote = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-	string chanlist = replaceString (",", stringbykey ("imChanDesc", scanNote, ":", "\r"), ";")
-	return chanlist
+//*******************************************************************************************
+// Creates global variables for LUT control adjustments. Runs when a procedure can't find globals for a channel
+//last modified 2025/07/25 by Jamie Boyd
+function twoP_makeChanLUTvars (LUTchan)
+	string LUTchan // name of image channel we are working with
+	
+	Variable/G $"root:Packages:twoP:examine:" + LUTChan + "CTable" = 1									// default grey scale
+	String/G $"root:Packages:twoP:examine:" + LUTchan + "CTableStr"="Grays"								// name of color table, popmenu proc wants the name
+	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "LUTInvert" = 0 								// don't invert the LUT
+	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "FirstLUTColor" = 0							// First color for LUT
+	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "LastLUTColor" = (2^kNQimageBits)-1		// last color for LUT e.g., 4095 for 12 bit images
+	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "BeforeMode" = 1 								// 0 means first color, 1 means selected color, 2 means transparent
+	String/G $"root:Packages:twoP:examine:" + LUTchan + "BeforeColors" = "0,0,65535" 					// use blue for image values before  first color with before mode 1
+	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "AfterMode" = 1 								// 0 means last color, 1 means selected color, 2 means transparent
+	String/G $"root:Packages:twoP:examine:" + LUTchan + "AfterColors" = "65535,0,0" 					// use red for image values greater tan lest color, with after mode 1
+	// make waves to display LUT on histogram
+	make/o $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan = {(0.05 * 2^kNQimageBits), (0.05 * 2^kNQimageBits)}
+	make/o $"root:Packages:twoP:examine:ImRangeLefty" + LUTchan = {1,inf}
+	make/o $"root:Packages:twoP:examine:ImRangeRightx" + LutChan = {(0.95 * 2^kNQimageBits) ,(0.95 * 2^kNQimageBits)}
+	make/o $"root:Packages:twoP:examine:ImRangeRighty" = {1,inf}
 end
 
 //********************************************************************************************
 // Applies LUT settings from all the LUT controls to a channel image in the scan graph
-// Last Modified: 2025/07/23 by Jamie Boyd
-function NQ_ApplyLUTsettings (chanStr)
-	string chanStr  //ch1 or ch2
+// Last Modified: 2025/07/25 by Jamie Boyd
+function NQ_ApplyLUTsettings (LUTchan)
+	string LUTchan  //not limited to ch1 or ch2 anymore
 	SVAR curScan = root:packages:twoP:examine:curScan
-	if (cmpstr (curScan, "LiveWave") ==0)
-		SVAR/Z ScanStr = root:packages:twoP:Acquire:LiveModeScanStr
+	if (cmpstr (curScan, "LiveScan") ==0)
+		SVAR ScanStr = root:twoP_Scans:LiveScan_info
 	else
-		SVAR/Z ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
+		SVAR ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
 	endif
 	variable scanMode = numberbykey ("mode", curScan, ":", "\r" )
 	Switch (scanMode)
 		case kLiveMode:
 		case kZSeries:
 		case kTimeSeries:
-			wave scangraphWave = $"root:Packages:twoP:examine:scanGraph_" + chanStr
+			wave scangraphWave = $"root:Packages:twoP:examine:scanGraph_" + LUTchan
 			break
 			// 2D waves displayed directly in the graph
 		case kLineScan:
 		case kSingleImage:
-			wave scangraphWave =$"root:twoP_Scans:" + curScan + ":" + curScan + chanStr
+			wave scangraphWave =$"root:twoP_Scans:" + curScan + ":" + curScan + LUTchan
 			break
 	endSwitch
 
-	SVAR CTableStr = $"root:Packages:twoP:examine:" + chanStr + "CTableStr"
-	NVAR inVert =$"root:Packages:twoP:examine:" + chanStr + "LUTInvert"
-	NVAR FirstLUTColor = $"root:Packages:twoP:examine:" + chanStr + "FirstLUTColor"
-	NVAR LastLutColor = $"root:Packages:twoP:examine:" + chanStr + "LastLUTColor"
-	NVAR autoLUT = $"root:packages:twoP:Examine:" + chanStr + "LUTAuto"
-
-	string subWinStr  = "twoPscanGraph#G" + chanStr
+	// Reference needed LUT globals for this channel - make sure they exist
+	SVAR/Z CTableStr = $"root:Packages:twoP:examine:" + LUTchan + "CTableStr"
+	NVAR/Z inVert =$"root:Packages:twoP:examine:" + LUTchan + "LUTInvert"
+	NVAR/Z FirstLUTColor = $"root:Packages:twoP:examine:" + LUTchan + "FirstLUTColor"
+	NVAR/Z LastLutColor = $"root:Packages:twoP:examine:" + LUTchan + "LastLUTColor"
+	NVAR/Z autoLUT = $"root:packages:twoP:Examine:" + LUTchan + "LUTAuto"
+	NVAR/Z beforeMode = $"root:Packages:twoP:examine:" + LutChan + "BeforeMode"
+	SVAR/Z beforeColors = $"root:Packages:twoP:examine:" + LUTchan + "BeforeColors"
+	NVAR/Z afterMode =  $"root:Packages:twoP:examine:" + LUTchan + "AfterMode"
+	SVAR/Z afterColors = $"root:Packages:twoP:examine:" + LUTchan + "AfterColors"
+	if (!(SVAR_Exists(CTableStr) && NVAR_Exists(invert) && NVAR_Exists(FirstLUTColor) && \
+		NVAR_Exists(LastLUTColor) && 	 NVAR_Exists(autoLut) && NVAR_Exists (beforeMode) && \
+		  SVAR_Exists (beforeCOlors)  && NVAR_Exists(afterMode) && SVAR_Exists(afterCOlors)))
+		twoP_makeChanLUTvars (LUTchan)
+		SVAR CTableStr = $"root:Packages:twoP:examine:" + LUTchan + "CTableStr"
+		NVAR inVert =$"root:Packages:twoP:examine:" + LUTchan + "LUTInvert"
+		NVAR FirstLUTColor = $"root:Packages:twoP:examine:" + LUTchan + "FirstLUTColor"
+		NVAR LastLutColor = $"root:Packages:twoP:examine:" + LUTchan + "LastLUTColor"
+		NVAR autoLUT = $"root:packages:twoP:Examine:" + LUTchan + "LUTAuto"
+		NVAR beforeMode = $"root:Packages:twoP:examine:" + LutChan + "BeforeMode"
+		SVAR beforeColors = $"root:Packages:twoP:examine:" + LUTchan + "BeforeColors"
+		NVAR afterMode =  $"root:Packages:twoP:examine:" + LUTchan + "AfterMode"
+		SVAR afterColors = $"root:Packages:twoP:examine:" + LUTchan + "AfterColors"
+	endif
+	// subwindow on scangraph named for channel
+	string subWinStr  = "twoPscanGraph#G" + LUTchan
 	variable rColor, gColor, bColor
 	if (autoLUT)
 		ModifyImage/w=$subWinStr $nameofwave(scangraphWave) ctab= {*,*,$CTableStr,inVert}
 	else
 		ModifyImage/w=$subWinStr $nameofwave(scangraphWave) ctab= {FirstLUTColor,LastLutColor,$CTableStr,inVert}
-		NVAR beforeMode = $"root:Packages:twoP:examine:" + chanStr + "BeforeMode"
 		switch (beforeMode) // 0 means first color, 1 means selected color, 2 means transparent
 			case 0: // Use first color
 				ModifyImage/w=$subWinStr $nameofwave(scangraphWave), minRGB = 0
 				break
 			case 1: // Use selected color
-				SVAR beforeColors = $"root:Packages:twoP:examine:" + chanStr + "BeforeColors"
 				rColor = str2num (stringFromlist (0, beforeColors, ","))
 				gColor = str2num (stringFromlist (1, beforeColors, ","))
 				bColor = str2num (stringFromlist (2, beforeColors, ","))
@@ -2307,13 +2322,12 @@ function NQ_ApplyLUTsettings (chanStr)
 			case 2: // transparent
 				ModifyImage/w=$subWinStr $nameofwave(scangraphWave), minRGB = NaN
 		endswitch
-		NVAR afterMode =  $"root:Packages:twoP:examine:" + chanStr + "AfterMode"
+		
 		switch (afterMode) // 0 means last color, 1 means selected color, 2 means transparent
 			case 0: // Use last color
 				ModifyImage/w=$subWinStr $nameofwave(scangraphWave), maxRGB = 0
 				break
 			case 1: // Use selected color
-				SVAR afterColors = $"root:Packages:twoP:examine:" + chanStr + "AfterColors"
 				rColor = str2num (stringFromlist (0, afterColors, ","))
 				gColor = str2num (stringFromlist (1, afterColors, ","))
 				bColor = str2num (stringFromlist (2, afterColors, ","))
@@ -2333,26 +2347,50 @@ Function NQ_LUTchanPopMenuProc(pa) : PopupMenuControl
 
 	switch( pa.eventCode )
 		case 2: // mouse up
-			SVAR LUTChan = root:Packages:twoP:examine:LUTChan
+			// set currently selected channel
+			SVAR LUTchan = root:Packages:twoP:examine:LUTChan
 			LUTChan = pa.popStr
+			// Reference needed LUT globals for this channel - make sure hey exist
+			NVAR/Z CTable =  $"root:Packages:twoP:examine:" + LUTchan + "CTable"
+			SVAR/Z CTableStr = $"root:Packages:twoP:examine:" + LUTchan + "CTableStr"
+			NVAR/Z inVert =$"root:Packages:twoP:examine:" + LUTchan + "LUTInvert"
+			NVAR/Z FirstLUTColor = $"root:Packages:twoP:examine:" + LUTchan + "FirstLUTColor"
+			NVAR/Z LastLutColor = $"root:Packages:twoP:examine:" + LUTchan + "LastLUTColor"
+			NVAR/Z autoLUT = $"root:packages:twoP:Examine:" + LUTchan + "LUTAuto"
+			NVAR/Z beforeMode = $"root:Packages:twoP:examine:" + LutChan + "BeforeMode"
+			SVAR/Z beforeColors = $"root:Packages:twoP:examine:" + LUTchan + "BeforeColors"
+			NVAR/Z afterMode =  $"root:Packages:twoP:examine:" + LUTchan + "AfterMode"
+			SVAR/Z afterColors = $"root:Packages:twoP:examine:" + LUTchan + "AfterColors"
+			if (!(NVAR_Exists (CTable) && SVAR_Exists(CTableStr) && NVAR_Exists(invert) && NVAR_Exists(FirstLUTColor) && \
+				NVAR_Exists(LastLUTColor) && 	 NVAR_Exists(autoLut) && NVAR_Exists (beforeMode) && \
+				  SVAR_Exists (beforeCOlors)  && NVAR_Exists(afterMode) && SVAR_Exists(afterCOlors)))
+				twoP_makeChanLUTvars (LUTchan)
+				NVAR CTable =  $"root:Packages:twoP:examine:" + LUTchan + "CTable"
+				SVAR CTableStr = $"root:Packages:twoP:examine:" + LUTchan + "CTableStr"
+				NVAR inVert =$"root:Packages:twoP:examine:" + LUTchan + "LUTInvert"
+				NVAR FirstLUTColor = $"root:Packages:twoP:examine:" + LUTchan + "FirstLUTColor"
+				NVAR LastLutColor = $"root:Packages:twoP:examine:" + LUTchan + "LastLUTColor"
+				NVAR autoLUT = $"root:packages:twoP:Examine:" + LUTchan + "LUTAuto"
+				NVAR beforeMode = $"root:Packages:twoP:examine:" + LutChan + "BeforeMode"
+				SVAR beforeColors = $"root:Packages:twoP:examine:" + LUTchan + "BeforeColors"
+				NVAR afterMode =  $"root:Packages:twoP:examine:" + LUTchan + "AfterMode"
+				SVAR afterColors = $"root:Packages:twoP:examine:" + LUTchan + "AfterColors"
+			endif
+			
 			variable rColor, gColor, bColor
 			// adjust LUT popmenu
-			NVAR CTable = $"root:Packages:twoP:examine:" + LUTChan + "CTable"
 			popupmenu LUTpopUp mode = CTable
 			// Adjust invert check
-			checkbox LUTInvertCheck win=twoP_Controls, variable = $"root:Packages:twoP:examine:" + LUTChan + "LUTInvert"
+			checkbox LUTInvertCheck win=twoP_Controls, variable =inVert
 			// adjust First and Last color SetVariables
-			setvariable LUTFirstValueSetVar win=twoP_Controls, variable = $"root:Packages:twoP:examine:" + LUTChan + "FirstLUTColor"
-			setvariable LUTLastValueSetVar win=twoP_Controls, variable = $"root:Packages:twoP:examine:" + LUTChan + "LastLUTColor"
+			setvariable LUTFirstValueSetVar win=twoP_Controls, variable = FirstLUTColor
+			setvariable LUTLastValueSetVar win=twoP_Controls, variable = LastLutColor
 			// Adjust MinMax slider
-			NVAR ch1FirstCol = $"root:Packages:twoP:examine:" + LUTChan + "FirstLUTColor"
-			NVAR ch1LastCol = $"root:Packages:twoP:examine:" + LUTChan + "LastLUTColor"
-			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kLeftThumb, ch1FirstCol)
-			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kRightThumb, ch1LastCol)
+			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kLeftThumb, FirstLUTColor)
+			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kRightThumb, LastLutColor)
 			// Adjust LUT autoCheck
 			checkbox LUTautoCheck win=twoP_Controls, variable = $"root:packages:twoP:examine:" + LUTChan + "LUTauto"
 			// Adjust first color radio buttons and popmenu
-			NVAR beforeMode = $"root:Packages:twoP:examine:" + LUTChan + "BeforeMode"
 			switch (beforeMode) // 0 means first color, 1 means selected color, 2 means transparent
 				case 0: // Use first color
 					checkbox LUTBeforeUseFirstCheck win=twoP_Controls, value = 1
@@ -2363,7 +2401,6 @@ Function NQ_LUTchanPopMenuProc(pa) : PopupMenuControl
 					checkbox LUTBeforeUseFirstCheck win=twoP_Controls, value = 0
 					checkbox LUTBeforeUseColorCheck win=twoP_Controls, value = 1
 					checkBox LUTBeforeUseTransCheck  win=twoP_Controls, value = 0
-					SVAR beforeColors = $"root:Packages:twoP:examine:" + LUTChan + "BeforeColors"
 					rColor = str2num (stringFromlist (0, beforeColors, ","))
 					gColor = str2num (stringFromlist (1, beforeColors, ","))
 					bColor = str2num (stringFromlist (2, beforeColors, ","))
@@ -2376,7 +2413,6 @@ Function NQ_LUTchanPopMenuProc(pa) : PopupMenuControl
 					break
 			endSwitch
 				// Adjust Last color radio buttons and popmenu
-				NVAR afterMode = $"root:Packages:twoP:examine:" + LUTChan + "AfterMode"
 				switch (afterMode) // 0 means last color, 1 means selected color, 2 means transparent
 					case 0: // Use last color
 						checkbox LUTAfterUseLastCheck win=twoP_Controls, value = 1
@@ -2387,7 +2423,6 @@ Function NQ_LUTchanPopMenuProc(pa) : PopupMenuControl
 						checkbox LUTAfterUseLastCheck win=twoP_Controls, value = 0
 						checkbox LUTAfterUseColorCheck win=twoP_Controls, value = 1
 						checkBox LUTAfterUseTransCheck  win=twoP_Controls, value = 0
-						SVAR afterColors = $"root:Packages:twoP:examine:" + LUTChan + "AfterColors"
 						rColor = str2num (stringFromlist (0, afterColors, ","))
 						gColor = str2num (stringFromlist (1, afterColors, ","))
 						bColor = str2num (stringFromlist (2, afterColors, ","))
@@ -2409,29 +2444,27 @@ End
 
 
 //******************************************************************************************************
-// Function for the LUT popup menu. Allows you to select a look up table to use for selected channel of the scan
-// Last Modified 2025/07/23by Jamie Boyd
+// Function for the LUT popup menu. Select a look up table to use for selected channel of the scan and save info in global variables for the channel
+// Last Modified 2025/07/25 by Jamie Boyd
 Function NQ_LUTPopMenuProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 
 	switch( pa.eventCode )
 		case 2: // mouse up
-			Variable popNum = pa.popNum
-			String popStr = pa.popStr
 			SVAR LUTChan = root:Packages:twoP:examine:LUTChan
-			variable LUTchanNum
-			sscanf LUTChan, "ch%d", LUTchanNum
 			// save changed value in appropriate global for selected channel
-			NVAR CTable = $"root:Packages:twoP:examine:" + LUTchan + "CTable"
-			SVAR ctableStr = $"root:Packages:twoP:examine:" + LUTchan + "CTableStr"
-			NVAR CTable = $"root:Packages:twoP:examine:" + LUTchan + "CTable"
-			SVAR ctableStr = $"root:Packages:twoP:examine:" + LUTchan + "CTableStr"
+			NVAR/z CTable = $"root:Packages:twoP:examine:" + LUTchan + "CTable"
+			SVAR/z ctableStr = $"root:Packages:twoP:examine:" + LUTchan + "CTableStr"
+			if (!(NVAR_Exists(CTable) && SVAR_Exists(cTableStr)))
+				 twoP_makeChanLUTvars (LUTchan)
+				NVAR CTable = $"root:Packages:twoP:examine:" + LUTchan + "CTable"
+				SVAR ctableStr = $"root:Packages:twoP:examine:" + LUTchan + "CTableStr"
+			endif
 			CTable = pa.popNum
-			cTableStr = popStr
+			cTableStr = pa.popStr
 			// Apply Image settings for channel
 			if (WhichListItem("G" + LUTChan, childwindowlist ("twoPscanGraph"), ";",0, 0) > -1)
 				NQ_ApplyLUTsettings (LUTChan)
-				//NQ_ApplyImSettings (LutChanNum) // @@@@
 			endif
 			break
 	endswitch
@@ -2440,17 +2473,15 @@ End
 
 
 //******************************************************************************************************
-// Function for the LUTinvert Check. This allows you to invert the LUT for selected channel of the scan
+// Function for the LUTinvert Check.
 // Last Modified 2025/07/23 by Jamie Boyd
 Function NQ_LutInvertCheckProc(cba) : CheckBoxControl
 	STRUCT WMCheckboxAction &cba
 
 	switch( cba.eventCode )
 		case 2: // mouse up
-			//Update image settings for selected channel
+			//Update image settings for selected channel. checkbox is already hooked up to correctvariable for channel
 			SVAR LUTChan = root:Packages:twoP:examine:LUTChan
-			//variable LUTchanNum
-			//sscanf LUTChan, "ch%d", LUTchanNum
 			if (WhichListItem("G" + LUTchan, childwindowlist ("twoPscanGraph"), ";", 0, 0) > -1)
 				NQ_ApplyLUTsettings (LUTChan)
 			endif		
@@ -2462,7 +2493,7 @@ End
 			
 //******************************************************************************************************
 // Function for the LUT first and last values Setvariables.Calls Apply Image settings procedure for selected channel
-// Last Modified 2025/07/22 by Jamie Boyd
+// Last Modified 2025/07/25 by Jamie Boyd
 Function NQ_LUTValsSetVarProc(sva) : SetVariableControl
 	STRUCT WMSetVariableAction &sva
 
@@ -2470,21 +2501,27 @@ Function NQ_LUTValsSetVarProc(sva) : SetVariableControl
 		case 1: // mouse up
 		case 2: // Enter key
 		case 3: // Live update
-			Variable dval = sva.dval
-			String sval = sva.sval
 			SVAR LUTchan = root:Packages:twoP:examine:LUTChan 
-			// Keep first color and last color on right side of each other
-			NVAR FirstColor = $"root:packages:twoP:examine:" + LUTchan + "FirstLutColor"
-			NVAR LastColor = $"root:packages:twoP:examine:" + LUTchan + "LastLutColor"
-			WAVE leftWave = $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan
-			WAVE rightWave = $"root:Packages:twoP:examine:ImRangerightx" + LUTchan
+			// check for global variable for this chan
+			NVAR/Z FirstColor = $"root:packages:twoP:examine:" + LUTchan + "FirstLutColor"
+			NVAR/Z LastColor = $"root:packages:twoP:examine:" + LUTchan + "LastLutColor"
+			WAVE/Z leftWave = $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan
+			WAVE/Z rightWave = $"root:Packages:twoP:examine:ImRangerightx" + LUTchan
+			if (!(NVAR_Exists(FirstColor) && NVAR_Exists(LastCOlor) && WAVEExists(LeftWave) && WaveExists(rightWave)))
+				twoP_makeChanLUTvars (LUTchan)
+				NVAR FirstColor = $"root:packages:twoP:examine:" + LUTchan + "FirstLutColor"
+				NVAR LastColor = $"root:packages:twoP:examine:" + LUTchan + "LastLutColor"
+				WAVE leftWave = $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan
+				WAVE rightWave = $"root:Packages:twoP:examine:ImRangerightx" + LUTchan
+			endif
+			
 			if (cmpstr (sva.ctrlname, "LUTFirstValueSetVar") == 0)
-				if (dval > LastColor)
+				if (sva.dval > LastColor)
 					FirstColor = LastColor -1
 				endif
 				leftWave = FirstColor
 			else
-				if (dval <  firstColor)
+				if (sva.dval <  firstColor)
 					LastColor = FirstColor + 1
 				endif
 				rightWave = LastColor
@@ -2496,18 +2533,6 @@ Function NQ_LUTValsSetVarProc(sva) : SetVariableControl
 			if (WhichListItem("G"+LUTchan, SubWinList, ";", 0,0) > -1)
 				NQ_ApplyLUTsettings (LUTchan)
 			endif
-//			variable hasChan, hasMrg = (WhichListItem("GMRG", SubWinList) > -1)
-//			if (V_Value== 1) // Channel 1 checked
-//				hasChan = (WhichListItem("GCH1", SubWinList) > -1)
-//				if (hasChan || hasMrg)
-//					NQ_ApplyImSettings (hasChan + 4 * hasMrg)
-//				endif
-//			else // channel 2 selected
-//				hasChan = (WhichListItem("GCH2", SubWinList) > -1)
-//				if (hasChan || hasMrg)
-//					NQ_ApplyImSettings (2 * hasChan + 4 * hasMrg)
-//				endif
-//			endif
 			break
 	endswitch
 	return 0
@@ -2526,16 +2551,32 @@ Function NQ_LUTSliderAction (leftThumb, rightThumb, event, thumb)
 	leftThumb = round (leftThumb)
 	//check which channel to modify
 	SVAR LUTchan = root:Packages:twoP:examine:LUTChan
-	if (thumb == kleftThumb)
+	NVAR/Z FirstColor = $"root:packages:twoP:examine:" + LUTchan + "FirstLutColor"
+	WAVE/Z leftWave = $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan
+	NVAR/Z LastColor = $"root:packages:twoP:examine:" + LUTchan + "LastLutColor"
+	WAVE/Z rightWave = $"root:Packages:twoP:examine:ImRangerightx" + LUTchan
+	if (!(NVAR_Exists(FirstColor) && WAVEExists(LeftWave) && NVAR_Exists(LastColor) && WAVEExists(rightWave)))
+		twoP_makeChanLUTvars (LUTchan)
 		NVAR FirstColor = $"root:packages:twoP:examine:" + LUTchan + "FirstLutColor"
 		WAVE leftWave = $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan
-		FirstColor = leftThumb
-		leftWave = leftThumb
-	else
 		NVAR LastColor = $"root:packages:twoP:examine:" + LUTchan + "LastLutColor"
 		WAVE rightWave = $"root:Packages:twoP:examine:ImRangerightx" + LUTchan
+	endif
+
+	if (thumb == kleftThumb)
+		FirstColor = leftThumb
+		leftWave = leftThumb
+		if (firstColor > LastColor -4)
+			LastColor = rightThumb
+			rightWave = rightThumb
+		endif
+	else
 		LastColor = rightThumb
 		rightWave = rightThumb
+		if (firstCOlor < lastColor + 4)
+			FirstColor = leftThumb
+			leftWave = leftThumb
+		endif
 	endif
 
 	if (event == kCallMouseMoved)
@@ -2543,18 +2584,6 @@ Function NQ_LUTSliderAction (leftThumb, rightThumb, event, thumb)
 		if (WhichListItem("G" + LUTchan, childwindowlist ("twoPscanGraph"), ";", 0, 0) > -1)
 			NQ_ApplyLUTsettings (LUTChan)
 		endif
-		//	string SubWinList = childwindowlist ("twoPscanGraph")
-		//	variable hasChan, hasMrg = (WhichListItem("GMRG", SubWinList) > -1)
-		//	if (V_Value== 1) // Channel 1 checked
-		//		hasChan = (WhichListItem("GCH1", SubWinList) > -1)
-		//		if (hasChan || hasMrg)
-		//			NQ_ApplyImSettings (hasChan + 4 * hasMrg)
-		//		endif
-		//	else //channel 2
-		//		hasChan = (WhichListItem("GCH2", SubWinList) > -1)
-		//		if (hasChan || hasMrg)
-		//			NQ_ApplyImSettings (2 * hasChan + 4 * hasMrg)
-		//		endif
 	endif
 	return 0
 End
@@ -2570,20 +2599,27 @@ Function NQ_LUTtoDataProc(ba) : ButtonControl
 	switch( ba.eventCode )
 		case 2: // mouse up
 			SVAR LUTChan = root:Packages:twoP:examine:LUTChan
-			NVAR FirstColor = $"root:packages:twoP:examine:" + LUTchan + "FirstLutColor"
-			WAVE leftWave = $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan
-			NVAR LastColor = $"root:packages:twoP:examine:" + LUTchan + "LastLutColor"
-			WAVE rightWave = $"root:Packages:twoP:examine:ImRangerightx" + LUTchan
+			NVAR/Z FirstColor = $"root:packages:twoP:examine:" + LUTchan + "FirstLutColor"
+			WAVE/Z leftWave = $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan
+			NVAR/Z LastColor = $"root:packages:twoP:examine:" + LUTchan + "LastLutColor"
+			WAVE/Z rightWave = $"root:Packages:twoP:examine:ImRangerightx" + LUTchan
+			if (!(NVAR_Exists(firstColor) && NVAR_Exists(LastColor) && WAVEExists(leftWave) && WAVEExists(rightWave)))
+				twoP_makeChanLUTvars (LUTchan)
+				NVAR FirstColor = $"root:packages:twoP:examine:" + LUTchan + "FirstLutColor"
+				WAVE leftWave = $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan
+				NVAR LastColor = $"root:packages:twoP:examine:" + LUTchan + "LastLutColor"
+				WAVE rightWave = $"root:Packages:twoP:examine:ImRangerightx" + LUTchan
+			endif
 			
 			SVAR curScan = root:packages:twoP:examine:curScan
-			if (cmpstr (curScan, "LiveWave") ==0)
-				SVAR/Z ScanStr = root:packages:twoP:Acquire:LiveModeScanStr
+			if (cmpstr (curScan, "LiveScan") ==0)
+				SVAR/Z ScanStr = root:twoP_Scans:liveScan_info
 			else
 				SVAR/Z ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
 			endif
 			variable scanMode = numberbykey ("mode", curScan, ":", "\r" )
 			if (scanMode == kLiveMode)
-				WAVE scanWave = $"root:packages:twoP:acquire:LiveWave_" + LUTChan
+				WAVE scanWave = $"root:twoP_Scans:LiveScan_" + LUTChan
 			else
 				WAVE scanWave =$"root:twoP_Scans:" + curScan + ":" + curScan + "_" +  LUTChan
 			endif
@@ -2682,7 +2718,11 @@ Function NQ_LutBeforeModeCheckProc(cba) : CheckBoxControl
 					break
 			endSwitch
 			SVAR LUTChan = root:Packages:twoP:examine:LUTChan
-			NVAR beforeModeG = $"root:Packages:twoP:examine:"  + LUTChan + "BeforeMode"
+			NVAR/Z beforeModeG = $"root:Packages:twoP:examine:"  + LUTChan + "BeforeMode"
+			if (!(NVAR_Exists(beforeModeG)))
+				twoP_makeChanLUTvars (LUTchan)
+				NVAR beforeModeG = $"root:Packages:twoP:examine:"  + LUTChan + "BeforeMode"
+			endif
 			beforeModeG = beforeMode
 			// Apply image settings
 			if (WhichListItem("G" + LUTChan, childwindowlist ("twoPscanGraph"), ";", 0,0) > -1)
@@ -2706,7 +2746,11 @@ Function NQ_BeforeColorPopMenuProc(pa) : PopupMenuControl
 			String popStr = pa.popStr
 			// save changed value in appropriate global for selected channel
 			SVAR LUTchan = root:Packages:twoP:examine:LUTChan
-			SVAR beforeColors = $"root:Packages:twoP:examine:" + LUTChan + "BeforeColors"
+			SVAR/Z beforeColors = $"root:Packages:twoP:examine:" + LUTChan + "BeforeColors"
+			if (!(SVAR_Exists(beforeCOlors)))
+				twoP_makeChanLUTvars (LUTchan)
+				SVAR beforeColors = $"root:Packages:twoP:examine:" + LUTChan + "BeforeColors"
+			endif
 			// Strip opening and closing braces
 			variable bcLen = strlen (popStr)
 			beforeColors = popStr [1, bcLen-2]
@@ -2748,7 +2792,11 @@ Function NQ_LutAfterModeCheckProc(cba) : CheckBoxControl
 					break
 			endSwitch
 			SVAR LUTchan = root:Packages:twoP:examine:LUTChan
-			NVAR afterModeG = $"root:Packages:twoP:examine:" + LUTChan + "AfterMode"
+			NVAR/Z afterModeG = $"root:Packages:twoP:examine:" + LUTChan + "AfterMode"
+			if (!(NVAR_Exists(afterModeG)))
+				twoP_makeChanLUTvars (LUTchan)
+				NVAR afterModeG = $"root:Packages:twoP:examine:" + LUTChan + "AfterMode"
+			endif
 			afterModeG = afterMode
 			if (WhichListItem("G" + LUTChan, childwindowlist ("twoPscanGraph"), ";", 0,0) > -1)
 				NQ_ApplyLUTsettings (LUTChan)
@@ -2760,7 +2808,7 @@ End
 
 //******************************************************************************************************
 // Manages color PopMenu for after after last color modes, then calls Apply Image settings procedure for selected channel
-// Last Modified 2025/07/22 by Jamie Boyd - new channel selction mode
+// Last Modified 2025/07/25 by Jamie Boyd - new channel selction modeany channel you like
 Function NQ_AfterColorPopMenuProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 
@@ -2770,7 +2818,11 @@ Function NQ_AfterColorPopMenuProc(pa) : PopupMenuControl
 			String popStr = pa.popStr
 			SVAR LUTchan = root:Packages:twoP:examine:LUTChan
 			// save changed value in appropriate global for selected channel
-			SVAR AfterColors = $"root:Packages:twoP:examine:" + LUTchan + "AfterColors"
+			SVAR/Z AfterColors = $"root:Packages:twoP:examine:" + LUTchan + "AfterColors"
+			if (!(SVAR_Exists(AfterColors)))
+				twoP_makeChanLUTvars (LUTchan)
+				SVAR AfterColors = $"root:Packages:twoP:examine:" + LUTchan + "AfterColors"
+			endif
 			// Strip opening and closing braces
 			variable acLen = strlen (popStr)
 			AfterColors = popStr [1, acLen-2]
@@ -2815,7 +2867,7 @@ Function NQ_ApplyImSettings (channel)
 	variable isAcquire = (cmpstr (S_Value, "Acquire") == 0) // 1 if called from acquiring tab, 0 if examining.
 	// get reference to scan info string
 	if (isAcquire) // use live mode info
-		SVAR/Z ScanStr = root:packages:twoP:Acquire:LiveModeScanStr
+		SVAR/Z ScanStr = root:twoP_Scans:LiveScan_info
 	else
 		SVAR/Z ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
 	endif
@@ -2972,6 +3024,10 @@ Function NQ_ApplyImSettings (channel)
 		endif
 	endif
 end
+
+
+
+
 
 
 //******************************************************************************************************

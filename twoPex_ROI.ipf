@@ -10,35 +10,37 @@
 // Graph Marquee functions to do useful ROI things on the scan graph
 Menu "GraphMarquee"
 	submenu "twoP Examine"
-		"Set Dark Fluorescence Region",/Q, NQ_Set_Dark_Fluorescence ()
-		"Do ROI", /Q,NQ_DoRoi()
+		"Set Dark Fluorescence Region",/Q, twoP_Set_Dark_Fluorescence ()
+		"Do ROI", /Q,twoP_DoRoi()
 	end
 end
 
-// NQ_Set_Dark_Fluorescence grabs the graph marquee and sets some values a) in the Examine globals folder and B) in the note of the current scan.
+// Set_Dark_Fluorescence grabs the graph marquee and sets some values a) in the Examine globals folder and B) in the note of the current scan.
 // These values will be used to subtract dark fluorescence in the ROI functions. 
 // Only left and right are saved for line scan, setting the globals for top and bottom in the examine folder to nan, to prevent using line scan dark
 // area for an image scan
-// Last Modified Jul 07 by Jamie Boyd
-Function NQ_Set_Dark_Fluorescence()
+// Last Modified 2025/07/24 by Jamie Boyd
+Function twoP_Set_Dark_Fluorescence()
 
 	GetMarquee/k left,bottom
+	//always set left and right
 	variable/G root:packages:twoP:examine:darkL = v_left
 	variable/G root:packages:twoP:examine:darkR = v_right
+	// set V_top and V_bottom to NaN for linescan
 	SVAR curscan = root:Packages:twoP:examine:CurScan
-	if (cmpStr (CurScan, "LiveWave") == 0)
-		variable/G root:packages:twoP:examine:darkT = v_top
-		variable/G root:packages:twoP:examine:darkB = v_Bottom
+	if (cmpStr (CurScan, "LiveScan") != 0)
+		SVAR scanNote = $"root:twoP_Scans:" + curscan  + ":" + curScan +  "_info"
 	else
-		SVAR ScanNote = $"root:twoP_Scans:" + curscan  + ":" + curScan +  "_info"
-		variable scanMode = NumberByKey("mode", scanNote, ":", "\r")
-		if ( scanMode== kLineScan)
-			v_top =Nan
-			v_bottom = Nan
-		endif
-		variable/G root:packages:twoP:examine:darkT = v_top
-		variable/G root:packages:twoP:examine:darkB = v_Bottom
-		
+		SVAR scanNote = root:twoP_Scans:LiveScan_info
+	endif
+	variable scanMode= NumberByKey("mode", scanNote, ":", "\r")
+	if (scanMode == kLineScan)
+		v_top = Nan
+		v_bottom =Nan
+	endif
+	variable/G root:packages:twoP:examine:darkT = v_top
+	variable/G root:packages:twoP:examine:darkB = v_Bottom
+	if (scanMode != kLiveMode)
 		ScanNote = ReplaceNumberByKey("darkL", ScanNote, V_left, ":", "\r")
 		ScanNote = ReplaceNumberByKey("darkR", ScanNote, V_right, ":", "\r")
 		if (scanMode != kLineScan)
@@ -66,7 +68,7 @@ Function NQexROI_add (able)
 	variable/G root:packages:twoP:examine:ROIDoMatch = 0
 	String/G root:packages:twoP:examine:ROIScanMatchStr = "*"
 	String/G root:packages:twoP:examine:ROInoteMatchStr = "*"
-	String/G root:packages:twoP:examine:ROIselChans = ""
+	String/G root:packages:twoP:examine:ROIselChan = ""
 	Variable/G root:packages:twoP:examine:ROIscanSelMode = 0
 	make/o/t/n= 0 root:Packages:twoP:examine:ROIListWave
 	make/o/n= 0 root:Packages:twoP:examine:ROIListSelWave
@@ -115,6 +117,7 @@ Function NQexROI_add (able)
 	PopupMenu ROIonWindowPopup win=twoP_Controls,disable=able
 	Button ROIDuplButton win=twoP_Controls,pos={8.00,515.00},size={65.00,20.00},proc=NQ_ROIDuplicateButtonProc
 	Button ROIDuplButton win=twoP_Controls,title="Duplicate",fSize=12
+	Button ROIDuplButton win=twoP_Controls, disable = able
 	Button RoiDelbutton win=twoP_Controls,pos={90.00,515.00},size={60.00,20.00},proc=NQ_DelRoiButtonProc
 	Button RoiDelbutton win=twoP_Controls,title="Delete",fSize=12
 	Button RoiDelbutton win=twoP_Controls, disable = able
@@ -123,11 +126,11 @@ Function NQexROI_add (able)
 	Button ROIAvgButton win=twoP_Controls,pos={8.00,547.00},size={57.00,20.00},proc=NQ_ROIRunButtonProc
 	Button ROIAvgButton win=twoP_Controls,title="ROI Avg"
 	Button ROIAvgButton win=twoP_Controls, disable =able
-	PopupMenu ROIchansPopup win=twoP_Controls,pos={69.00,547.00},size={47.00,20.00},proc=ROISelChan_PopMenuProc
-	PopupMenu ROIchansPopup win=twoP_Controls,title="of",mode=0,value=#"twoP_SelectROIChans()"
+	PopupMenu ROIchansPopup win=twoP_Controls,pos={69.00,547.00},size={47.00,20.00},proc=twoP_ROISelChan_PopMenuProc
+	PopupMenu ROIchansPopup win=twoP_Controls,title="of",mode=0,value=#"twoP_listImChans()+\";ratio\""
 	PopupMenu ROIchansPopup win=twoP_Controls, disable = able
 	TitleBox ROIchansTitle win=twoP_Controls,pos={120.00,550.00},size={23.00,15.00},fSize=12,frame=0
-	TitleBox ROIchansTitle win=twoP_Controls,variable=root:packages:twoP:examine:ROIselChans
+	TitleBox ROIchansTitle win=twoP_Controls,variable=root:packages:twoP:examine:ROIselChan
 	TitleBox ROIchansTitle win=twoP_Controls, disable = able
 	CheckBox ROIratioCheck win=twoP_Controls,pos={170.00,549.00},size={73.00,16.00},proc=NQ_ROIchanCheckProc
 	CheckBox ROIratioCheck win=twoP_Controls,title="Also Ratio",fSize=12,value=0
@@ -199,10 +202,48 @@ function NQexROI_Update()
 	NQ_ListRois ()
 end
 
+
+function/S twoP_SelectROIChans ()
+	
+	SVAR curScan = root:packages:twoP:examine:curScan
+	SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
+	string chanList = StringByKey("imChanDesc", scanStr, ":", "\r")
+	
+	SVAR selChans = root:packages:twoP:examine:ROIselChan
+	variable iChan, nChans = itemsInList(chanList, ",")
+	string aChan, outList = ""
+	for (iChan =0; iChan < nChans; iChan += 1)
+		aChan = stringfromlist (iChan, chanList, ",")
+			if (FindListItem(aChan, selChans, ";") > -1)
+				outList += "\\M1!"  +num2char(18)
+			endif
+			outList += aChan + ";"
+	endfor
+	return outList
+end
+
+
+
+Function twoP_ROISelChan_PopMenuProc(pa) : PopupMenuControl
+	STRUCT WMPopupAction &pa
+
+	switch( pa.eventCode )
+		case 2: // mouse up
+			SVAR selChan = root:packages:twoP:examine:ROIselChan
+			selChan = pa.popStr
+			break
+		case -1: // control being killed
+			break
+	endswitch
+
+	return 0
+End
+
+
 //******************************************************************************************************
 // Graph marquee function to make a square ROI from the graph marquee coordinates and make an ROI avg from the current scan.
 // Last modified Sep 02 2010 by Jamie Boyd
-Function NQ_DoRoi()
+Function twoP_DoRoi()
 	
 	// Get dark values if shift key is held down
 	variable getDark = ((getkeystate(0) & 4) == 4)
@@ -228,14 +269,8 @@ Function NQ_DoRoi()
 	endif
 	// which channel, i.e., which subWindow was marquee drawn on
 	string chStr
-	if (round (numberbykey ("IGORVERS", IgorInfo(0), ":", ";")) == 5)
-		chStr = NQ_GetMarqueeSubWinFor5 (S_marqueeWin, V_left, V_bottom)
-		GetMarquee/K left,bottom
-		chStr = "_" + chStr [1, strlen (chStr) -1]
-	else
-		GetMarquee/K left,bottom
-		chStr = "_" + (stringfromlist (1, S_marqueeWin, "#")) [1,3] //^^^
-	endif
+	GetMarquee/K left,bottom
+	chStr = "_" + (stringfromlist (1, S_marqueeWin, "#")) [1,3] //^^^
 	// if a linescan, check for box car averaging
 	variable BCwidth
 	if ((scanMode == kLineScan) && (doBCavg))
@@ -959,7 +994,7 @@ End
 
 //******************************************************************************************************
 // does an ROI avg of each selected ROI on the current scan ^^^
-// Last Modified2014/03/07 by Jamie Boyd
+// Last Modified 2014/03/07 by Jamie Boyd
 Function NQ_ROIRunButtonProc (ba) : ButtonControl
 	STRUCT WMbuttonAction &ba		
 		

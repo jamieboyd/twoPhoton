@@ -1,7 +1,7 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2025/07/20 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2025/07/25 by Jamie Boyd.
 #pragma IgorVersion = 7
 
 #include "twoP_Prefs"
@@ -22,12 +22,12 @@ STATIC CONSTANT kNQyVoltEnd =7.5
 //************************** Notes on National Instruments Boards ******************************
 // One NI Board (referred to as the imageBoard) is used to generate the X and Y rasters that 
 // drive the galvos, collect the image data, and open and close the shutter
-// An E or X series board with at least 1M Samples/second per input channel, 2 output channels that update
-// at 1MHz, 2 counter\timers, and at least1 DIO port
+// An -S or X-series board with at least 1M Samples/second per input channel, 2 output channels that update
+// at 1MHz, 2 counter\timers, and at least 1 DIO port
   
 // The other, optional, board (referred to as the ePhysBoard) is used to collect the ephys trace(s), 
 // output TTL triggers, and output clamp waves. Slower sampling rates are acceptable here, 
-// but 2 counter/timers and 2 analog outputs are still expected.
+// but 2 counter/timers and 2 analog outputs are still expected. E-series boards are fine
 
 //Defined constants for multiacquisition mode
 constant kMultiUsePeriod = 0
@@ -58,7 +58,7 @@ Menu "GraphMarquee"
 End
 
 //******************************************************************************************************
-// Sets the output voltage on the galvos to 0
+// Sets the output voltage on the galvos to 0, used for beam alignment 
 function twoP_ZeroGalvos()
 	SVAR imageboard = root:Packages:twoPhoton:acquire:imageBoard
 	fDAQmx_WriteChan(imageBoard, 0, 0, -10, 10)
@@ -347,7 +347,7 @@ Function NQ_AddAcquireControls ()
 	Button RevertScaleButton,title="Revert", help={"Sets image pixel sizes and galvo scan voltage endpoints to last used values"}
 	PopupMenu RevertScalePopMenu,pos={93.00,96.00},size={64.00,19.00},proc=RevertSettingstoWaveProc
 	PopupMenu RevertScalePopMenu,title="to Scan:"
-	PopupMenu RevertScalePopMenu,mode=0,value=#"\"LiveWave;\\\\M1(-;\" + NQ_ListScans (\"1,2,4,\")"
+	PopupMenu RevertScalePopMenu,mode=0,value=#"\"LiveScan;\\\\M1(-;\" + NQ_ListScans (\"1,2,4,\")"
 	SetVariable AspRatSetVar,pos={163.00,97.00},size={90.00,18.00},proc=NQ_AspectRatioProc
 	SetVariable AspRatSetVar,title="Aspect",fSize=12,format="%#.3G"
 	SetVariable AspRatSetVar,limits={0,inf,0.1},value=root:Packages:twoP:Acquire:AspectRatio
@@ -727,13 +727,9 @@ Function NQ_AddAcquireControls ()
 	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Multi", "Button MultiAqWaveEditButton;PopupMenu MultiAqWavePopup;TitleBox MultiAqWaveTitleBox;GroupBox MultModeTriggerGrp;")
 	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Multi", "CheckBox MultiTriggerCheck;SetVariable MultiAqTriggerNumSetVar;TitleBox MultiAqTimeToNextTitle;ValDisplay multiAqProgressDisplay;")
 	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Multi", "Button MultiPreMakeButton;Button MultiStartButton;")
-
-	// Call SetTimes Procedure to set the above times
+	// set times
 	NQ_SetTimes ()
-	// Init livemode ScanStr, without getting stage, because stage probably hasn't loaded yet
-	//STRUCT NQ_ScanStruct s
-	//NQ_LoadScanStruct (s, 0)
-	//NQ_ScanNoter (s, "root:packages:twoP:Acquire:LiveModeScanStr")
+
 end
  
 //******************************************************************************************************
@@ -753,8 +749,9 @@ Function NQ_ScanNameProc(sva) : SetVariableControl
 			NVAR autIncCheck = root:packages:twoP:acquire:AutIncCheck
 			variable slen, curnum
 			if (autIncCheck)	// then control is checked
-				newName = NQ_autinc (newName, 0)
+				newName = twoP_autinc (newName, 0)
 			endif
+			// 3) check for overwriting
 			NVAR overwriteWarnCheck = root:packages:twoP:acquire:overwriteWarnCheck
 			if (overwriteWarnCheck)	// user wants to be warned about possible overwriting of waves
 				if (dataFolderExists ("root:twoP_Scans:" + newName))
@@ -764,17 +761,7 @@ Function NQ_ScanNameProc(sva) : SetVariableControl
 			endif
 			SVAR NewScanName = root:Packages:twoP:Acquire:NewScanName
 			NewScanName = newName
-			NVAR scanNum = root:Packages:twoP:Acquire:NewScanNum
-			// see if wavename ends in an underscore followed by a  number
-			slen = strlen (NewScanName)
-			variable uScorePos = strsearch(NewScanName, "_", sLen-1,1)
-			if (uScorePos ==-1)
-				scanNum =Nan
-			else
-				scanNum = str2num (NewScanName [uScorePos + 1, slen -1])		// try to make a number from last underscore forward
-			endif
-			break
-	endswitch
+  	endswitch
 	return 0
 end
 
@@ -793,7 +780,7 @@ Function NQ_autincCheckProc (cba) : CheckBoxControl
 				// Clean up scan name
 				NewScanName = cleanupname(NewScanName, 0)
 				// autoincrement scan name  til there is no conflict
-				For (NewScanName = NQ_autinc (NewScanName, 0);DataFolderExists("root:twoP_Scans:" + NewScanName);NewScanName = NQ_autinc (NewScanName, 1))
+				For (NewScanName = twoP_autinc (NewScanName, 0);DataFolderExists("root:twoP_Scans:" + NewScanName);NewScanName = twoP_autinc (NewScanName, 1))
 				endfor
 			endif
 			break
@@ -804,26 +791,21 @@ End
 //******************************************************************************************************
 // Checks to see if a string is autoincrement compatable and, optionally, increments it.
 // Used when the autoincrement  wavenames checkbox is on.
-// Last modified 2012/04/02 by Jamie Boyd
-Function/s NQ_autinc (NewWaveName, inc)
+// Last modified 2025/07/25 by Jamie Boyd - use sscanf
+Function/s twoP_autinc (NewWaveName, inc)
 	string NewWaveName
 	variable inc		// if 0, don't increment., just check for compatibility. if 1, increment
+	
 	// see if wavename ends in an underscore followed by a  number
-	variable slen = strlen (NewWaveName), curNum
-	variable uScorePos = strsearch(NewWaveName, "_", sLen-1,1)
-	if (uScorePos ==-1)
-		curNum =Nan
-		uScorePos = sLen
-	else
-		curnum = str2num (NewWaveName [uScorePos + 1, slen -1])		// try to make a number from last underscore forward
+	string base 
+	variable number
+	sscanf NewWaveName, "%[A-Za-z,0-9]_%u", base, number
+	if ((V_flag ==2) && (inc)) // if V_flag ==1, NewWaveName did not have a number, no need to increment
+		number +=1
 	endif
-	if (numtype (curnum) == 0)
-		sprintf NewWaveName, "%s_%03d", NewWaveName [0, uScorePos - 1], curNum + inc
-	else // wavename does not end with underscore followed by a number, so probably not a numbered wavename, so append a number to the wavename
-		NewWaveName += "_000"
-	endif
+	sprintf NewWaveName "%s_%03d", base, number
 	NVAR scanNum = root:Packages:twoP:Acquire:NewScanNum
-	scanNum = curNum + inc
+	scanNum = number
 	return NewWaveName
 end
 
@@ -1193,15 +1175,10 @@ Function NQ_SModeTabControlproc (TC_Struct) : TabControl
 	if (tab== 6) // multiaq - disable scan start button
 		isMulti  = 1
 		button AqStartButton disable = 2
-		// checkbox struct for running control functions
-		STRUCT WMCheckboxAction cba
-		cba.eventCode = 2
 		// make sure autoincrement is selected and run
 		NVAR autincCheck = root:packages:twoP:acquire:autincCheck
 		if (autIncCheck == 0)
 			autincCheck =1
-			NQ_autincCheckProc (cba)
-			checkbox AqAutIncCheck win = twoP_Controls, value=1
 		endif
 		// make sure export path is set, if exporting after a scan
 		NVAR exportafterscan = root:packages:twoP:acquire:exportAfterScan
@@ -1726,8 +1703,8 @@ Function RevertSettingstoWaveProc(pa) : PopupMenuControl
 		case 2: // mouse up
 			Variable popNum = pa.popNum
 			String theScan = pa.popStr
-			if (cmpStr (theScan, "LiveWave") == 0)
-				SVAR scanStr = root:packages:twoP:Acquire:LiveModeScanStr
+			if (cmpStr (theScan, "LiveScan") == 0)
+				SVAR scanStr = root:twoP_Scans:LiveScan_info
 			else
 				SVAR scanStr = $"root:twoP_Scans:" + theScan + ":" + theScan + "_info"
 			endif
@@ -2690,7 +2667,7 @@ Function NQ_LoadScanStruct (s)
 	// switch for scan mode specific things
 	switch (scanMode)
 		case kLiveMode:	// Live mode specific - average frames and live histogram
-			s.NewScanName = "LiveWave"
+			s.NewScanName = "LiveScan"
 			NVAR liveHistCheck = root:Packages:twoP:acquire:liveHistCheck
 			s.liveHist = liveHistCheck
 			NVAR liveAvgFrames = root:Packages:twoP:acquire:numLiveAvgFrames
@@ -2743,7 +2720,7 @@ Function NQ_CheckOverWrite (s)
 			alertStr = "A scan with the name \"" + s.newScanName + "\" already exists. Overwrite it?  Click \"yes\" to overwrite old scan, \"no\" to increment new wave name, or \"cancel\" to cancel scanning."
 			doalert 2, alertstr
 			if (V_Flag == 2)		// no was clicked, so increment the wavename
-				s.newScanName = NQ_autinc (s.newScanName, 1)
+				s.newScanName = twoP_autinc (s.newScanName, 1)
 			elseif (V_Flag == 3) // cancel scanning was clicked
 				doAlert 0, "Scanning will be canceled."
 				return 1
@@ -2881,7 +2858,7 @@ Function NQ_MakeImageScanWaves (s)
 	// if not live mode, make a folder for this scan
 	string baseName
 	if (s.ScanMode == kLiveMode)
-		baseName = "root:packages:twoP:acquire:LiveWave_"
+		baseName = "root:twoP_Scans:LiveScan_"
 	else
 		newDataFolder/O $"root:twoP_Scans:" + s.newScanName
 		baseName = "root:twoP_Scans:" + s.newScanName +":" +  s.newScanName + "_"
@@ -3798,14 +3775,13 @@ End
 //******************************************************************************************************
 // Function called by the "Start Scan" Button.
 // Last Modified:
-// 2025/07/13 by Jamie Boyd - start buton is start button
-// 2017/08/14  by Jamie Boyd - started adding ePhys stuff back in
+
 Function NQ_StartScan (ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 	
 	switch( ba.eventCode )
 		case 2: // mouse up
-		// grab scanmode in case user changes it 
+		// grab scan mode in case user changes it 
 		NVAR scanMode = root:packages:twoP:Acquire:ScanMode
 		NVAR ScanStartMode = root:packages:twoP:Acquire:ScanStartMode
 		ScanStartMode=scanMode
@@ -3924,7 +3900,7 @@ end
 									if (s.ScanMode == kLiveMode)
 										// live histogram graph
 										if (s.liveHist == 1)
-											NQ_MakeHistGraph (s.scanChans, "LiveWave")
+											NQ_MakeHistGraph (s.scanChans, "LiveScan")
 										endif
 										// zero liveFrame pos for avergaing
 										if (s.LiveAvgFrames)
@@ -4720,8 +4696,8 @@ Function  NQ_ScanEnd (scanMode, ScanIsAbort)
 		NVAR scanChans = root:packages:twoP:Acquire:ScanChans
 		SVAR curScan = root:packages:twoP:examine:curScan
 		NVAR isCyclic =  root:packages:twoP:acquire:isCyclic
-		if (cmpStr (curScan, "LiveWave") == 0)
-			SVAR scanStr = root:packages:twoP:Acquire:LiveModeScanStr
+		if (cmpStr (curScan, "LiveScan") == 0)
+			SVAR scanStr = root:twoP_Scans:LiveScanStr
 		else
 			SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 		endif
@@ -4876,7 +4852,7 @@ Function  NQ_ScanEnd (scanMode, ScanIsAbort)
 			NVAR autincCheck = root:packages:twoP:Acquire:autIncCheck
 			if (autIncCheck)
 				SVAR NewScanName =  root:packages:twoP:Acquire:NewScanName
-				NewScanName = NQ_autinc (NewScanName, 1)
+				NewScanName = twoP_autinc (NewScanName, 1)
 			endif
 		endif
 		// Make sure controls will be set properly when user switches to examine side of things
@@ -5039,8 +5015,8 @@ Function NQ_SetScanSize(type)
 	// Current Scan
 	SVAR curScan = root:Packages:twoP:examine:CurScan
 	// Scan Note
-	if (cmpStr (curScan, "LiveWave") == 0)
-		SVAR scanStr = root:packages:twoP:Acquire:LiveModeScanStr
+	if (cmpStr (curScan, "LiveScan") == 0)
+		SVAR scanStr = root:twoP_Scans:LiveScanStr
 	else
 		SVAR scanStr =$"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 	endif
@@ -5149,7 +5125,7 @@ Function NQ_LiveHistCheckProc(cba) : CheckBoxControl
 		case 2: // mouse up
 			if (cba.checked)
 				NVAR scanChans = root:Packages:twoP:Acquire:ScanChans
-				NQ_MakeHistGraph (scanChans, "LiveWave")
+				NQ_MakeHistGraph (scanChans, "LiveScan")
 			endif
 			break
 		case -1: // control being killed
@@ -5460,7 +5436,7 @@ Function NQ_MultiPreMakeProc(ba) : ButtonControl
 					//NQ_MakeEPhysWaves (s) 
 				endif
 				// adjust scan Name
-				s.NewScanName =  NQ_autinc (s.NewScanName, 1)
+				s.NewScanName =  twoP_autinc (s.NewScanName, 1)
 			endfor
 	endswitch
 	return 0
