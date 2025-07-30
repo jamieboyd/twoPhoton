@@ -58,10 +58,12 @@ Function NQ_MakeExamineFolder ()
 	endif
 	//String that stores the name of the current scan, and display it in a title box on the Examine Panel
 	string/g root:Packages:twoP:examine:curScan = "no current scan"	
+	// String that stores name of ppreviously selected scan
+	string/g root:Packages:twoP:examine:PrevScan = "no prev scan"	
 	// Variable for scan numbers, when scans are sequentially numbered
 	variable/G root:packages:twoP:Examine:curScanNum
 	// Wave is used by the ListBox on the Examine Panel to display the experiment note of the currently selected scan.
-	make/t/n=0 root:Packages:twoP:examine:NoteListWave	
+	make/t/n=0 root:Packages:twoP:examine:NoteListWave
 	// Waves for Histograms
 	make/o/n = (2^kNQimageBits) root:Packages:twoP:Examine:HistWaveCh1,root:Packages:twoP:Examine:HistWaveCh2
 	WAVE HistWaveCh1 = root:Packages:twoP:Examine:HistWaveCh1
@@ -73,14 +75,15 @@ Function NQ_MakeExamineFolder ()
 	make/o root:Packages:twoP:examine:ImRangeRightxCh1 = {(0.95 * 2^kNQimageBits) ,(0.95 * 2^kNQimageBits)}
 	make/o root:Packages:twoP:examine:ImRangeRightyCh1 = {1,inf}
 	// Values to control which channels to show in the ScanGraph
+	string/G root:packages:twoP:examine:ScanGraphSelChans = "ch1;"
 	variable/G root:packages:twoP:examine:showCh1 = 1
-	variable/G root:packages:twoP:examine:showCh2 =0
-	variable/G root:packages:twoP:examine:showMerge =0
+	variable/G root:packages:twoP:examine:showCh2 = 0
+	variable/G root:packages:twoP:examine:showMerge = 0
 	variable/G root:packages:twoP:examine:ShowScanGraphAxes
 	// Waves to show frames from 3D waves in the scanGraph
-	make/w/u/o/n = (512,512) root:packages:twoP:examine:scanGraph_ch1
-	make/w/u/o/n = (512,512) root:packages:twoP:examine:scanGraph_ch2
-	make/w/u/o/u/n = (512,512,3) root:packages:twoP:examine:scanGraph_mrg
+	make/w/u/o/n = (500,500) root:packages:twoP:examine:scanGraph_ch1
+	make/w/u/o/n = (500,500) root:packages:twoP:examine:scanGraph_ch2
+	make/w/u/o/u/n = (500, 500, 3) root:packages:twoP:examine:scanGraph_mrg
 	// Values to control image appearance with look up table
 	// NB: modified 2016/11/08 to use unsigined integers
 	string/G root:Packages:twoP:examine:LUTChan = "ch1" // image channel we are working with, ch1 is a pretty good guess. Others made as needed
@@ -101,9 +104,9 @@ Function NQ_MakeExamineFolder ()
 		endif
 		newdatafolder root:packages:SavedWins
 	endif
-	string/g root:Packages:savedWins:twoPscanGraph_pos= kNQScanGraphPos//holds the window size and position for the Graph showing the Scan image. So it can be reapplied next time. 
-	string/g root:Packages:savedWins:twoP_TracesGraph_pos= kNQTracesGraphPos	//holds the window size and position for the Graph showing the ROI and ePhys Traces. So it can be reapplied next time
-	string/G root:Packages:savedWins:twoP_HistGraph_pos=kNQHistGraphPos    // holds the window size and position for the Graph showing image histograms
+	//string/g root:Packages:savedWins:twoPscanGraph_pos= kNQScanGraphPos//holds the window size and position for the Graph showing the Scan image. So it can be reapplied next time. 
+	//string/g root:Packages:savedWins:twoP_TracesGraph_pos= kNQTracesGraphPos	//holds the window size and position for the Graph showing the ROI and ePhys Traces. So it can be reapplied next time
+	//string/G root:Packages:savedWins:twoP_HistGraph_pos=kNQHistGraphPos    // holds the window size and position for the Graph showing image histograms
 	// variables used for making the movie run in the background
 	variable/g root:Packages:twoP:examine:Numframes	// The number of Frames in the current movie
 	variable/g root:Packages:twoP:examine:CurFramePos	// The position of the slider
@@ -116,18 +119,14 @@ Function NQ_MakeExamineFolder ()
 	variable/G root:packages:twoP:examine:doDROIRatio = 0
 	variable/G root:packages:twoP:examine:doDROITopChan = 1 //1 for channel 1/ channel 2, 2 for channel 2/channel 1
 	
-//BMB edit
-//	variable/G root:packages:twoP:examine:DroiDSIcheck = 0 //DSI checkbox for dynamic ROI
-//	Variable/G root:Packages:twoP:examine:cursorSet //cursor variable for double click append image function
-//	Variable/G root:Packages:twoP:examine:timeOfLastEvent //used for detecting double click
-//	Variable/G root:Packages:twoP:examine:scanCount //used for naming the traces on the waterfall plot
-//	Make/T/O/n=0 root:Packages:twoP:examine:scanListWave
-//BMB edit
 	make/o/t/n=1 root:Packages:twoP:examine:scanListWave
 	// Variables for Nidaq Traces Graph ROI deltaF processing
 	variable/g root:Packages:twoP:examine:startffordeltaf =0		//The range of points at in the ROI wave used for determining the  "F"  used for calculating "deltaF" is stored in these two variables
 	variable/g root:Packages:twoP:examine:endffordeltaf =5
 	variable/g root:Packages:twoP:examine:ffordeltaf		//This variable is used to set baseline fluorescence from the first x points of the wave
+	// AspectRatio waves for scanGraph main graph
+	make/o root:packages:twoP:examine:scanGraphAspX = {0,0,1,1,0}
+	make/o root:packages:twoP:examine:scanGraphAspY = {0,1,1,0,0}
 end
 
 //******************************************************************************************************
@@ -135,7 +134,6 @@ end
 // Last Modified 2017/08/08 by Jamie Boyd
 Function NQ_MakeNidaqPanel (withAcquire)
 	variable withAcquire
-	
 	
 	// If no global variable found, Make Global variables and load default preferences file 
 	if (!(dataFolderExists ("root:Packages:twoP:examine")))
@@ -158,7 +156,6 @@ Function NQ_MakeNidaqPanel (withAcquire)
 	if (V_Flag == 1)
 		return -1
 	endif
-	
 	// Make folders for scans and ROIs
 	if (!(dataFolderExists ("root:twoP_Scans")))
 		newDataFolder/o root:twoP_Scans
@@ -595,7 +592,9 @@ Function NQ_ScansPopMenuProc(pa) : PopupMenuControl
 		case 2: // mouse up
 			
 			SVAR curScan = root:Packages:twoP:examine:CurScan
-			SVAR scanNote =$"root:twoP_Scans:" + curScan +":" + curScan+ "_info"
+			SVAR prevScan = root:Packages:twoP:examine:PrevScan
+			
+			SVAR scanNote =$"root:twoP_Scans:" + curScan + ":" + curScan+ "_info"
 			curScan = pa.popStr
 			NVAR scanNum = root:packages:twoP:Examine:curScanNum
 			scanNum = str2num (stringfromlist (1, pa.popStr, "_"))
@@ -724,11 +723,123 @@ Function NQ_Adjust_Examine_Controls (curScan)
 	ExamineTabCtrl_proc (tca)
 end
 
+
+// Makes the scangraph of the current scan, starting from scratch
+// Last Modified 2025/07/27 by Jamie Boyd
+Function twoP_NewScanGraph (curScan)
+	string curScan
+
+	// if scangraph exists, bring window to front and exit
+	DoWindow/F twoPscanGraph
+	if (V_Flag)
+		return 1
+	endif
+	
+	// get reference to scan info string, or exit if it does not exist
+	SVAR/Z ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
+	if (!(SVAR_EXISTS (scanStr)))
+		printf "The info string for the scan, \"%s\" was not found.\r", CurScan
+		return 1
+	endif
+	
+	// which channels exist for this scan?
+	string imChanList = stringbykey("imChanDesc", scanStr, ":", "\r")
+	// which channels are selected? - 
+	SVAR selChans = root:packages:twoP:examine:ScanGraphSelChans
+	variable iChan, nChans = itemsInList(selChans, ";")
+	string aCHan
+	for (iChan = nChans-1; iChan >= 0; iChan -=1)
+		aChan = stringfromlist(iChan, selChans, ";")
+		if (WhichListItem(aChan, imChanList, ",") == -1)
+			selChans = RemoveListItem(iChan, selChans, ";")
+			nChans -=1
+		endif
+	endfor
+	
+	
+	// info from scan info
+	variable mode = NumberByKey("mode",ScanStr, ":", "\r")
+	variable xSize = NumberByKey("PixWidth", ScanStr, ":", "\r") 
+	variable ySize = NumberByKey("PixHeight", ScanStr, ":", "\r")
+	variable xPixSize =  NumberByKey("xPixSize", ScanStr, ":", "\r")
+	variable yPixSize =  NumberByKey("yPixSize", ScanStr, ":", "\r")
+	variable xOffset =  NumberByKey("xPos", ScanStr, ":", "\r")
+	variable yOffset =  NumberByKey("yPos", ScanStr, ":", "\r")
+	
+	// start filling out subwin info
+	STRUCT GUIPSubWin_UtilStruct s
+	STRUCT GUIPSubWin_ContentStruct cs
+	s.graphName = "twoPscanGraph"
+	s.graphTitle  = "twoP Scan:" + scanStr
+	s.killBehavior = 1
+	s.nSubWins = nChans
+	if (xSize  > ySize)
+		s.nCols = 1
+		s.nRows = nChans
+		s.prefMoreCols = 0
+	else
+		s.nCols = nChans
+		s.nRows = 1
+		s.prefMoreCols = 1
+	endif
+	if (mode == kLineScan)
+		s.holdAspect = 0
+	else
+		s.holdAspect = 1
+	endif
+
+	
+	
+	if ((mode == kLineScan) || (mode == kSingleImage) || (mode == kLiveMode))
+		for (iChan = nChans-1; iChan >= 0; iChan -=1)
+			aChan = stringfromlist(iChan, selChans, ";")
+			
+			endfor
+	endif	
+end			
+			WAVE scanGraphWave = $"root:packages:twoP:examine:scanGraph_Ch1
+			
+		// for line scans and single image, just display the scan waves as the scanGraph waves.
+		WAVE/z scanGraph_Ch1 = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch1"
+	
+	
+	WAVE scanGraph_Ch1 = root:packages:twoP:examine:scanGraph_Ch1
+		WAVE scanGraph_Ch2 = root:packages:twoP:examine:scanGraph_Ch2	
+		if ((showCh1) || (showMrg))
+			if ((DimSize(scanGraph_ch1, 0) != xSize) || (DimSize(scanGraph_ch1, 1) != ySize))
+				redimension/n= ((xSize), (ySize)) scanGraph_ch1
+			endif
+			// Y scaling is in seconds, not meters for LineScan
+			SetScale/P X, xOffset, xPixSize, "m", scanGraph_ch1
+			if (mode == kLineScan)
+				SetScale/P Y 0, lineTime, "s",  scanGraph_ch1
+			else
+				SetScale/P Y yOffset, yPixSize, "m", scanGraph_ch1
+			endif
+			if ((isAcquire == 1) && (mode != kLiveMode))
+				fastop scanGraph_ch1 =0
+			endif
+	
+	if ((mode == kLineScan) || (mode == kSingleImage) || (mode == kLiveMode))
+		
+		// for line scans and single image, just display the scan waves as the scanGraph waves.
+		WAVE/z scanGraph_Ch1 = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch1"
+		WAVE/z scanGraph_Ch2 = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch2"
+	
+	endif
+	variable lineTime = NumberByKey("lineTime", ScanStr, ":", "\r")
+	variable zSize = NumberByKey("NumFrames", ScanStr, ":", "\r")
+	// make 2D waves to display in scanGraph, or a 3D wave if acquiring and averaging
+end
+
+	
+	
+
 //******************************************************************************************************
 // -----------------------------code for making and altering scan graph----------------------------------------------
 //******************************************************************************************************
 
-// Makes or reloads the scangraph of the current scan
+// Makes the scangraph of the current scan, starting from scratch
 // Last Modified 2016/11/03 by Jamie Boyd
 Function NQ_NewScanGraph (curScan)
 	string curScan
@@ -740,7 +851,8 @@ Function NQ_NewScanGraph (curScan)
 		isNew =1
 	endif
 	// acquiring?
-	// If acquiring data, we want to make the available channels to match the requested channels.
+	
+
 	// If in examining mode, we want to limit the requested channels to the available channels
 	Controlinfo /w = twoP_Controls AcquireExamineTab
 	variable isAcquire = (cmpstr (S_Value, "Acquire") == 0) // 1 if called from acquiring tab, 0 if examining.
@@ -753,10 +865,17 @@ Function NQ_NewScanGraph (curScan)
 	// Get scan mode
 	variable mode = NumberByKey("mode",ScanStr, ":", "\r")
 	// which channels exist for this scan?
+	string imChanList = stringbykey("imChanDesc", scanStr, ":", "\r")
+	// which channels are selected for display already
+	NVAR selScanChans = root:packages:twoP:examine:ScanGraphSelChans	
+	
+	
 	variable scanChans = numberbykey ("ImChans", scanStr, ":", "\r")
 	variable hasCh1 = ((scanChans & 1) ==1)
 	variable hasCh2 = ((scanChans & 2) ==2)
 	// which channels are to be displayed right now, as indicated by variables hooked up to the checkboxes on the scanGraph?
+	
+	
 	// Reset showChan variables if the channels are not set in the scan String
 	NVAR showCh1 = root:packages:twoP:examine:showCh1
 	showCh1 *= hasCh1
@@ -765,6 +884,8 @@ Function NQ_NewScanGraph (curScan)
 	NVAR showMrg = root:packages:twoP:examine:showMerge
 	showMrg *= (hasCh1 & hasCh2)
 	// get sizes and offsets
+	
+	
 	variable xSize = NumberByKey("PixWidth", ScanStr, ":", "\r") 
 	variable ySize = NumberByKey("PixHeight", ScanStr, ":", "\r")
 	variable xPixSize =  NumberByKey("xPixSize", ScanStr, ":", "\r")
@@ -774,9 +895,8 @@ Function NQ_NewScanGraph (curScan)
 	variable lineTime = NumberByKey("lineTime", ScanStr, ":", "\r")
 	variable zSize = NumberByKey("NumFrames", ScanStr, ":", "\r")
 	// make 2D waves to display in scanGraph, or a 3D wave if acquiring and averaging
-	if ((mode == kLineScan) || (mode == kSingleImage))
+	if ((mode == kLineScan) || (mode == kSingleImage) || (mode == kLiveMode))
 		// for line scans and single image, just display the scan waves as the scanGraph waves.
-		// This is wasteful for very long linescans if you want to display a merged channel
 		WAVE/z scanGraph_Ch1 = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch1"
 		WAVE/z scanGraph_Ch2 = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch2"
 		if (isAcquire)
@@ -875,17 +995,12 @@ Function NQ_NewScanGraph (curScan)
 	s.graphName = "twoPscanGraph"
 	s.graphTitle = "twoP Scan:" +  curScan
 	if (mode == kLineScan)
-		s.aspectRatio =0
+		s.holdAspect =0
 	else
-		s.aspectRatio =1
+		s.holdAspect =1
 	endif
-	s.yokedAxes = 0
 	s.killbehavior = 1
-	s.marginL=1
-	s.marginT=1
-	s.marginR=1
-	s.marginB=1
-	funcref GUIPSubWin_AddProto s.addContent = NQ_MakeScanGraphSubWin
+	funcref GUIPSubWin_AddProto cs.addContent = NQ_MakeScanGraphSubWin
 	// fill out non-variant parts of cs
 	cs.nUserVariables =10
 	// variable 0 is for scan Mode
@@ -949,17 +1064,11 @@ Function NQ_NewScanGraph (curScan)
 	if (isNew)
 		s.nSubWins = showCh1 + showCh2 + showMrg
 		SVAR scanSizeStr = root:Packages:savedWins:twoPscanGraph_pos
-		s.wleft = str2num (stringfromlist (0, scanSizeStr, ","))
-		s.wTop = str2num (stringfromlist (1, scanSizeStr, ","))
-		s.wRight = str2num (stringfromlist (2, scanSizeStr, ","))
-		s.wBottom = str2num (stringfromlist (3, scanSizeStr, ","))
 		s.nCols = s.nSubWins
 		s.nRows = 1
 		s.prefMoreCols =0
 		cs.userVariables [9] = 1
 		// window size should be allowed to grow to (height - TitleBar) and width
-		s.maxWidth = -1
-		s.maxHeight = -1
 		if (showCh1)
 			cs.subWin = "GCH1"
 			cs.userVariables [7] =1
@@ -1095,12 +1204,12 @@ Function NQ_NewScanGraph (curScan)
 		endif
 		if (iSubWIn > 0)
 			s.nSubWins =iSubWin
-			GUIPSubWin_Add (s)
+			GUIPSubWin_Add (cs)
 		else // retitling and refitting not already done by subwinutil_add
 			if (mode == kLineScan)
-				GUIPSubWin_SetAspRat ("twoPscanGraph", 0)
+				//GUIPSubWin_SetAspRat ("twoPscanGraph", 0)
 			else
-				GUIPSubWin_SetAspRat ("twoPscanGraph", 1)
+				//GUIPSubWin_SetAspRat ("twoPscanGraph", 1)
 			endif
 			//SubWinUtil_ImageFitSubWindows ("twoPscanGraph")
 			DoWindow/T twoPscanGraph, s.graphTitle
@@ -1170,20 +1279,21 @@ end
 // Last Modified 2013/08/07 by Jamie Boyd
 Function NQ_MakeScanGraphSubWin (cs)
 	STRUCT GUIPSubWin_ContentStruct &cs
-		
+	
+	
+	
 	// append the image
-	if (cs.userVariables [9] == 1)
-		appendimage cs.userWaves [0]
-		if (cs.UserVariables [0] == kLineScan)
-			variable yEnd = max (4, dimOffset (cs.userWaves [0], 1) + dimSize (cs.UserWaves [0], 1) * dimDelta (cs.UserWaves [0], 1))
-			setaxis left  0, yEnd
-		endif
-		ModifyGraph margin=1, fSize=12, axThick=0, mirror = 0, standoff = 0,tlOffset (bottom)=-25, tlOffset (left)=-30
-		ModifyGraph alblRGB=(65535,65535,65535), tlblRGB=(65535,65535,65535)
-		Label  left "\\U"
-		Label bottom "\\U"
-		setaxis/A/R
+	appendimage cs.userWaves [0]
+	if (cs.UserVariables [0] == kLineScan)
+		variable yEnd = max (4, dimOffset (cs.userWaves [0], 1) + dimSize (cs.UserWaves [0], 1) * dimDelta (cs.UserWaves [0], 1))
+		setaxis left  0, yEnd
 	endif
+	ModifyGraph margin=1, fSize=12, axThick=0, mirror = 0, standoff = 0,tlOffset (bottom)=-25, tlOffset (left)=-30
+	ModifyGraph alblRGB=(65535,65535,65535), tlblRGB=(65535,65535,65535)
+	Label  left "\\U"
+	Label bottom "\\U"
+	setaxis/A/R
+	
 	//show axes?
 	if (cs.userVariables [1] == 1)
 		ModifyGraph nticks=5,noLabel=0
@@ -1218,18 +1328,13 @@ end
 
 //******************************************************************************************************
 // Adds or removes a subwindow from scanGraph according to user's choice
+// the data waves have to exist before doing anything
 // Last modified 2013/08/09 by Jamie Boyd
 Function NQ_ScanGraphDisplayCheckProc(cba) : CheckBoxControl
 	STRUCT WMCheckboxAction &cba
 
 	switch( cba.eventCode )
 		case 2: // mouse up
-			// acquiring?
-			// If acquiring data, we want to make the available channels to match the requested channels.
-			// If in examining mode, we want to limit the requested channels to the available channels
-			Controlinfo /w = twoP_Controls AcquireExamineTab
-			variable isAcquire = (cmpstr (S_Value, "Acquire") == 0) // 1 if called from acquiring tab, 0 if examining.
-			// get reference to scan info string
 			SVAR curScan = root:packages:twoP:examine:curScan
 			SVAR ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
 			if (!(SVAR_EXISTS (scanStr)))
@@ -1238,6 +1343,8 @@ Function NQ_ScanGraphDisplayCheckProc(cba) : CheckBoxControl
 			endif
 			// Get scan mode
 			variable mode = NumberByKey("mode",ScanStr, ":", "\r")
+			
+			variable isAcquire =1
 			// get channel selected from checkBox name (this will be CH1, CH2, or MRG
 			string ChanStr = removeEnding (cba.ctrlname, "check")
 			// structures for subwindow plotting/removing
@@ -1283,12 +1390,13 @@ Function NQ_ScanGraphDisplayCheckProc(cba) : CheckBoxControl
 				variable lineTime = NumberByKey("lineTime", ScanStr, ":", "\r")
 				variable zSize = NumberByKey("NumFrames", ScanStr, ":", "\r")
 				// make 2D waves to display in scanGraph, or a 3D wave if acquiring and averaging
-				if ((mode == kLineScan) || (mode == kSingleImage))
+				if ((mode == kLiveMode) || (mode == kLineScan) || (mode == kSingleImage))
+					
+					
 					// for line scans and single image, just display the scan waves as the scanGraph waves.
-					// This is wasteful for very long linescans if you want to display a merged channel
 					WAVE/z scanGraph_Ch1 = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch1"
 					WAVE/z scanGraph_Ch2 = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch2"
-					if (isAcquire)
+					
 						if (!(dataFolderExists ("root:twoP_Scans:" + curScan)))
 							newDataFolder/O $"root:twoP_Scans:" + curScan
 						endif
@@ -1342,9 +1450,9 @@ Function NQ_ScanGraphDisplayCheckProc(cba) : CheckBoxControl
 						else
 							SetScale/P Y yOffset, yPixSize, "m", scanGraph_ch1
 						endif
-						if ((isAcquire == 1) && (mode != kLiveMode))
+						//if ((isAcquire == 1) && (mode != kLiveMode))
 							fastop scanGraph_ch1 =0
-						endif
+						//endif
 					endif				
 					if (showCh2)
 						if ((DimSize(scanGraph_ch2, 0) != xSize) || (DimSize(scanGraph_ch2, 1) != ySize))
@@ -1357,9 +1465,9 @@ Function NQ_ScanGraphDisplayCheckProc(cba) : CheckBoxControl
 						else
 							SetScale/P Y yOffset, yPixSize, "m", scanGraph_ch2
 						endif
-						if ((isAcquire == 1) && (mode != kLiveMode))
+						//if ((isAcquire == 1) && (mode != kLiveMode))
 							fastop scanGraph_ch2 =0
-						endif
+						//endif
 					endif
 				endif				
 				if (showMrg)
@@ -1377,17 +1485,12 @@ Function NQ_ScanGraphDisplayCheckProc(cba) : CheckBoxControl
 				endif
 				// Add subwindow with subwin utility
 				if (mode == kLineScan)
-					s.aspectRatio =0
+					s.holdAspect =0
 				else
-					s.aspectRatio =1
+					s.holdAspect =1
 				endif
-				s.yokedAxes = 1
 				s.killbehavior = 1
-				s.marginl =1
-				s.marginT =1
-				s.marginR =1
-				s.marginB =1
-				funcref GUIPSubWin_AddProto s.addContent = NQ_MakeScanGraphSubWin
+				funcref GUIPSubWin_AddProto cs.addContent = NQ_MakeScanGraphSubWin
 				// fill out  cs
 				cs.nUserVariables =10
 				cs.UserStrings [0] = CurScan
@@ -1457,7 +1560,7 @@ Function NQ_ScanGraphDisplayCheckProc(cba) : CheckBoxControl
 				// add the content Struct to the main struct
 				s.contentStructs [0] = cs
 				// add the subwindow
-				GUIPSubWin_Add (s)
+				GUIPSubWin_Add (cs)
 				// do some adjustments of displayed images and text
 				string valueStr
 				if ((mode == kZSeries) || (mode == kTimeSeries))
@@ -1505,11 +1608,11 @@ Function NQ_ScanGraphDisplayCheckProc(cba) : CheckBoxControl
 							break
 					endSwitch
 				endif
-			else
+			//else
 				s.contentStructs [0] = cs
-				GUIPSubWin_Remove (s)
-				GUIPSubWin_FitSubWindows ("twoPscanGraph")
-			endif
+				//GUIPSubWin_Remove (cs)
+				//GUIPSubWin_FitSubWindows ("twoPscanGraph")
+		//	endif
 			break
 	endswitch
 	return 0
