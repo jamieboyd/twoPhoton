@@ -215,7 +215,7 @@ Function NQ_SaveAndOrDeleteButtonProc(ba) : ButtonControl
 							STRUCT WMPopupAction pa
 							pa.popStr = newScan
 							pa.eventcode =2
-							NQ_ScansPopMenuProc(pa)
+							twoP_ScansPopMenuProc(pa)
 						else
 							doWindow/K twoPscanGraph
 							doWindow/K twoP_TracesGraph

@@ -60,7 +60,7 @@ Function NQ_fourDCropStack()
 	infoStr = ReplaceNumberByKey("PixWidth", infoStr, (dimSize (aWave, 0)), ":"  , "\r")
 	infoStr = ReplaceNumberByKey("PixHeight", infoStr, (dimSize (aWave, 1)), ":"  , "\r")
 	doWindow/K twoP_ScanGraph
-	NQ_NewScanGraph (curScanStr)
+	twoP_ImScanGraphNew (curScanStr)
 end
 
 
@@ -310,7 +310,7 @@ Function NQ_SubStacks2Stack (basename, startStack, endStack, startFrame, endFram
 	STRUCT WMPopupAction pa
 	pa.eventCode=2
 	pa.popStr = outPutName
-	NQ_ScansPopMenuProc(pa)
+	twoP_ScanPopMenuProc(pa)
 end
 
 //******************************************************************************************************
@@ -512,7 +512,7 @@ Function NQ_fourDdoneMarkingButtonProc(ba) : ButtonControl
 				killwaves ch2old
 			endif
 			doWindow/K twoP_ScanGraph
-			NQ_NewScanGraph (curScan)
+			twoP_ImScanGraphNew (curScan)
 			break
 		case -1: // control being killed
 			break

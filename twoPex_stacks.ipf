@@ -459,7 +459,7 @@ Function NQ_FilterButtonProc(ba) : ButtonControl
 				STRUCT WMPopupAction pa
 				pa.eventCode = 2
 				pa.popStr = outputFolder
-				NQ_ScansPopMenuProc (pa)
+				twoP_ScanPopMenuProc (pa)
 				// also correct imchan, if needed
 				newInfoStr = ReplaceNumberByKey("imChans", newInfoStr, newImChans, ":", "\r") 
 				// copy ePhys

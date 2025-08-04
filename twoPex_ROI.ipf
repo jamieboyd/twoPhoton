@@ -443,7 +443,7 @@ Function NQ_AppendROIandAvg (ROIavg, ROIStr, isDeltaFed)
 	SVAR curScan = root:packages:twoP:examine:curScan
 	doWIndow/F twoPScanGraph
 	if (V_Flag == 0)
-		NQ_NewScanGraph (curScan)
+		twoP_ImScanGraphNew (curScan)
 	else
 		string childrenList = childWindowList ("twoPScanGraph"), graphNameStr, traceList
 		variable ic, nChildren = itemsinlist (childrenList, ";")
