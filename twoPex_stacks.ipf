@@ -475,7 +475,7 @@ Function NQ_FilterButtonProc(ba) : ButtonControl
 				STRUCT WMSliderAction sa
 				sa.eventcode =1
 				sa.curVal = curFramePos
-				NQ_DisplayFramesProc(sa)				
+				twoP_MovieDisplayFrame(sa)				
 			endif
 			break
 	endswitch

@@ -1,7 +1,7 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2025/07/25 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2025/08/04 by Jamie Boyd.
 #pragma IgorVersion = 7
 
 #include "twoP_Prefs"
@@ -72,7 +72,7 @@ Function NQ_ResetAcquire ()
 	
 	doWindow/K twoP_Controls
 	NQ_MakeAcquireFolder (1)
-	NQ_MakeNidaqPanel (1)
+	twoP_ExamineMakePanel ()
 end
 
 //******************************************************************************************************
@@ -616,7 +616,7 @@ Function NQ_AddAcquireControls ()
 	SetVariable LineScanTrig2SetVar disable =1,pos={81.00,353.00},size={110.00,18.00},proc=NQ_SetTimesProc
 	SetVariable LineScanTrig2SetVar,title="on Line"
 	SetVariable LineScanTrig2SetVar,limits={0,inf,1},value=root:Packages:twoP:Acquire:DelayLines2
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "SetVariable LineScanWidthSetVar;SetVariable LineScanXStartSetVar;SetVariable LineScanXStartSetVar; setvariable LineScanXEndSetVar")
+	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "SetVariable LineScanWidthSetVar;SetVariable LineScanXStartSetVar;SetVariable LineScanXStartSetVar;setvariable LineScanXEndSetVar")
 	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "SetVariable LineScanYSetVar;PopupMenu LineScanLinktoPopMenu;TitleBox LineScanLinktoTitleBox;")
 	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "Button LineScanRevertScaleButton;PopupMenu LineScanRevertScalePopMenu;SetVariable LineScanHeightSetVar")
 	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Lines", "SetVariable LineScanTrig1SetVar;SetVariable LineScanTrig2SetVar;SetVariable LineScanPixSizeSetVar")
@@ -897,8 +897,8 @@ Function NQ_ScanChansPopMenuProc(pa) : PopupMenuControl
 					cs.subWin = StringFromList(iRem, removeList, ";")
 					s.contentStructs [iRem] = cs
 				endfor
-				GUIPSubWin_Remove (s)
-				GUIPSubWin_FitSubWindows ("twoPScanGraph" )
+				//GUIPSubWin_Remove (s)
+				//GUIPSubWin_FitSubWindows ("twoPScanGraph" )
 			endif
 			break
 	endswitch
@@ -4859,7 +4859,7 @@ Function  NQ_ScanEnd (scanMode, ScanIsAbort)
 		if (scanMode > 0)
 			GUIPTabClick ("twoP_Controls", "AcquireExamineTab", "Examine")
 		endif
-		NQ_Adjust_Examine_Controls (curScan)
+		twoP_ScanAdjustExamineControls (curScan)
 		NVAR PercentComplete = root:packages:twoP:Acquire:PercentComplete
 		PercentComplete = 0
 		doupdate
@@ -5124,8 +5124,9 @@ Function NQ_LiveHistCheckProc(cba) : CheckBoxControl
 	switch( cba.eventCode )
 		case 2: // mouse up
 			if (cba.checked)
-				NVAR scanChans = root:Packages:twoP:Acquire:ScanChans
-				NQ_MakeHistGraph (scanChans, "LiveScan")
+				//NVAR scanChans = root:Packages:twoP:Acquire:ScanChans
+				//NQ_MakeHistGraph (scanChans, "LiveScan")
+				twoP_HistMakeGraph()
 			endif
 			break
 		case -1: // control being killed

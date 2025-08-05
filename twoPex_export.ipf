@@ -215,7 +215,7 @@ Function NQ_SaveAndOrDeleteButtonProc(ba) : ButtonControl
 							STRUCT WMPopupAction pa
 							pa.popStr = newScan
 							pa.eventcode =2
-							twoP_ScansPopMenuProc(pa)
+							twoP_ScanPopMenuProc(pa)
 						else
 							doWindow/K twoPscanGraph
 							doWindow/K twoP_TracesGraph
@@ -574,7 +574,7 @@ Function NQ_ExportScan_QTMovie (curScan, doOverWrite, inSubFolder)
 	endif
 	variable ii, numFrames = numberbykey ("numFrames", scanStr, ":", "\r")
 	// Bring ScanGraph to the front
-	NQ_NewScanGraph(curScan)
+	twoP_ScanUpdateScanGraph(curScan)
 	// set export path
 	string ExportPathStr
 	if (inSubFolder)
@@ -598,7 +598,7 @@ Function NQ_ExportScan_QTMovie (curScan, doOverWrite, inSubFolder)
 	sa.eventCode = 1
 	for (ii= 0; ii < numFrames; ii += 1)
 		sa.curval = ii
-		NQ_DisplayFramesProc(sa)
+		twoP_MovieDisplayFrame(sa)
 		doUpdate
 		AddMovieFrame
 	endfor

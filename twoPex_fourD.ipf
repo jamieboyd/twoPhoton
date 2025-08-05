@@ -60,7 +60,7 @@ Function NQ_fourDCropStack()
 	infoStr = ReplaceNumberByKey("PixWidth", infoStr, (dimSize (aWave, 0)), ":"  , "\r")
 	infoStr = ReplaceNumberByKey("PixHeight", infoStr, (dimSize (aWave, 1)), ":"  , "\r")
 	doWindow/K twoP_ScanGraph
-	twoP_ImScanGraphNew (curScanStr)
+	twoP_ImGraphNew (curScanStr)
 end
 
 
@@ -512,7 +512,7 @@ Function NQ_fourDdoneMarkingButtonProc(ba) : ButtonControl
 				killwaves ch2old
 			endif
 			doWindow/K twoP_ScanGraph
-			twoP_ImScanGraphNew (curScan)
+			twoP_ImGraphNew (curScan)
 			break
 		case -1: // control being killed
 			break
