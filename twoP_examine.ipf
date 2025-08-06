@@ -667,6 +667,7 @@ Function twoP_ScanUpdateScanGraph (curScan)
 			twoP_ImGraphFillcs (cs, curScan, aChan)
 			GUIPSubWin_Add (cs)
 		endfor
+		GUIPSubWin_FullScale("twoPscanGraph")
 		//GUIPSubWin_ReapportionSubWins ("twoPscanGraph")
 	else // new window from scratch
 		twoP_ImGraphNew (CurScan)
