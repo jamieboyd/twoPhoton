@@ -1,5 +1,6 @@
+#pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3
-#pragma version = 3  	// Last Modified: 2025/07/23 by Jamie Boyd.
+#pragma version = 3  	// Last Modified: 2025/08/05 by Jamie Boyd.
 #pragma IgorVersion = 9
 
 //******************************************************************************************************
@@ -67,7 +68,8 @@ Function NQexROI_add (able)
 	variable/G root:packages:twoP:examine:ROIChan =1
 	variable/G root:packages:twoP:examine:ROIDoMatch = 0
 	String/G root:packages:twoP:examine:ROIScanMatchStr = "*"
-	String/G root:packages:twoP:examine:ROInoteMatchStr = "*"
+	String/G root:packages:twoP:examine:ROInoteKeyStr = "key"
+	String/G root:packages:twoP:examine:ROInoteValueStr = "val1;val2"
 	String/G root:packages:twoP:examine:ROIselChan = ""
 	Variable/G root:packages:twoP:examine:ROIscanSelMode = 0
 	make/o/t/n= 0 root:Packages:twoP:examine:ROIListWave
@@ -132,15 +134,12 @@ Function NQexROI_add (able)
 	TitleBox ROIchansTitle win=twoP_Controls,pos={120.00,550.00},size={23.00,15.00},fSize=12,frame=0
 	TitleBox ROIchansTitle win=twoP_Controls,variable=root:packages:twoP:examine:ROIselChan
 	TitleBox ROIchansTitle win=twoP_Controls, disable = able
-	CheckBox ROIratioCheck win=twoP_Controls,pos={170.00,549.00},size={73.00,16.00},proc=NQ_ROIchanCheckProc
-	CheckBox ROIratioCheck win=twoP_Controls,title="Also Ratio",fSize=12,value=0
-	CheckBox ROIratioCheck win=twoP_Controls, disable = able
-	PopupMenu ROIRatPopUp win=twoP_Controls,pos={248.00,547.00},size={84.00,20.00},proc=NQ_DROIPopMenuProc
+	PopupMenu ROIRatPopUp win=twoP_Controls,pos={166, 547.00},size={84.00,20.00},proc=NQ_ROIPopMenuProc
 	PopupMenu ROIRatPopUp win=twoP_Controls,fSize=12
 	PopupMenu ROIRatPopUp win=twoP_Controls,mode=1,popvalue="Ch1/Ch2",value=#"\"Ch1/Ch2;Ch2/Ch1\""
 	PopupMenu ROIRatPopUp win=twoP_Controls, disable = able
 	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "Button ROIAvgButton;PopupMenu ROIchansPopup;TitleBox ROIchansTitle;",applyAbleState=0)
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "CheckBox ROIratioCheck;PopupMenu ROIRatPopUp;",applyAbleState=0)
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "PopupMenu ROIRatPopUp;",applyAbleState=0)
 	// deltaF/F and background options
 	CheckBox ROIDeltaFCheck win=twoP_Controls,pos={14.00,572.00},size={133.00,16.00}
 	CheckBox ROIDeltaFCheck win=twoP_Controls,title="ΔF/F    Baseline from",fSize=12,value=1
@@ -167,59 +166,39 @@ Function NQexROI_add (able)
 	CheckBox ROICurScanCheck win=twoP_Controls,userdata (gValue) = "root:packages:twoP:examine:ROIscanSelMode"
 	CheckBox ROICurScanCheck win=twoP_Controls,fSize=12,value=1,mode=1
 	CheckBox ROICurScanCheck win=twoP_Controls,disable = able
-	
+	// ROInameMatchCheck
 	CheckBox ROInameMatchCheck win=twoP_Controls,pos={113.00,617.00},size={105.00,15.00},proc=GUIPControls#GUIPRadioButtonProc
 	CheckBox ROInameMatchCheck win=twoP_Controls,title="Name Matching"
 	CheckBox ROInameMatchCheck win=twoP_Controls,userdata="ROICurScanCheck;ROInameMatchCheck;ROInoteMatchCheck"
 	CheckBox ROInameMatchCheck win=twoP_Controls,userdata (gValue) = "root:packages:twoP:examine:ROIscanSelMode"
 	CheckBox ROInameMatchCheck win=twoP_Controls,fSize=12,value=0,mode=1
 	CheckBox ROInameMatchCheck win=twoP_Controls,disable =able
-	
+	// ROInoteMatchCheck
 	CheckBox ROInoteMatchCheck win=twoP_Controls,pos={14.00,635.00},size={124.00,15.00},proc=GUIPControls#GUIPRadioButtonProc
 	CheckBox ROInoteMatchCheck win=twoP_Controls,title="Exp Note Matching"
 	CheckBox ROInoteMatchCheck win=twoP_Controls,userdata="ROICurScanCheck;ROInameMatchCheck;ROInoteMatchCheck"
 	CheckBox ROInoteMatchCheck win=twoP_Controls,userdata(gValue) = "root:packages:twoP:examine:ROIscanSelMode"
 	CheckBox ROInoteMatchCheck win=twoP_Controls,fSize=12,value=0,mode=1
 	CheckBox ROInoteMatchCheck win=twoP_Controls, disable =able
-
-	SetVariable ROInameMatchSetVar win=twoP_Controls,pos={223.00,617.00},size={71.00,18.00},title=" "
-	SetVariable ROInameMatchSetVar win=twoP_Controls,help={"This string is wild-card enabled. Use \"*\" to save all scans."}
-	SetVariable ROInameMatchSetVar win=twoP_Controls,fSize=12
-	SetVariable ROInameMatchSetVar win=twoP_Controls,value=root:packages:twoP:examine:ROIScanMatchStr
-	SetVariable ROInameMatchSetVar win=twoP_Controls, disable =able
-	
-	SetVariable ROInoteMatchSetVar win=twoP_Controls,pos={145.00,635.00},size={71.00,18.00},title=" "
-	SetVariable ROInoteMatchSetVar win=twoP_Controls,help={"This string is wild-card enabled. Use \"*\" to save all scans."}
-	SetVariable ROInoteMatchSetVar win=twoP_Controls,fSize=12
-	SetVariable ROInoteMatchSetVar win=twoP_Controls,value=root:packages:twoP:examine:ROInoteMatchStr
-	SetVariable ROInoteMatchSetVar win=twoP_Controls, disable =able
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "CheckBox ROICurScanCheck;CheckBox ROInameMatchCheck;CheckBox ROInoteMatchCheck;", applyAbleState=0)
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "SetVariable ROInameMatchSetVar;SetVariable ROInoteMatchSetVar;",applyAbleState=0)
+	// ROIKeySetVar
+	SetVariable ROIKeySetVar win=twoP_Controls,pos={89.00,638.00},size={84.00,18.00},title=" Key"
+	SetVariable ROIKeySetVar win=twoP_Controls,help={"Selects scans with this key in key=value;pairs in exp note."}
+	SetVariable ROIKeySetVar win=twoP_Controls,fSize=12
+	SetVariable ROIKeySetVar win=twoP_Controls,value=root:packages:twoP:examine:ROInoteKeyStr
+	SetVariable ROIKeySetVar win=twoP_Controls, disable =able
+	// ROInoteValsSetVar
+	SetVariable ROInoteValsSetVar win=twoP_Controls,pos={179.00,638.00},size={133.00,18.00}
+	SetVariable ROInoteValsSetVar win=twoP_Controls,title="Values",fSize=12
+	SetVariable ROInoteValsSetVar win=twoP_Controls,help={"Selects scans with these values in key=value;pairs in exp note."}
+	SetVariable ROInoteValsSetVar win=twoP_Controls,value=root:packages:twoP:examine:ROInoteValueStr
+	SetVariable ROInoteValsSetVar win=twoP_Controls, disable =able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "CheckBox ROICurScanCheck;CheckBox ROInameMatchCheck;CheckBox ROInoteMatchCheck;")
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "SetVariable ROInameMatchSetVar;SetVariable ROIKeySetVar;SetVariable ROInoteValsSetVar;")
 end
 
 
 function NQexROI_Update()
 	NQ_ListRois ()
-end
-
-
-function/S twoP_SelectROIChans ()
-	
-	SVAR curScan = root:packages:twoP:examine:curScan
-	SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-	string chanList = StringByKey("imChanDesc", scanStr, ":", "\r")
-	
-	SVAR selChans = root:packages:twoP:examine:ROIselChan
-	variable iChan, nChans = itemsInList(chanList, ",")
-	string aChan, outList = ""
-	for (iChan =0; iChan < nChans; iChan += 1)
-		aChan = stringfromlist (iChan, chanList, ",")
-			if (FindListItem(aChan, selChans, ";") > -1)
-				outList += "\\M1!"  +num2char(18)
-			endif
-			outList += aChan + ";"
-	endfor
-	return outList
 end
 
 
@@ -445,8 +424,8 @@ Function NQ_AppendROIandAvg (ROIavg, ROIStr, isDeltaFed)
 	if (V_Flag == 0)
 		twoP_ImGraphNew (curScan)
 	else
-		string childrenList = childWindowList ("twoPScanGraph"), graphNameStr, traceList
-		variable ic, nChildren = itemsinlist (childrenList, ";")
+		string childrenList = RemoveFromList ("controlPanel", childWindowList ("twoPScanGraph")), graphNameStr, traceList
+		variable ic, nChildren =  itemsinlist (childrenList, ";")
 		for (ic =0; iC < nChildren; iC += 1)
 			graphNameStr = "twoPScanGraph#" + stringfromlist (ic, childrenList, ";")
 			traceList = TraceNameList(graphNameStr, ";", 1 )
@@ -487,49 +466,6 @@ Function NQ_ListRois ()
 	endfor
 end
 
-//******************************************************************************************************
-//Manages the ROI channel selection radio buttons, setting a global variable to process either channel, or to do a ratio
-// Last Modified Jul 16 2010 by Jamie Boyd
-Function NQ_ROIchanCheckProc(cba) : CheckBoxControl
-	STRUCT WMCheckboxAction &cba
-
-	switch( cba.eventCode )
-		case 2: // mouse up
-			string tStr = cba.ctrlName 
-			variable chan= str2num (tStr[strlen (tStr)-1])
-			NVAR ROIchan = root:packages:twoP:examine:ROIchan
-			if (cba.checked)
-				SVAR curScan = root:packages:twoP:examine:curScan
-				if (cmpStr (curScan, "LiveWave") == 0)
-					SVAR scanStr =root:packages:twoP:Acquire:LiveModeScanStr
-				else
-					SVAR scanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
-				endif
-				variable imChans = numberbykey ("imChans", scanStr, ":", "\r")
-				if (((chan ==3) && (imChans < 3)) || ((chan & imChans) == 0)) // no, you cant do that
-					checkBox $cba.ctrlName win=twoP_Controls,  value = 0
-				else
-					ROIChan = chan
-					switch (chan)
-						case 1:
-							checkBox ROIcheck2 win=twoP_Controls,  value = 0
-							checkBox ROIcheck3 win=twoP_Controls,  value = 0
-							break
-						case 2:
-							checkBox ROIcheck1 win=twoP_Controls,  value = 0
-							checkBox ROIcheck3 win=twoP_Controls,  value = 0
-							break
-						case 3:
-							checkBox ROIcheck1 win=twoP_Controls,  value = 0
-							checkBox ROIcheck2 win=twoP_Controls,  value = 0
-							break
-					endSwitch
-				endif
-			endif
-			break
-	endswitch
-	return 0
-End
 
 //******************************************************************************************************
 // sets ratio top channel for ROI analysis
@@ -605,18 +541,8 @@ Function NQ_NewRoiButtonProc(ba) : ButtonControl
 			variable drawMethod = V_Value //1=Freehand;2=Vertices;3=Marquee"
 			// subwin for twoPScanGraph
 			if ((cmpStr (onWindow, "twoPScanGraph") ==0) && (drawMethod != 3))
-				NVAR ROIChan = root:packages:twoP:examine:roiChan
-				switch (ROIChan)
-					case 1:
-						onWindow = "Gch1"
-						break
-					case 2:
-						onWindow = "Gch2"
-						break
-					case 3:
-						onWindow = "Gmrg"
-						break
-				endSwitch
+				SVAR ROIChan = root:packages:twoP:examine:roiSelChan
+				onWindow = "G" + ROIChan
 				// if selected channel is not displayed, just use first subwindow
 				if (WhichListItem(OnWindow, childWindowList ("twoPScanGraph"),  ";")  == -1)
 					OnWindow = "twoPScanGraph#" + stringFromList (0, childWindowList ("twoPScanGraph"))
@@ -628,11 +554,7 @@ Function NQ_NewRoiButtonProc(ba) : ButtonControl
 				if (cmpStr (onWindow, "twoPScanGraph") ==0) // check subwins for twoPScanGraph
 					getmarquee
 					// which channel, i.e., which subWindow was marquee drawn on
-					if (round (numberbykey ("IGORVERS", IgorInfo(0), ":", ";")) == 5)
-						onWindow = "twoPScanGraph" + NQ_GetMarqueeSubWinFor5 ("twoPScanGraph", V_left, V_bottom)
-					else
-						onWindow = S_marqueeWin
-					endif
+					onWindow = S_marqueeWin
 				endif
 				// Get Marquee coordinates
 				getmarquee/K left,bottom
@@ -838,31 +760,18 @@ Function NQ_RoiNudgeProc(ba) : ButtonControl
 				SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 			endif
 			// window to plot on
-			controlinfo/w=twoP_Controls ROIonWindowPopup
-			string onWindow = S_Value
-			doWindow/F $S_Value
+			SVAR ROIChan = root:packages:twoP:examine:roiSelChan
+			string OnWindow = "G" + ROIChan
+			// if selected channel is not displayed, just use first subwindow
+			if (WhichListItem(OnWindow, childWindowList ("twoPScanGraph"),  ";")  == -1)
+				OnWindow = "twoPScanGraph#" + stringFromList (0, childWindowList ("twoPScanGraph"))
+			else
+				OnWindow = "twoPScanGraph#" + onWindow
+			endif
+			doWindow/F twoPScanGraph
 			if (!(V_Flag))
 				doalert 0, "The selected graph no longer exists."
 				return 1
-			endif
-			// check subwin for twoPScanGraph
-			if (cmpStr (onWindow, "twoPScanGraph") ==0)
-				NVAR ROIChan = root:packages:twoP:examine:roiChan
-				switch (ROIChan)
-					case 1:
-						onWindow = "twoPScanGraph#Gch1"
-						break
-					case 2:
-						onWindow = "twoPScanGraph#Gch2"
-						break
-					case 3:
-						onWindow = "twoPScanGraph#Gmrg"
-						break
-				endSwitch
-				// if selected channel is not displayed, just use first subwindow
-				if (WhichListItem(stringfromlist (1, onWindow, "#"), childWindowList (stringfromlist (0, onWindow, "#")), ";") == -1) // subwin not present
-					onWindow = "twoPScanGraph#" + stringFromList  (0, childWindowList (stringfromlist (0, onWindow, "#")))
-				endif
 			endif
 			// get a list of traces already on the graph, so they are not added 2x
 			string tracelist = tracenamelist (onWIndow, ";", 1)
@@ -993,8 +902,8 @@ Function NQ_ROIDuplicateButtonProc(ba) : ButtonControl
 End
 
 //******************************************************************************************************
-// does an ROI avg of each selected ROI on the current scan ^^^
-// Last Modified 2014/03/07 by Jamie Boyd
+// does an ROI avg of each selected ROI on the current scan
+// Last Modified 2025/08/05 by Jamie Boyd
 Function NQ_ROIRunButtonProc (ba) : ButtonControl
 	STRUCT WMbuttonAction &ba		
 		
@@ -1002,15 +911,18 @@ Function NQ_ROIRunButtonProc (ba) : ButtonControl
 		case 2: // mouse up
 			// get current scan and info string
 			string doroiList
-			
-			NVAR roiDoMatch = root:packages:twoP:examine:roiDoMatch
-			if (roiDoMatch) // doing a range of scans
+			SVAR curScan = root:packages:twoP:examine:curScan
+			SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
+			NVAR ROIscanSelMode =root:packages:twoP:examine:ROIscanSelMode
+			if (ROIscanSelMode == 0) // doing a single scan
+				doroiList = curScan + ";"
+			elseif (ROIscanSelMode == 1) // chosen by scan name wildcard matching
 				SVAR roiMatchStr = root:packages:twoP:examine:ROIScanMatchStr
 				doroiList  = GUIPListObjs("root:twoP_Scans", 4, roiMatchStr, 0, "") 
-			else
-				SVAR curScan = root:packages:twoP:examine:curScan
-				SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-				doroiList = curScan + ";"
+			elseif (ROIscanSelMode == 2) // chosen by waveNote key value pairs
+				SVAR key = root:packages:twoP:examine:ROInoteKeyStr
+				SVAR ValueList = root:packages:twoP:examine:ROInoteValueStr
+				doroiList = ROI_ListScansByNoteKeys (Key, ValueList)
 			endif
 			variable iScan, nScans = itemsinList (doroiList)
 			string aScan
@@ -1022,10 +934,32 @@ Function NQ_ROIRunButtonProc (ba) : ButtonControl
 	endSwitch
 end
 
+
+Function/S ROI_ListScansByNoteKeys (Key, ValueList)
+	string Key
+	string ValueList
+	
+	string matchList
+	string scanList = GUIPListObjs("root:twoP_Scans", 4, "*", 0, "") 
+	variable iScan, nScans = itemsInList(scanList)
+	string aScan, expNote, keyVal
+	for (iScan =0; iScan < nScans; iScan +=1)
+		aScan = StringFromList(iScan, scanList)
+		SVAR/Z infoStr = $"root:twoP_Scans:" + aScan + ":" + aScan + "_info"
+		expNote = StringByKey("ExpNote", infoStr, ":", "\r")
+		keyVal = StringByKey (Key, expNote, "=", ";")
+		if (WhichListItem(KeyVal, ValueList, ";", 0,0) >= 0)
+			matchList += aScan
+		endif
+	endfor
+	return matchList
+end
+
+
+
 Function NQ_DoRoiFromList (curScan)
 	string curScan
 			
-
 	SVAR ScanNote = $"root:twoP_Scans:" + curscan  + ":" + curScan +  "_info"
 	variable scanMode = numberByKey ("Mode", scanNote, ":", "\r")
 	if (!(((scanMode == kLineScan) || (scanMode == kTimeSeries)) || (scanMode == kZseries)))
@@ -1081,8 +1015,8 @@ Function NQ_DoRoiFromList (curScan)
 		NVAR ROIbaseStart = root:packages:twoP:examine:ROIbaseStart
 		NVAR ROIBaseEnd = root:packages:twoP:examine:ROIbaseEnd
 	endif
-	NVAR ROIchan = root:packages:twoP:examine:ROIchan
-	if (ROIChan == 3) // do ROI ratio
+	SVAR ROIchan = root:packages:twoP:examine:ROISelChan
+	if (cmpStr (ROIChan, "ratio") == 0) // do ROI ratio
 		NVAR TopChan =root:packages:twoP:examine:ROITopChan
 		if (topChan == 1)
 			Wave/z topWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch1"
@@ -1096,9 +1030,9 @@ Function NQ_DoRoiFromList (curScan)
 			return 1
 		endif
 	else
-		WAVE/z chWave = $"root:twoP_Scans:" + curScan + ":" + curScan+ "_ch" + num2str (ROIChan)
+		WAVE/z chWave = $"root:twoP_Scans:" + curScan + ":" + curScan+ "_" + ROIChan
 		if (!(WaveExists (chWave)))
-			doAlert 0, "The selected scan \"" + curScan + "\" does not have channel " + num2str (ROIChan) + ", so no ROI avg for you."
+			doAlert 0, "The selected scan \"" + curScan + "\" does not have channel " + ROIChan + ", so no ROI avg for you."
 			return 1
 		endif
 	endif
@@ -1132,10 +1066,10 @@ Function NQ_DoRoiFromList (curScan)
 		green = NumberByKey("Green", note (roix), ":", ";")
 		blue = NumberByKey("Blue", note (roix), ":", ";")
 		string ROIAvgBaseName
-		if (roiChan == 3)
+		if (cmpStr (roiChan, "ratio") == 0)
 			ROIAvgBaseName = "root:twoP_Scans:" + curScan + ":" + ROIListWave [iROI] + "_ratio"
 		else
-			ROIAvgBaseName  = "root:twoP_Scans:" + curScan + ":" + ROIListWave [iROI] + "_ch" + num2str (roiChan) + "avg"
+			ROIAvgBaseName  = "root:twoP_Scans:" + curScan + ":" + ROIListWave [iROI] + "_" + roiChan + "avg"
 		endif
 		if (waveExists ($ROIAvgBaseName))
 			For (ii =1; WaveExists($ROIAvgBaseName + num2str (ii)) == 1; ii += 1)
@@ -1156,20 +1090,20 @@ Function NQ_DoRoiFromList (curScan)
 		note RoiAvg, "ImWave:" + CurScan + ";ROI:" +ROIListWave [iROI] + ";Red:" + num2str (red) + ";Green:" + num2str (green) + ";Blue:" + num2str (blue) + ";deltafed:0;"
 		// do the ROI
 		if (scanMode == kLineScan)
-			if (roiChan == 3)
+			if (cmpStr (roiChan, "ratio") == 0)
 				NQ_doSquareROIRatio (topWave, bottomWave, ROIListWave [iROI], ROIavg, darkL, darkR, darkT, darkB)
 			else
 				NQ_doLineScanROIavg (chWave, ROIListWave [iROI], ROIavg, darkL, darkR)
 			endif
 		else // a 3D scan
 			if (cmpStr (roiType, "ROISquare") == 0)
-				if (roiChan == 3)
+				if (cmpStr (roiChan, "ratio") == 0)
 					NQ_doSquareROIRatio (topWave, bottomWave, ROIListWave [iROI], ROIavg, darkL, darkR, darkT, darkB)
 				else
 					NQ_doSquareROIavg (chWave, ROIListWave [iROI], ROIavg, darkL, darkR, darkT, darkB)
 				endif
 			elseif (cmpStr (roiType, "ROIPoly") == 0)
-				if (roiChan == 3)
+				if (cmpStr (roiChan, "ratio") == 3)
 					NQ_doPolyROIRatio (topWave, bottomWave, ROIListWave [iROI], ROIavg, darkL, darkR, darkT, darkB)
 				else
 					NQ_doPolyROIavg (chWave, ROIListWave [iROI], ROIavg, darkL, darkR, darkT, darkB)

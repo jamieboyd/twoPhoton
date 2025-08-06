@@ -59,7 +59,7 @@ function HB ()
 	string noteStr = StringByKey("ExpNote", scanInfo, ":", "\r")
 	notestr = replaceNumberbykey ("heartbeat", noteStr, round (V_maxloc * 100)/100, "=", ";")
 	scanInfo = replaceStringBykey ("ExpNote", scanInfo, noteStr, ":", "\r")
-	 NQ_showNote ("root:NIDAQ_Scans:" + CurScan + ":" + curScan +"_info")
+	 twoP_ScanShowNote("root:NIDAQ_Scans:" + CurScan + ":" + curScan +"_info")
 	doWIndow/F Graph0
 	
 	
@@ -1168,7 +1168,7 @@ function NQ_GetDepth ()
 	expNote = ReplaceNumberByKey("depth", expNote, depth, "=", ";")
 	expNote=RemoveByKey("Rotation", expNote, "=", ";")
 	infoStr = ReplaceStringByKey("ExpNote", infoStr, expNote, ":", "\r")
-	NQ_showNote ("root:NIDAQ_Scans:" + CurScan + ":" + curScan +"_info")
+	twoP_ScanShowNote ("root:NIDAQ_Scans:" + CurScan + ":" + curScan +"_info")
 end
 
 //******************************************************************************************************
@@ -1206,12 +1206,12 @@ Function NQ_ShowLSPos (theLineScan, chanStr)
 	STRUCT WMPopupAction pa	
 	pa.eventCode =2
 	pa.popStr = linkWaveStr
-	NQ_ScansPopMenuProc(pa)
+	twoP_ScanPopMenuProc(pa)
 	NVAR showCh = $"root:Packages:twoP:examine:show" + chanStr
 	showCh =1
 	STRUCT WMCheckboxAction cba
 	 cba.eventCode = 2
-	NQ_ScanGraphDisplayCheckProc(cba)
+	//NQ_ScanGraphDisplayCheckProc(cba)
 	// draw line scan position on the subgraph for selected channel
 	SetDrawLayer/W=$"Nidaq_ScanGraph#G" + chanStr ProgFront
 	SetDrawEnv/W=$"Nidaq_ScanGraph#G" + chanStr xcoord= bottom,ycoord= left,fillpat= 0,linefgc= (0,0,0),linethick= 3.00
@@ -1404,7 +1404,7 @@ end
 	endif
 	expNote = ReplaceNumberByKey("blockage", expNote, deadZone, "=", ";")
 	infoStr = ReplaceStringByKey("ExpNote", infoStr, expNote, ":", "\r")
-	NQ_showNote ("root:NIDAQ_Scans:" + CurScan + ":" + curScan +"_info")
+	twoP_ScanShowNote ("root:NIDAQ_Scans:" + CurScan + ":" + curScan +"_info")
  end
  
  
@@ -1511,3 +1511,61 @@ end
 //	endfor
 //	return 0
 end
+
+
+//******************************************************************************************************
+// Adds info from exp note to shared waves results structure
+// assumes numeric values shoyld be in 32 bit floating point waves, string values should be in text waves
+//  Last Modified Nov 03  2011 by Jamie Boyd
+//Function NQ_ParseNoteKeys (expNote, s)
+//	string expNote
+//	STRUCT SharedWavesStruct &s
+//	
+//	variable sp, ep // start and end positions of keyname
+//	// first key might be first thing in note, or may be separated from non-key/value pairs by a ";"
+//	ep = strsearch(expNote, "=", 0)
+//	if (ep ==-1)
+//		return 0
+//	endif
+//	sp = strsearch(expNote, ";", 0)
+//	if ((sp == -1) || (sp > ep))
+//		sp = -1
+//	endif
+//	NQ_AddANoteKey (expNote, sp, ep, s)
+//	do
+//		sp = strsearch(expNote, ";", ep)
+//		if (sp ==-1)
+//			return 0
+//		endif
+//		ep = strsearch(expNote, "=", sp)
+//		if (ep ==-1)
+//			return 0
+//		else
+//			NQ_AddANoteKey (expNote, sp, ep, s)
+//		endif
+//	while (1)
+//end
+
+//******************************************************************************************************
+// Adds info for a single key to shared waves results structure
+// assumes numeric values shoyld be in 32 bit floating point waves, string values should be in text waves, no dimension units are set
+// Last Modified Nov 03  2011 by Jamie Boyd
+//Function NQ_AddANoteKey (expNote, sp, ep, s)
+//	string expNote
+//	variable sp, ep
+//	STRUCT SharedWavesStruct &s
+//	
+//	string aKey = expNote [sp +1, ep-1]
+//	s.resultWaveNames [s.nResults] = aKey
+//	string aStrVal = StringByKey(aKey, expNote, "=", ";")
+//	variable aNumVal = NumberByKey(aKey, expNote, "=", ";") 
+//	if (numtype (aNumVal) == 0)
+//		 s.resultVariables [s.nResults] = aNumVal
+//		s.resultWaveTypes [s.nResults] = 2 // 32 bit float
+//	else
+//		 s.resultStrings [s.nResults] = aStrVal
+//		s.resultWaveTypes [s.nResults] = 0 // text
+//	endif
+//	s.resultWaveUnits [s.nResults] = ""
+//	s.nResults +=1
+//end

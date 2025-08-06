@@ -8,7 +8,6 @@
 #include "GUIPList"
 #include "GUIPProtoFuncs"
 #include "GUIPSubWinUtils"
-#include "GUIPKillDisplayedWave"
 
 // These include files can be found in the "GUIP" folder in the User Procedures folder in the Igor Pro folder
 
@@ -1026,7 +1025,7 @@ Function twoP_ImGraphSubWin (cs)
 	STRUCT GUIPSubWin_ContentStruct &cs
 	// append the image
 	appendimage cs.userWaves [0]
-	ModifyGraph margin=1, fSize=12, axThick=0, tick=2,mirror = 0, standoff = 0,tlOffset (bottom)=-25, tlOffset (left)=-30
+	ModifyGraph margin=1, fSize=12, axThick=1, tick=2,mirror = 0, standoff = 0,tlOffset (bottom)=-25, tlOffset (left)=-30
 	ModifyGraph axRGB(left)=(65535,65535,65535),tlblRGB(left)=(65535,65535,65535),alblRGB(left)=(65535,65535,65535)
 	ModifyGraph axRGB(bottom)=(65535,65535,65535),tlblRGB(bottom)=(65535,65535,65535),alblRGB(bottom)=(65535,65535,65535)
 	Label  left "\\U"
@@ -2982,7 +2981,7 @@ Function twoP_MovieDisplayFrame(sa) : SliderControl
 						sprintf valueStr "%.2W0Pm",  numberbyKey ("zPos", scanStr, ":", "\r") + curval* numberbyKey ("zStepSize", scanStr, ":", "\r")
 					endif
 					ProjectZSlice (chanWave, scanGraphWave, curval)
-					TextBox/W = twoPscanGraph#GCH1/C/N=PosText/F=0/A=LT/X=0.00/Y=0.00 aChan + ": " + valueStr
+					TextBox/W = $"twoPscanGraph#G" + aChan/C/N=PosText/F=0/A=LT/X=0.00/Y=0.00 aChan + ": " + valueStr
 				endfor
 			elseif ((sa.eventCode & 2) && (sa.eventMod & 2))
 				// On mouse down AND shift key held, set global variable for start position of Kalman or Projection
@@ -3008,7 +3007,7 @@ Function twoP_MovieDisplayFrame(sa) : SliderControl
 						WAVE chanWave =  $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
 						WAVE scanGraphWave  = $"root:packages:twoP:examine:scanGraph_" + aChan
 						ProjectSpecFrames (chanWave, min (FrameSliderStart, sa.curval), max (FrameSliderStart, sa.curval), scanGraphWave, 0, 2, 1)
-						TextBox/W = twoPscanGraph#GCH1/C/N=PosText/F=0/A=LT/X=0.00/Y=0.00 aChan + ": " + valueStr
+						TextBox/W = $"twoPscanGraph#G" + aChan/C/N=PosText/F=0/A=LT/X=0.00/Y=0.00 aChan + ": " + valueStr
 					endfor
 				else // mode = time series
 					variable frameTime = numberbyKey ("FrameTime", scanStr, ":", "\r")
@@ -3025,7 +3024,7 @@ Function twoP_MovieDisplayFrame(sa) : SliderControl
 						WAVE chanWave =  $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
 						WAVE scanGraphWave  = $"root:packages:twoP:examine:scanGraph_" + aChan
 						KalmanSpecFrames (chanWave, min (FrameSliderStart, sa.curval), max (FrameSliderStart, sa.curval), scanGraphWave, 0,16)
-						TextBox/W = twoPscanGraph#GCH1/C/N=PosText/F=0/A=LT/X=0.00/Y=0.00 aChan + ": " + valueStr
+						TextBox/W = $"twoPscanGraph#G" + aChan/C/N=PosText/F=0/A=LT/X=0.00/Y=0.00 aChan + ": " + valueStr
 					endfor
 				endif
 			endif
@@ -3053,62 +3052,6 @@ Function ExamineTabCtrl_proc (tca): TabControl
 	endif
 end
 
-//******************************************************************************************************
-// Adds info from exp note to shared waves results structure
-// assumes numeric values shoyld be in 32 bit floating point waves, string values should be in text waves
-// Last Modified Nov 03  2011 by Jamie Boyd
-//Function NQ_ParseNoteKeys (expNote, s)
-//	string expNote
-//	STRUCT SharedWavesStruct &s
-//	
-//	variable sp, ep // start and end positions of keyname
-//	// first key might be first thing in note, or may be separated from non-key/value pairs by a ";"
-//	ep = strsearch(expNote, "=", 0)
-//	if (ep ==-1)
-//		return 0
-//	endif
-//	sp = strsearch(expNote, ";", 0)
-//	if ((sp == -1) || (sp > ep))
-//		sp = -1
-//	endif
-//	NQ_AddANoteKey (expNote, sp, ep, s)
-//	do
-//		sp = strsearch(expNote, ";", ep)
-//		if (sp ==-1)
-//			return 0
-//		endif
-//		ep = strsearch(expNote, "=", sp)
-//		if (ep ==-1)
-//			return 0
-//		else
-//			NQ_AddANoteKey (expNote, sp, ep, s)
-//		endif
-//	while (1)
-//end
-
-//******************************************************************************************************
-// Adds info for a single key to shared waves results structure
-// assumes numeric values shoyld be in 32 bit floating point waves, string values should be in text waves, no dimension units are set
-// Last Modified Nov 03  2011 by Jamie Boyd
-//Function NQ_AddANoteKey (expNote, sp, ep, s)
-//	string expNote
-//	variable sp, ep
-//	STRUCT SharedWavesStruct &s
-//	
-//	string aKey = expNote [sp +1, ep-1]
-//	s.resultWaveNames [s.nResults] = aKey
-//	string aStrVal = StringByKey(aKey, expNote, "=", ";")
-//	variable aNumVal = NumberByKey(aKey, expNote, "=", ";") 
-//	if (numtype (aNumVal) == 0)
-//		 s.resultVariables [s.nResults] = aNumVal
-//		s.resultWaveTypes [s.nResults] = 2 // 32 bit float
-//	else
-//		 s.resultStrings [s.nResults] = aStrVal
-//		s.resultWaveTypes [s.nResults] = 0 // text
-//	endif
-//	s.resultWaveUnits [s.nResults] = ""
-//	s.nResults +=1
-//end
 
 
 //******************************************************************************************************
