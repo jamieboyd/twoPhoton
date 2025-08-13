@@ -1,6 +1,6 @@
 #pragma rtGlobals=3
 #pragma IgorVersion = 6.2
-#pragma version = 2.1  // Last Modified: 2025/08/08 by Jamie Boyd
+#pragma version = 2.1  // Last Modified: 2025/08/13 by Jamie Boyd
 
 #include <SaveRestoreWindowCoords>
 #include "twoP_ExConstants"
@@ -674,6 +674,9 @@ Function twoP_ScanUpdateScanGraph (curScan)
 	string scanChans = StringByKey("imChanDesc", ScanInfo, ":", "\r")
 	// which channels are selected?
 	SVAR selChans = root:packages:twoP:examine:ScanGraphSelChans
+	if (itemsInList(selChans, ",") ==0)
+		selChans = scanChans
+	endif
 	// remove what don't belong
 	// make sure selected chans are in scan chans
 	variable iChan, nChans = itemsInList (selChans, ",")
@@ -1019,43 +1022,59 @@ Function twoP_ImGraphFillcs (cs, curScan, aChan)
 		cs.UserStrings [iROI + 3] = StringByKey("ROI", note (anAvg), ":", ";")
 	endfor
 	// add channel info
-	// make sure wave for the channel exists. For lineScan, single image, liveScan, this is the scanGraph image
-	WAVE/Z ScanWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
-	if (!(waveExists (ScanWave)))
-		doAlert 0, "Channel " + aChan + " does not exist for " + curScan
-		return 1
-	endif
-
-	if ((mode == kTimeSeries) || (mode == kZSeries))  // make a separate 2D image to display a frame of 3D stack
-		// make or redimension 2D waves for scanGraph
-		WAVE/Z channelWave = $"root:packages:twoP:examine:scanGraph_" + aChan
+	if (cmpStr (aChan, "RGB") == 0)
+		WAVE/Z channelWave = root:packages:twoP:examine:RGBwave
 		if (WaveExists(channelWave))
 			if ((DimSize(channelWave, 0) != xSize) || (DimSize(channelWave, 1) != ySize))
-				redimension/n= ((xSize), (ySize)) channelWave
+				redimension/n= ((xSize), (ySize), 3) channelWave
 			endif
 		else
-			make/w/u/n=(xSize, ySize) $"root:packages:twoP:examine:scanGraph_" + aChan
-			WAVE channelWave = $"root:packages:twoP:examine:scanGraph_" + aChan
+			make/B/U/n= ((xSize), (ySize), 3) root:packages:twoP:examine:RGBwave
+			WAVE channelWave = root:packages:twoP:examine:RGBwave
 		endif
 		SetScale/P X, xOffset, xPixSize, "m", channelWave
 		SetScale/P Y yOffset, yPixSize, "m", channelWave
-		// if acquiring, displayed waves have already been made and zeroed
-		if (isAcquire)
-			sprintf cs.UserStrings[2], "%s", aChan
-		else
-			if (mode == kTimeSeries)
-				// make a kalman averge of first 20 frames
-				KalmanSpecFrames (ScanWave, 0, max (20, zSize), channelWave, 0, 16)
-				sprintf cs.UserStrings[2], "%s:%.2W0Ps to %.2W0Ps", aChan, 0, frameTime*max (20, zSize)
-			else // project all frames for a Zstack
-				ProjectSpecFrames (ScanWave, 0, zSize, channelWave, 0, 2, 1)
-				sprintf cs.UserStrings[2], "%s%.2W0Pm to %.2W0Pm", aChan, zOffset, zOffset + zSize * numberbyKey ("ZstepSize",  ScanInfo, ":", "\r")
-			endif
-		endif
+		sprintf cs.UserStrings[2], "%s", aChan
 		WAVE cs.userWaves[0] = channelWave
 	else
-		sprintf cs.UserStrings[2], "%s", aChan
-		WAVE cs.userWaves[0] = ScanWave
+		// make sure wave for the channel exists. For lineScan, single image, liveScan, this is the scanGraph image
+		WAVE/Z ScanWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
+		if (!(waveExists (ScanWave)))
+			doAlert 0, "Channel " + aChan + " does not exist for " + curScan
+			return 1
+		endif
+		
+		if ((mode == kTimeSeries) || (mode == kZSeries))  // make a separate 2D image to display a frame of 3D stack
+			// make or redimension 2D waves for scanGraph
+			WAVE/Z channelWave = $"root:packages:twoP:examine:scanGraph_" + aChan
+			if (WaveExists(channelWave))
+				if ((DimSize(channelWave, 0) != xSize) || (DimSize(channelWave, 1) != ySize))
+					redimension/n= ((xSize), (ySize)) channelWave
+				endif
+			else
+				make/w/u/n=(xSize, ySize) $"root:packages:twoP:examine:scanGraph_" + aChan
+				WAVE channelWave = $"root:packages:twoP:examine:scanGraph_" + aChan
+			endif
+			SetScale/P X, xOffset, xPixSize, "m", channelWave
+			SetScale/P Y yOffset, yPixSize, "m", channelWave
+			// if acquiring, displayed waves have already been made and zeroed
+			if (isAcquire)
+				sprintf cs.UserStrings[2], "%s", aChan
+			else
+				if (mode == kTimeSeries)
+					// make a kalman averge of first 20 frames
+					KalmanSpecFrames (ScanWave, 0, max (20, zSize), channelWave, 0, 16)
+					sprintf cs.UserStrings[2], "%s:%.2W0Ps to %.2W0Ps", aChan, 0, frameTime*max (20, zSize)
+				else // project all frames for a Zstack
+					ProjectSpecFrames (ScanWave, 0, zSize, channelWave, 0, 2, 1)
+					sprintf cs.UserStrings[2], "%s%.2W0Pm to %.2W0Pm", aChan, zOffset, zOffset + zSize * numberbyKey ("ZstepSize",  ScanInfo, ":", "\r")
+				endif
+			endif
+			WAVE cs.userWaves[0] = channelWave
+		else
+			sprintf cs.UserStrings[2], "%s", aChan
+			WAVE cs.userWaves[0] = ScanWave
+		endif
 	endif
 end
 
@@ -1140,7 +1159,7 @@ Function twoP_ImGraphNew (curScan)
 	// which channels are selected for display
 	SVAR selScanChans = root:packages:twoP:examine:ScanGraphSelChans
 	// limit selScanChans to imchans
-	variable iChan, nChans = itemsInList(selScanChans, ";")
+	variable iChan, nChans = itemsInList(selScanChans, ",")
 	string aChan
 	for (iChan =nChans-1; iChan >= 0; iChan -=1)
 		aChan = stringfromList(iChan, selScanChans, ",")
@@ -1178,7 +1197,7 @@ Function twoP_ImGraphNew (curScan)
 	STRUCT GUIPSubWin_ContentStruct cs
 	// add channel info
 	for (iChan =0; iChan < nChans ; iChan +=1)
-		aChan = stringfromList(iChan, selScanChans, ";")
+		aChan = stringfromList(iChan, selScanChans, ",")
 		twoP_ImGraphFillcs (us.contentStructs [iChan], curScan, aChan)
 	endfor
 	GUIPSubWin_Display (us)
@@ -1202,28 +1221,28 @@ Function twoP_ImGraphNew (curScan)
 	TitleBox SelChansTitle win=twoPscanGraph#controlPanel,variable=root:Packages:twoP:examine:ScanGraphSelChans
 	// RGB
 	CheckBox RGBcheck win=twoPscanGraph#controlPanel,pos={146.00,9.00},size={38.00,15.00},proc=twoP_ImGraphRGBCheckProc
-	CheckBox RGBcheck win=twoPscanGraph#controlPanel,title="RGB",value=0
+	CheckBox RGBcheck win=twoPscanGraph#controlPanel,title="RGB",value=0, fSize=12
 	PopupMenu RedPopMenu win=twoPscanGraph#controlPanel,pos={193.00,7.00},size={32.00,19.00},bodyWidth=32,proc=twoP_imGraphRGBPopMenuProc
 	PopupMenu RedPopMenu win=twoPscanGraph#controlPanel,title="R",fSize=12,fColor=(65535,0,0)
 	PopupMenu RedPopMenu win=twoPscanGraph#controlPanel,mode=0,value=#"twoP_ScanListImChans()+\";BLACK\""
-	TitleBox RedChanTitle win=twoPscanGraph#controlPanel,pos={227.00,9.00},size={21.00,15.00},frame=0
+	TitleBox RedChanTitle win=twoPscanGraph#controlPanel,pos={227.00,9.00},size={21.00,15.00},frame=0,fSize=12
 	TitleBox RedChanTitle win=twoPscanGraph#controlPanel,variable=root:Packages:twoP:examine:RGB_RedChan
 	PopupMenu GreenPopMenu win=twoPscanGraph#controlPanel,pos={283.00,7.00},size={32.00,19.00},bodyWidth=32,proc=twoP_imGraphRGBPopMenuProc
 	PopupMenu GreenPopMenu win=twoPscanGraph#controlPanel,title="G",fSize=12
-	PopupMenu GreenPopMenu win=twoPscanGraph#controlPanel,mode=0,value=#"twoP_ScanListImChans()"
-	TitleBox GreenChanTitle win=twoPscanGraph#controlPanel,pos={316.00,9.00},size={36.00,15.00},frame=0
+	PopupMenu GreenPopMenu win=twoPscanGraph#controlPanel,mode=0,value=#"twoP_ScanListImChans()+\";BLACK\""
+	TitleBox GreenChanTitle win=twoPscanGraph#controlPanel,pos={316.00,9.00},size={36.00,15.00},frame=0,fSize=12
 	TitleBox GreenChanTitle win=twoPscanGraph#controlPanel,variable=root:Packages:twoP:examine:RGB_GreenChan
 	PopupMenu BluePopmenu win=twoPscanGraph#controlPanel,pos={384.00,7.00},size={32.00,19.00},bodyWidth=32,proc=twoP_imGraphRGBPopMenuProc
 	PopupMenu BluePopmenu win=twoPscanGraph#controlPanel,title="B",fSize=12
 	PopupMenu BluePopmenu win=twoPscanGraph#controlPanel,mode=0,value=#"twoP_ScanListImChans()+\";BLACK\""
-	TitleBox BlueChanTitle win=twoPscanGraph#controlPanel,pos={418.00,9.00},size={27.00,15.00},frame=0
+	TitleBox BlueChanTitle win=twoPscanGraph#controlPanel,pos={418.00,9.00},size={27.00,15.00},frame=0,fSize=12
 	TitleBox BlueChanTitle win=twoPscanGraph#controlPanel,variable=root:Packages:twoP:examine:RGB_BlueChan
 	// LUT
 	GroupBox LUTGroup win=twoPscanGraph#controlPanel,pos={1.00,29.00},size={364.00,136.00}
-	PopupMenu LUTchanMenu win=twoPscanGraph#controlPanel,pos={4.00,34.00},size={43.00,19.00},proc=twoP_LUTchanPopMenuProc
+	PopupMenu LUTchanMenu win=twoPscanGraph#controlPanel,pos={4.00,34.00},size={52.00, 20.00},bodyWidth=52, proc=twoP_LUTchanPopMenuProc
 	PopupMenu LUTchanMenu win=twoPscanGraph#controlPanel,title="LUT",fSize=12
 	PopupMenu LUTchanMenu win=twoPscanGraph#controlPanel,mode=0,value=#"twoP_imGraphListDisplayedChans()"
-	TitleBox LUTchanTitle win=twoPscanGraph#controlPanel,pos={51.00,33.00},size={23.00,19.00},fSize=14,frame=0
+	TitleBox LUTchanTitle win=twoPscanGraph#controlPanel,pos={63.00,34.00},size={23.00,19.00},fSize=14,frame=0
 	TitleBox LUTchanTitle win=twoPscanGraph#controlPanel,fStyle=1,variable=root:Packages:twoP:examine:LUTChan
 	PopupMenu LUTpopUp win=twoPscanGraph#controlPanel,pos={102.00,33.00},size={167.00,19.00},bodyWidth=167,proc=twoP_LUTPopMenuProc
 	PopupMenu LUTpopUp win=twoPscanGraph#controlPanel,fSize=12,mode=1,value=#"\"*COLORTABLEPOPNONAMES*\""
@@ -1332,9 +1351,11 @@ Function twoP_imGraphChansPopMenuProc(pa) : PopupMenuControl
 	return 0
 End
 
-
+// *************************************************************************
+// Lists channels displayed in subwindows, excluding RGB
+// Last Modified 2025/080/13 by Jamie Boyd
 Function/s twoP_imGraphListDisplayedChans ()
-	string subwins = removeFromList ("controlPanel", childwindowList ("TwoPScanGraph"))
+	string subwins = removeFromList ("GRGB;controlPanel", childwindowList ("TwoPScanGraph"))
 	variable iSubWin, nSubWins = itemsinList (subwins)
 	string chanList="", aSubWin
 	for (iSubWin=0; iSubWin<nSubWIns; iSubWin+=1)
@@ -1366,6 +1387,105 @@ Function twoP_imGraphShowAxesProc(cba) : CheckBoxControl
 	endswitch
 	return 0
 End
+
+// *************************************************************************
+// Adds or removes RGB image in a a subwindow
+// Last Modified 2025/080/13 by Jamie Boyd
+Function twoP_ImGraphRGBCheckProc(cba) : CheckBoxControl
+	STRUCT WMCheckboxAction &cba
+
+	switch( cba.eventCode )
+		case 2: // mouse up
+			if (cba.checked)
+				SVAR curScan =  root:packages:twoP:examine:curScan
+				STRUCT GUIPSubWin_ContentStruct cs
+				twoP_ImGraphFillcs (cs, curScan, "RGB")
+				GUIPSubWin_Add (cs)
+			else
+				GUIPSubWin_Remove ("twoPscanGraph", "GRGB")
+			endif
+			break
+		case -1: // control being killed
+			break
+	endswitch
+
+	return 0
+End
+
+// *************************************************************************
+// sets cahnnels for layers (colours) of RGB wave
+// Last Modified 2025/080/13 by Jamie Boyd
+Function twoP_imGraphRGBPopMenuProc(pa) : PopupMenuControl
+	STRUCT WMPopupAction &pa
+
+	switch( pa.eventCode )
+		case 2: // mouse up
+			Variable popNum = pa.popNum
+			String popStr = pa.popStr
+			strswitch (pa.ctrlName)
+				case "RedPopMenu":
+					SVAR chanStr = root:packages:twoP:examine:RGB_redChan
+					break
+				case "GreenPopMenu":
+					SVAR chanStr = root:packages:twoP:examine:RGB_greenChan
+					break
+				case "BluePopMenu":
+					SVAR chanStr = root:packages:twoP:examine:RGB_blueChan
+					break
+			endswitch
+			chanStr = pa.popStr
+			twoP_ImGraphSetRGB ()
+			break
+		case -1: // control being killed
+			break
+	endswitch
+
+	return 0
+End
+
+// *************************************************************************
+// Makes and applies a dependeny for RGB wave
+// Last Modified 2025/080/13 by Jamie Boyd
+function twoP_ImGraphSetRGB ()
+
+	string savedfolder = getdataFolder(1)
+	setdatafolder root:packages:twoP:examine
+	WAVE RGBWave
+	SVAR RGB_RedChan
+	SVAR RGB_GreenChan
+	SVAR RGB_BlueChan
+	
+	string redStr, greenStr, blueStr
+	
+	if (cmpStr (RGB_RedChan, "BLACK") ==0)
+		redStr = "0"
+	else
+		variable/G RGB_redScal 
+		setformula RGB_redScal RGB_RedChan + "LastLutColor - " +  RGB_RedChan + "FirstLutColor" 
+		sprintf redStr "min (RGB_redScal, max (0, scanGraph_%s [p][q] - %sFirstLutColor)) / (RGB_redScal/256)", RGB_RedChan, RGB_RedChan
+	endif
+	if (cmpStr (RGB_GreenChan, "BLACK") ==0)
+		redStr = "0"
+	else
+		variable/G RGB_greenScal 
+		setformula RGB_greenScal RGB_GreenChan + "LastLutColor - " +  RGB_GreenChan + "FirstLutColor" 
+		sprintf greenStr "min (RGB_greenScal, max (0, scanGraph_%s [p][q] - %sFirstLutColor)) / (RGB_greenScal/256)", RGB_GreenChan, RGB_GreenChan
+	endif
+	
+	if (cmpStr (RGB_BlueChan, "BLACK") ==0)
+		blueStr = "0"
+	else
+		variable/G RGB_blueScal 
+		setformula RGB_blueScal RGB_BlueChan + "LastLutColor - " +  RGB_BlueChan + "FirstLutColor" 
+		sprintf blueStr "min (RGB_blueScal, max (0, scanGraph_%s [p][q] - %sFirstLutColor)) / (RGB_blueScal/256)", RGB_BlueChan, RGB_BlueChan
+	endif
+	
+	string formulaStr
+	sprintf formulaStr "r == 0 ? %s : r == 1 ? %s : %s", redStr, greenStr, blueStr
+	setformula RGBWave, formulaStr
+	
+	setdatafolder $savedfolder
+end
 
 
 //******************************************************************************************************	
@@ -2047,7 +2167,7 @@ function twoP_LUTmakeChanVars (LUTchan)
 	string LUTchan // name of image channel we are working with
 	
 	Variable/G $"root:packages:twoP:Examine:" + LUTchan + "LUTAuto" =0
-	Variable/G $"root:packages:twoP:Examine:" + LUTchan + "LUTto96"
+	Variable/G $"root:packages:twoP:Examine:" + LUTchan + "LUTto96" =0
 	Variable/G $"root:Packages:twoP:examine:" + LUTChan + "CTable" = 1									// default grey scale
 	String/G $"root:Packages:twoP:examine:" + LUTchan + "CTableStr"="Grays"								// name of color table, popmenu proc wants the name
 	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "LUTInvert" = 0 								// don't invert the LUT
@@ -2206,7 +2326,7 @@ Function twoP_LUTchanPopMenuProc(pa) : PopupMenuControl
 			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kRightThumb, LastLutColor)
 			// Adjust LUT autoCheck
 			checkbox LUTautoCheck win=twoP_Controls, variable = $"root:packages:twoP:examine:" + LUTChan + "LUTauto"
-			checkbox LUT96check win=twoP_Controls, variable =LUTto96
+			checkbox LUT96check win=twoP_Controls, variable = $"root:packages:twoP:examine:" + LUTChan + "LUTto96"
 			if (hasScanGraph)
 				popupmenu LUTpopUp win=twoPScanGraph#controlPanel, mode = CTable
 				checkbox LUTInvertCheck win=twoPScanGraph#controlPanel, variable =inVert
@@ -2215,7 +2335,7 @@ Function twoP_LUTchanPopMenuProc(pa) : PopupMenuControl
 				MinMaxSlider_Manual ("twoPScanGraph#controlPanel", "LUTslider", kLeftThumb, FirstLUTColor)
 				MinMaxSlider_Manual ("twoPScanGraph#controlPanel", "LUTslider", kRightThumb, LastLutColor)
 				checkbox LUTautoCheck win=twoPScanGraph#controlPanel, variable = $"root:packages:twoP:examine:" + LUTChan + "LUTauto"
-				checkbox LUT96check  win=twoPScanGraph#controlPanel, variable =LUTto96
+				checkbox LUT96check  win=twoPScanGraph#controlPanel, variable = $"root:packages:twoP:examine:" + LUTChan + "LUTto96"
 			endif
 
 			// Adjust first color radio buttons and popmenu
@@ -2471,17 +2591,8 @@ Function twoP_LUTtoDataProc(ba) : ButtonControl
 			endif
 			
 			SVAR curScan = root:packages:twoP:examine:curScan
-			if (cmpstr (curScan, "LiveScan") ==0)
-				SVAR/Z ScanStr = root:twoP_Scans:liveScan_info
-			else
-				SVAR/Z ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
-			endif
-			variable scanMode = numberbykey ("mode", curScan, ":", "\r" )
-			if (scanMode == kLiveMode)
-				WAVE scanWave = $"root:twoP_Scans:LiveScan_" + LUTChan
-			else
-				WAVE scanWave =$"root:twoP_Scans:" + curScan + ":" + curScan + "_" +  LUTChan
-			endif
+			SVAR ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
+			WAVE scanWave =$"root:twoP_Scans:" + curScan + ":" + curScan + "_" +  LUTChan
 			// check for limiting to 96% - we need a full histogram, else just max and min
 			NVAR LutTo96 =  $"root:packages:twoP:examine:" + LUTchan + "LUTto96"
 			if (LutTo96)
@@ -2504,8 +2615,10 @@ Function twoP_LUTtoDataProc(ba) : ButtonControl
 			// apply first color and last color to dragger waves
 			leftWave = FirstColor
 			rightWave = LastColor
-			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kRightThumb, LastColor)
 			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kLeftThumb, FirstColor)
+			MinMaxSlider_Manual ("twoPscanGraph#controlPanel", "LUTslider", kLeftThumb, FirstColor)
+			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kRightThumb, LastColor)
+			MinMaxSlider_Manual ("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, LastColor)
 			// Apply image settings
 			if (WhichListItem("G" + LUTChan, childwindowlist ("twoPscanGraph"), ";", 0,0) > -1)
 				twoP_LUTApplysettings (LUTChan)
@@ -2739,184 +2852,13 @@ Function twoP_LUTAutoCheckProc(cba) : CheckBoxControl
 	return 0
 End
 
-//******************************************************************************************************
-// Applies image settings saved in global variables and strings to the current scan wave(s).
-// Channels 1 and 2 are done separately with own copies of global variables
-// Last Modified 2013/08/08 by Jamie Boyd
-Function NQ_ApplyImSettings (channel)
-	variable channel // bit 0 for channel 1, bit 1 for 2 for channel 2, bit 2 for merged image
-
-	variable mode
-	SVAR curScan = root:packages:twoP:examine:curScan
-	// acquiring?
-	Controlinfo /w = twoP_Controls AcquireExamineTab
-	variable isAcquire = (cmpstr (S_Value, "Acquire") == 0) // 1 if called from acquiring tab, 0 if examining.
-	// get reference to scan info string
-	if (isAcquire) // use live mode info
-		SVAR/Z ScanStr = root:twoP_Scans:LiveScan_info
-	else
-		SVAR/Z ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
-	endif
-	if (!(SVAR_EXISTS (scanStr)))
-		doAlert 0, "The info string for the scan, \"" + CurScan + "\" was not found."
-		return 1
-	endif
-	mode = numberbykey ("mode", scanStr, ":", "\r")
-	// bitwise variable for which channels are available
-	variable imChans = NumberByKey("ImChans", scanStr, ":", "\r" )
-	// reference waves displayed in the graph
-	Switch (mode)
-		case kLiveMode:
-		case kZSeries:
-		case kTimeSeries:
-			if  (channel & 5)
-				wave scangraph_ch1 = root:Packages:twoP:examine:scanGraph_ch1
-			endif
-			if (channel & 6)
-				wave scangraph_ch2 = root:Packages:twoP:examine:scanGraph_ch2
-			endif
-			break
-			// 2D waves displayed directly in the graph
-		case kLineScan:
-		case kSingleImage:
-			if  (channel & 5)
-				WAVE scangraph_ch1 =  $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch1"
-			endif
-			if (channel & 6)
-				WAVE scangraph_ch2 = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch2"
-			endif
-			break
-	endSwitch
-	// mrg is always the same
-	if (channel & 4)
-		wave scangraph_mrg = root:Packages:twoP:examine:scanGraph_mrg
-	endif
-	variable rColor, gColor, bColor
-	string ChGraphs = ChildWindowList ("twoPscanGraph")
-	// Do Channel 1, if requested and available
-	if ((Channel & 1) && (WhichListItem("GCH1", ChGraphs) > -1))
-		// Globals
-		SVAR CTableStr = root:Packages:twoP:examine:Ch1CTableStr
-		NVAR inVert =root:Packages:twoP:examine:Ch1LUTInvert
-		NVAR FirstLUTColor = root:Packages:twoP:examine:Ch1FirstLUTColor
-		NVAR LastLutColor = root:Packages:twoP:examine:Ch1LastLUTColor
-		NVAR autoLUT = root:packages:twoP:Examine:Ch1LUTAuto
-		if (autoLUT)
-			ModifyImage/w=twoPscanGraph#GCH1 $nameofwave(scangraph_ch1) ctab= {*,*,$CTableStr,inVert}
-		else
-			ModifyImage/w=twoPscanGraph#GCH1 $nameofwave(scangraph_ch1) ctab= {FirstLUTColor,LastLutColor,$CTableStr,inVert}
-			NVAR beforeMode = root:Packages:twoP:examine:Ch1BeforeMode
-			switch (beforeMode) // 0 means first color, 1 means selected color, 2 means transparent
-				case 0: // Use first color
-					ModifyImage/w=twoPscanGraph#GCH1 $nameofwave(scangraph_ch1), minRGB = 0
-					break
-				case 1: // Use selected color
-					SVAR beforeColors = root:Packages:twoP:examine:Ch1BeforeColors
-					rColor = str2num (stringFromlist (0, beforeColors, ","))
-					gColor = str2num (stringFromlist (1, beforeColors, ","))
-					bColor = str2num (stringFromlist (2, beforeColors, ","))
-					ModifyImage/w=twoPscanGraph#GCH1 $nameofwave(scangraph_ch1), minRGB = (rColor, gColor, bColor)
-					break
-				case 2: // transparent
-					ModifyImage/w=twoPscanGraph#GCH1 $nameofwave(scangraph_ch1), minRGB = NaN
-			endswitch
-			NVAR afterMode =  root:Packages:twoP:examine:Ch1AfterMode
-			switch (afterMode) // 0 means last color, 1 means selected color, 2 means transparent
-				case 0: // Use last color
-					ModifyImage/w=twoPscanGraph#GCH1 $nameofwave(scangraph_ch1), maxRGB = 0
-					break
-				case 1: // Use selected color
-					SVAR afterColors = root:Packages:twoP:examine:Ch1AfterColors
-					rColor = str2num (stringFromlist (0, afterColors, ","))
-					gColor = str2num (stringFromlist (1, afterColors, ","))
-					bColor = str2num (stringFromlist (2, afterColors, ","))
-					ModifyImage/w=twoPscanGraph#GCH1 $nameofwave(scangraph_ch1), maxRGB = (rColor, gColor, bColor)
-					break
-				case 2: // transparent
-					ModifyImage/w=twoPscanGraph#GCH1 $nameofwave(scangraph_ch1), maxRGB = NaN
-			endswitch
-		endif
-	endif
-	// Do Channel 2, if requested
-	if ((channel & 2) && (WhichListItem("GCH2", ChGraphs) > -1))
-		// Globals
-		SVAR CTableStr = root:Packages:twoP:examine:Ch2CTableStr
-		NVAR inVert =root:Packages:twoP:examine:Ch2LUTInvert
-		NVAR FirstLUTColor = root:Packages:twoP:examine:Ch2FirstLUTColor
-		NVAR LastLutColor = root:Packages:twoP:examine:Ch2LastLUTColor
-		NVAR autoLUT = root:packages:twoP:Examine:Ch2LUTAuto
-		if (autoLUT)
-			ModifyImage/w=twoPscanGraph#GCH2 $nameofwave(scangraph_ch2) ctab= {*,*,$CTableStr,inVert}
-		else
-			ModifyImage/w=twoPscanGraph#GCH2 $nameofwave(scangraph_ch2) ctab= {FirstLUTColor,LastLutColor,$CTableStr,inVert}
-			NVAR beforeMode = root:Packages:twoP:examine:Ch2BeforeMode
-			switch (beforeMode) // 0 means first color, 1 means selected color, 2 means transparent
-				case 0: // Use first color
-					ModifyImage/w=twoPscanGraph#GCH2 $nameofwave(scangraph_ch2), minRGB = 0
-					break
-				case 1: // Use selected color
-					SVAR beforeColors = root:Packages:twoP:examine:Ch2BeforeColors
-					rColor = str2num (stringFromlist (0, beforeColors, ","))
-					gColor = str2num (stringFromlist (1, beforeColors, ","))
-					bColor = str2num (stringFromlist (2, beforeColors, ","))
-					ModifyImage/w=twoPscanGraph#GCH2 $nameofwave(scangraph_ch2), minRGB = (rColor, gColor, bColor)
-					break
-				case 2: // transparent
-					ModifyImage/w=twoPscanGraph#GCH2 $nameofwave(scangraph_ch2), minRGB = NaN
-			endswitch
-			NVAR afterMode =  root:Packages:twoP:examine:Ch2AfterMode
-			switch (afterMode) // 0 means last color, 1 means selected color, 2 means transparent
-				case 0: // Use last color
-					ModifyImage/w=twoPscanGraph#GCH2 $nameofwave(scangraph_ch2), maxRGB = 0
-					break
-				case 1: // Use selected color
-					SVAR afterColors = root:Packages:twoP:examine:Ch2AfterColors
-					rColor = str2num (stringFromlist (0, afterColors, ","))
-					gColor = str2num (stringFromlist (1, afterColors, ","))
-					bColor = str2num (stringFromlist (2, afterColors, ","))
-					ModifyImage/w=twoPscanGraph#GCH2 $nameofwave(scangraph_ch2), maxRGB = (rColor, gColor, bColor)
-					break
-				case 2: // transparent
-					ModifyImage/w=twoPscanGraph#GCH2 $nameofwave(scangraph_ch2), maxRGB = NaN
-			endswitch
-		endif
-	endif
-	// Merged channels
-	if ((channel & 4) && (WhichListItem("GMRG", ChGraphs) > -1))
-		NVAR percentComplete = root:packages:twoP:Acquire:percentComplete
-		if ((NVAR_EXISTS (percentComplete) ==0) || (percentComplete == 0))
-			wave outWave =  root:packages:twoP:examine:scanGraph_mrg
-			variable rangevarR, rangeVarG
-			if (kNQRedChan == 1)
-				// red plane is layer 0  is ch1, green plane is layer 1 is channel 2
-				NVAR firstR = root:packages:twoP:examine:CH1FirstLutColor
-				NVAR LastR = root:packages:twoP:examine:CH1LastLutColor
-				NVAR firstG = root:packages:twoP:examine:CH2FirstLutColor
-				NVAR LastG = root:packages:twoP:examine:CH2LastLutColor
-				WAVE redWave = scangraph_ch1
-				WAVE greenWave =scangraph_ch2
-			else
-				NVAR firstR = root:packages:twoP:examine:CH2FirstLutColor
-				NVAR LastR = root:packages:twoP:examine:CH2LastLutColor
-				NVAR firstG = root:packages:twoP:examine:CH1FirstLutColor
-				NVAR LastG = root:packages:twoP:examine:CH1LastLutColor
-				WAVE redWave = scangraph_ch2
-				WAVE greenWave = scangraph_ch1
-			endif
-			rangevarR = 65536/(lastR - firstR)
-			rangeVarG =  65536/(lastG - firstG)
-			scangraph_mrg [] [] [0] =  min (65535, max (0,(redWave [p] [q] - firstR) * rangevarR))
-			scangraph_mrg [] [] [1] =   min (65535, max (0,(greenWave [p] [q]  - firstG) * rangeVarG))
-		endif
-	endif
-end
-
 
 // ******************************************************************************************************
 //-------------------------Code for Dynamic ROI ---------------------------------------------------------
-
 //******************************************************************************************************
-// Makes waves for dynamic ROI and displays them in a graph
+
+// **************************************************************************************
+// Makes waves for dynamic ROI and displays DROI channels in a graph
 // last modified 2025/07/21 by Jamie Boyd
 Function twoP_DROICheckProc(cba) : CheckBoxControl
 	STRUCT WMCheckboxAction &cba
@@ -3196,7 +3138,7 @@ Function twoP_MovieDisplayFrame(sa) : SliderControl
 			Variable curval = sa.curval
 			SVAR curScan = root:Packages:twoP:examine:CurScan
 			SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-			string SubWinList = RemoveFromList ("controlPanel", childwindowlist ("twoPscanGraph"))
+			string SubWinList =  RemoveFromList ("GRGB;controlPanel", childwindowlist ("twoPscanGraph"))
 			string aChan
 			variable iChan, nChans = ItemsInList(SubWinList, ";")
 			string valueStr
@@ -3716,34 +3658,7 @@ function/S scanNote ()
 end
 
 
-Function twoP_ImGraphRGBCheckProc(cba) : CheckBoxControl
-	STRUCT WMCheckboxAction &cba
 
-	switch( cba.eventCode )
-		case 2: // mouse up
-			Variable checked = cba.checked
-			break
-		case -1: // control being killed
-			break
-	endswitch
-
-	return 0
-End
-
-Function twoP_imGraphRGBPopMenuProc(pa) : PopupMenuControl
-	STRUCT WMPopupAction &pa
-
-	switch( pa.eventCode )
-		case 2: // mouse up
-			Variable popNum = pa.popNum
-			String popStr = pa.popStr
-			break
-		case -1: // control being killed
-			break
-	endswitch
-
-	return 0
-End
 
 
 // ***************************************************
