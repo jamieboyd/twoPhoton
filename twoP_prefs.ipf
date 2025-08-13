@@ -497,6 +497,29 @@ Function twoP_PrefsMakeGlobals ()
 end
 
 
+// sets longest acquire time for ephys based on counter size
+function twoP_PrefsSetEphysMax (sva) : SetVariableControl
+	STRUCT WMSetVariableAction &sva
+
+	switch( sva.eventCode )
+		case 1: // mouse up
+		case 2: // Enter key
+		case 3: // Live update
+			Variable dval = sva.dval
+			String sval = sva.sval
+			if (cmpStr ("twoP_Controls", WinList("twoP_Controls", "", "WIN:64" )) ==0)
+				GUIPSISetVarSetMax ("twoP_Controls", "ePhysOnlyTimeSetVar", (2^kNQePhysCounterSize/sva.dval))
+			endif
+			break
+		case -1: // control being killed
+			break
+	endswitch
+
+	return 0
+End
+
+
+
 // **************************************************************************************************************
 // Calls twoP_PrefsLoad with chosen file
 // Last modified 2025/07/09 by Jamie Boyd 
@@ -922,216 +945,209 @@ Function twoP_PrefsMakePanel()
 	NewPanel /K=1/W=(376,54,692,603) as "Scan Settings and Preferences"
 	DoWindow/C Scan_Settings_Prefs
 	// Load Prefs
-	PopupMenu LoadPrefsPopUp,pos={4.00,4.00},size={112.00,19.00},proc=twoP_PrefsLoadPopmenuProc
-	PopupMenu LoadPrefsPopUp,title="Load Preferences"
-	PopupMenu LoadPrefsPopUp,help={"Loads a preference file from desk"}
-	PopupMenu LoadPrefsPopUp,mode=0,value=#"GUIPListFiles(\"twoPprefsPath\",\".bin\",\"twoPPrefs_*\"+\".bin\",5,\"\")"
-	SetVariable LoadedPrefsName,pos={118.00,6.00},size={120.00,18.00},title=" "
-	SetVariable LoadedPrefsName,frame=0, noedit=1
-	SetVariable LoadedPrefsName,value=root:Packages:twoP:Acquire:loadedPrefsName
+	PopupMenu LoadPrefsPopUp win=Scan_Settings_Prefs,pos={4.00,4.00},size={112.00,19.00},proc=twoP_PrefsLoadPopmenuProc
+	PopupMenu LoadPrefsPopUp win=Scan_Settings_Prefs,title="Load Preferences"
+	PopupMenu LoadPrefsPopUp win=Scan_Settings_Prefs,help={"Loads a preference file from desk"}
+	PopupMenu LoadPrefsPopUp win=Scan_Settings_Prefs,mode=0,value=#"GUIPListFiles(\"twoPprefsPath\",\".bin\",\"twoPPrefs_*\"+\".bin\",5,\"\")"
+	SetVariable LoadedPrefsName win=Scan_Settings_Prefs,pos={118.00,6.00},size={120.00,18.00},title=" "
+	SetVariable LoadedPrefsName win=Scan_Settings_Prefs,frame=0, noedit=1
+	SetVariable LoadedPrefsName win=Scan_Settings_Prefs,value=root:Packages:twoP:Acquire:loadedPrefsName
 	// Save Prefs
-	Button SavePrefsButton,pos={12.00,522.00},size={65.00,20.00},proc=twoP_PrefsSave
-	Button SavePrefsButton,title="Save Prefs"
-	SetVariable savePrefsName,pos={80.00,523.00},size={113.00,18.00},title=" "
-	SetVariable savePrefsName,value=root:Packages:twoP:Acquire:newPrefsName
+	Button SavePrefsButton win=Scan_Settings_Prefs,pos={12.00,522.00},size={65.00,20.00},proc=twoP_PrefsSave
+	Button SavePrefsButton win=Scan_Settings_Prefs,title="Save Prefs"
+	SetVariable savePrefsName win=Scan_Settings_Prefs,pos={80.00,523.00},size={113.00,18.00},title=" "
+	SetVariable savePrefsName win=Scan_Settings_Prefs,value=root:Packages:twoP:Acquire:newPrefsName
 	// Check Prefs
-	Button CheckPrefsButton,pos={230.00,522.00},size={77.00,20.00},proc=twoP_PrefsCheckButtonProc
-	Button CheckPrefsButton,title="Check Prefs"
+	Button CheckPrefsButton win=Scan_Settings_Prefs,pos={230.00,522.00},size={77.00,20.00},proc=twoP_PrefsCheckButtonProc
+	Button CheckPrefsButton win=Scan_Settings_Prefs,title="Check Prefs"
 	// Tab control
 	GUIPTabNewTabCtrl ("Scan_Settings_Prefs", "PrefsTabCtrl", tabList="Image_Scaling;ePhys_Trigs;")
-	TabControl PrefsTabCtrl,pos={1.00,25.00},size={314.00,494.00},proc=GUIPTabProc
-	TabControl PrefsTabCtrl,tabLabel(0)="Image_Scaling"
-	TabControl PrefsTabCtrl,tabLabel(1)="Stage_Shutter_ePhys_Trigs",value=0
+	TabControl PrefsTabCtrl win=Scan_Settings_Prefs,pos={1.00,25.00},size={314.00,494.00},proc=GUIPTabProc
+	TabControl PrefsTabCtrl win=Scan_Settings_Prefs,tabLabel(0)="Image_Scaling"
+	TabControl PrefsTabCtrl win=Scan_Settings_Prefs,tabLabel(1)="Stage_Shutter_ePhys_Trigs",value=0
 	// Imaging Tab
 	// Image Board
-	PopupMenu ImageBoardPopMenu,pos={6.00,60.00},size={93.00,19.00},proc=twoP_PrefsSetBoardName
-	PopupMenu ImageBoardPopMenu,title="Image Device"
-	PopupMenu ImageBoardPopMenu,mode=0,value=#"twoP_PrefsListBoards()"
+	PopupMenu ImageBoardPopMenu win=Scan_Settings_Prefs,pos={6.00,60.00},size={93.00,19.00},proc=twoP_PrefsSetBoardName
+	PopupMenu ImageBoardPopMenu win=Scan_Settings_Prefs,title="Image Device"
+	PopupMenu ImageBoardPopMenu win=Scan_Settings_Prefs,mode=0,value=#"twoP_PrefsListBoards()"
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "PopupMenu ImageBoardPopMenu 0;")
-	TitleBox ImageBoardTitle,pos={107.00,64.00},size={42.00,15.00},frame=0
-	TitleBox ImageBoardTitle,variable=root:Packages:twoP:Acquire:imageBoard
+	TitleBox ImageBoardTitle win=Scan_Settings_Prefs,pos={107.00,64.00},size={42.00,15.00},frame=0
+	TitleBox ImageBoardTitle win=Scan_Settings_Prefs,variable=root:Packages:twoP:Acquire:imageBoard
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "TitleBox ImageBoardTitle 0;")
 	// Image Scan full scale
-	GroupBox FullScaleGrp,pos={6.00,89.00},size={305.00,66.00}
-	GroupBox FullScaleGrp,title="Scan Full Scale"
+	GroupBox FullScaleGrp win=Scan_Settings_Prefs,pos={6.00,89.00},size={305.00,66.00}
+	GroupBox FullScaleGrp win=Scan_Settings_Prefs,title="Scan Full Scale"
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "GroupBox FullScaleGrp 0;")
-	SetVariable PixWidSetVar,pos={10.00,108.00},size={85.00,15.00},title="X pix"
-	SetVariable PixWidSetVar,fSize=10
-	SetVariable PixWidSetVar,limits={2,inf,0},value=root:Packages:twoP:Acquire:pixWidthFS
+	SetVariable PixWidSetVar win=Scan_Settings_Prefs,pos={10.00,108.00},size={85.00,15.00},title="X pix"
+	SetVariable PixWidSetVar win=Scan_Settings_Prefs,fSize=10
+	SetVariable PixWidSetVar win=Scan_Settings_Prefs,limits={2,inf,0},value=root:Packages:twoP:Acquire:pixWidthFS
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "SetVariable PixWidSetVar 0;")
-	SetVariable XStartSetVar,pos={101.00,108.00},size={95.00,15.00},proc=GUIPSIsetVarProc
-	SetVariable XStartSetVar,title="X Start"
-	SetVariable XStartSetVar,userdata="ValMin:-10;ValMax:10;AutoIncr:TRUE;MinIncr:1e-3"
-	SetVariable XStartSetVar,fSize=10,format="%.3W1PV"
-	SetVariable XStartSetVar,limits={-inf,inf,0.1},value=root:Packages:twoP:Acquire:xStartVoltsFS
+	SetVariable XStartSetVar win=Scan_Settings_Prefs,pos={101.00,108.00},size={95.00,15.00},proc=GUIPSIsetVarProc
+	SetVariable XStartSetVar win=Scan_Settings_Prefs,title="X Start",userdata=A"_&r^X5p-.-4<rGb!<"
+	SetVariable XStartSetVar win=Scan_Settings_Prefs,fSize=10,format="%.2W1PV"
+	SetVariable XStartSetVar win=Scan_Settings_Prefs,limits={-inf,inf,0.1},value=root:Packages:twoP:acquire:xStartVoltsFS
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "SetVariable XStartSetVar 0;")
-	SetVariable XEndSetVar,pos={205.00,108.00},size={95.00,15.00},title="X End"
-	SetVariable XEndSetVar,userdata="ValMin:-10;ValMax:10;AutoIncr:TRUE;MinIncr:1e-3"
-	SetVariable XEndSetVar,fSize=10,format="%.3W1PV"
-	SetVariable XEndSetVar,limits={-inf,inf,0.1},value=root:Packages:twoP:Acquire:xEndVoltsFS
+	SetVariable XEndSetVar win=Scan_Settings_Prefs,pos={205.00,108.00},size={95.00,15.00},proc=GUIPSIsetVarProc
+	SetVariable XEndSetVar win=Scan_Settings_Prefs,title="X End",userdata=A"_&r^X5p-.-4<rGb!<",fSize=10
+	SetVariable XEndSetVar win=Scan_Settings_Prefs,format="%.2W1PV"
+	SetVariable XEndSetVar win=Scan_Settings_Prefs,limits={-inf,inf,0.1},value=root:Packages:twoP:acquire:xEndVoltsFS
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "SetVariable XEndSetVar 0;")
-	SetVariable PixHeightSetVar,pos={10.00,127.00},size={85.00,15.00}
-	SetVariable PixHeightSetVar,title="Y Pix",fSize=10
-	SetVariable PixHeightSetVar,limits={2,inf,0},value=root:Packages:twoP:Acquire:pixHeightFS
+	SetVariable PixHeightSetVar win=Scan_Settings_Prefs,pos={10.00,127.00},size={85.00,15.00}
+	SetVariable PixHeightSetVar win=Scan_Settings_Prefs,title="Y Pix",fSize=10
+	SetVariable PixHeightSetVar win=Scan_Settings_Prefs,limits={2,inf,0},value=root:Packages:twoP:Acquire:pixHeightFS
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "SetVariable PixHeightSetVar 0;")
-	SetVariable YStartSetVar,pos={101.00,127.00},size={95.00,15.00},proc=GUIPSIsetVarProc
-	SetVariable YStartSetVar,title="Y Start"
-	SetVariable YStartSetVar,userdata="ValMin:-10;ValMax:10;AutoIncr:TRUE;MinIncr:1e-3"
-	SetVariable YStartSetVar,fSize=10,format="%.3W1PV"
-	SetVariable YStartSetVar,limits={-inf,inf,0.1},value=root:Packages:twoP:Acquire:yStartVoltsFS
+	SetVariable YStartSetVar win=Scan_Settings_Prefs,pos={101.00,127.00},size={95.00,15.00},proc=GUIPSIsetVarProc
+	SetVariable YStartSetVar win=Scan_Settings_Prefs,title="Y Start",userdata=A"_&r^X5p-.-4<rGb!<"
+	SetVariable YStartSetVar win=Scan_Settings_Prefs,fSize=10,format="%.2W1PV"
+	SetVariable YStartSetVar win=Scan_Settings_Prefs,limits={-inf,inf,0.1},value=root:Packages:twoP:acquire:yStartVoltsFS
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "SetVariable YStartSetVar 0;")
-	SetVariable YEndSetVar,pos={205.00,127.00},size={95.00,15.00},proc=GUIPSIsetVarProc
-	SetVariable YEndSetVar,title="Y End"
-	SetVariable YEndSetVar,userdata="ValMin:-10;ValMax:10;AutoIncr:TRUE;MinIncr:1e-3"
-	SetVariable YEndSetVar,fSize=10,format="%.3W1PV"
-	SetVariable YEndSetVar,limits={-inf,inf,0.1},value=root:Packages:twoP:Acquire:yEndVoltsFS
+	SetVariable YEndSetVar win=Scan_Settings_Prefs,pos={205.00,127.00},size={95.00,15.00},proc=GUIPSIsetVarProc
+	SetVariable YEndSetVar win=Scan_Settings_Prefs,title="Y End",userdata=A"_&r^X5p-.-4<rGb!<",fSize=10
+	SetVariable YEndSetVar win=Scan_Settings_Prefs,format="%.2W1PV"
+	SetVariable YEndSetVar win=Scan_Settings_Prefs,limits={-inf,inf,0.1},value=root:Packages:twoP:acquire:yEndVoltsFS
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "SetVariable YEndSetVar 0;")
 	// Objectives
-	GroupBox ObjectivesGroup,pos={6.00,157.00},size={305.00,116.00}
-	GroupBox ObjectivesGroup,title="Objective Scaling"
+	GroupBox ObjectivesGroup win=Scan_Settings_Prefs,pos={6.00,157.00},size={305.00,116.00}
+	GroupBox ObjectivesGroup win=Scan_Settings_Prefs,title="Objective Scaling"
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "GroupBox ObjectivesGroup 0;")
-	ListBox ObjectivesList,pos={10.00,175.00},size={295.00,68.00}
-	ListBox ObjectivesList,help={"Scaling is in m/V, offset is in m"}
-	ListBox ObjectivesList,listWave=root:Packages:twoP:Acquire:ObjWave
-	ListBox ObjectivesList,selWave=root:Packages:twoP:Acquire:ObjSelWave,mode=2
-	ListBox ObjectivesList,selRow=0,widths={61,49,57,55,55},userColumnResize=1
+	ListBox ObjectivesList win=Scan_Settings_Prefs,pos={10.00,175.00},size={295.00,68.00}
+	ListBox ObjectivesList win=Scan_Settings_Prefs,help={"Scaling is in m/V, offset is in m"}
+	ListBox ObjectivesList win=Scan_Settings_Prefs,listWave=root:Packages:twoP:Acquire:ObjWave
+	ListBox ObjectivesList win=Scan_Settings_Prefs,selWave=root:Packages:twoP:Acquire:ObjSelWave,mode=2
+	ListBox ObjectivesList win=Scan_Settings_Prefs,selRow=0,widths={61,49,57,55,55},userColumnResize=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "ListBox ObjectivesList 0;")
-	Button AddObjButton,pos={32.00,246.00},size={57.00,20.00},proc=twoP_prefsAddObjProc
-	Button AddObjButton,title="Add Obj"
+	Button AddObjButton win=Scan_Settings_Prefs,pos={32.00,246.00},size={57.00,20.00},proc=twoP_prefsAddObjProc
+	Button AddObjButton win=Scan_Settings_Prefs,title="Add Obj"
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "Button AddObjButton 0;")
-	Button DelObjButton,pos={159.00,246.00},size={66.00,20.00},proc=twoP_prefsDelObjProc
-	Button DelObjButton,title="Delete Obj"
+	Button DelObjButton win=Scan_Settings_Prefs,pos={159.00,246.00},size={66.00,20.00},proc=twoP_prefsDelObjProc
+	Button DelObjButton win=Scan_Settings_Prefs,title="Delete Obj"
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "Button DelObjButton 0;")
 	// Image Scan Timing
-	GroupBox ImageScanGroupBox,pos={6.00,284.00},size={305.00,114.00}
-	GroupBox ImageScanGroupBox,title="ImageScan Timing"
+	GroupBox ImageScanGroupBox win=Scan_Settings_Prefs,pos={6.00,284.00},size={305.00,114.00}
+	GroupBox ImageScanGroupBox win=Scan_Settings_Prefs,title="ImageScan Timing"
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "GroupBox ImageScanGroupBox 0;")
-	SetVariable PixTimeSetVar,pos={11.00,302.00},size={180.00,18.00},proc=GUIPSIsetVarProc
-	SetVariable PixTimeSetVar,title="Pixel Scan Time"
-	SetVariable PixTimeSetVar,help={"Sets the clock rate that determines the time for each pixel"}
-	SetVariable PixTimeSetVar,userdata="ValMin:0.4E-6;ValMax:1E-3;AutoIncr:TRUE;MinIncr:1e-7;addFuncStr:twoP_PrefsSetTimesProc;"
-	SetVariable PixTimeSetVar,format="%.3W1PSec"
-	SetVariable PixTimeSetVar,limits={-inf,inf,1e-07},value=root:Packages:twoP:Acquire:PixTime
+	SetVariable PixTimeSetVar win=Scan_Settings_Prefs,pos={11.00,302.00},size={180.00,18.00},proc=GUIPSIsetVarProc
+	SetVariable PixTimeSetVar win=Scan_Settings_Prefs,title="Pixel Scan Time"
+	SetVariable PixTimeSetVar win=Scan_Settings_Prefs,help={"Sets the clock rate that determines the time for each pixel"}
+	SetVariable PixTimeSetVar win=Scan_Settings_Prefs,userdata=A"1tKF,3eJ&`1Y0=+!<",format="%.2W1Ps"
+	SetVariable PixTimeSetVar win=Scan_Settings_Prefs,limits={-inf,inf,1e-07},value=root:Packages:twoP:acquire:PixTime
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "SetVariable PixTimeSetVar 0;")
-	SetVariable DutyCycleSetVar,pos={200.00,302.00},size={104.00,18.00}
-	SetVariable DutyCycleSetVar,help={"Sets the proportion of the galvo X-scan that is used to collect data, relative to sum of data collection and flyback time "}
-	SetVariable DutyCycleSetVar,userdata="ValMin:0;ValMax:1E-3;AutoIncr:TRUE;addFuncStr:twoP_PrefsSetTimesProc;"
-	SetVariable DutyCycleSetVar,format="%g"
-	SetVariable DutyCycleSetVar,limits={0,1,0.05},value=root:Packages:twoP:Acquire:DutyCycle
+	SetVariable DutyCycleSetVar win=Scan_Settings_Prefs,pos={200.00,302.00},size={104.00,18.00}
+	SetVariable DutyCycleSetVar win=Scan_Settings_Prefs,help={"Sets the proportion of the galvo X-scan that is used to collect data, relative to sum of data collection and flyback time "}
+	SetVariable DutyCycleSetVar win=Scan_Settings_Prefs,userdata="ValMin:0;ValMax:1E-3;AutoIncr:TRUE;addFuncStr:twoP_PrefsSetTimesProc;"
+	SetVariable DutyCycleSetVar win=Scan_Settings_Prefs,format="%g"
+	SetVariable DutyCycleSetVar win=Scan_Settings_Prefs,limits={0,1,0.05},value=root:Packages:twoP:Acquire:DutyCycle
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "SetVariable DutyCycleSetVar 0;")
-	SetVariable FlybackPropSetVar,pos={11.00,324.00},size={219.00,18.00},proc=twoP_PrefsSetTimesProc
-	SetVariable FlybackPropSetVar,title="Single direction FlyBack Ratio"
-	SetVariable FlybackPropSetVar,help={"For single-direction scanning, sets the time used to return to the  X starting voltage, as a proportion of the time used for scanning an image line"}
-	SetVariable FlybackPropSetVar,limits={0.25,1,0.05},value=root:Packages:twoP:Acquire:FlybackProp
+	SetVariable FlybackPropSetVar win=Scan_Settings_Prefs,pos={11.00,324.00},size={219.00,18.00},proc=twoP_PrefsSetTimesProc
+	SetVariable FlybackPropSetVar win=Scan_Settings_Prefs,title="Single direction FlyBack Ratio"
+	SetVariable FlybackPropSetVar win=Scan_Settings_Prefs,help={"For single-direction scanning, sets the time used to return to the  X starting voltage, as a proportion of the time used for scanning an image line"}
+	SetVariable FlybackPropSetVar win=Scan_Settings_Prefs,limits={0.25,1,0.05},value=root:Packages:twoP:Acquire:FlybackProp
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "SetVariable FlybackPropSetVar 0;")
-	SetVariable RotateSetvar,pos={11.00,345.00},size={219.00,18.00},proc=GUIPSIsetVarProc
-	SetVariable RotateSetvar,title="Bi-Directional Scan Delay "
-	SetVariable RotateSetvar,help={"Sets the empirically determined period wherby X-Galvo position lags the X-Galvo signal"}
-	SetVariable RotateSetvar,userdata="ValMin:0;ValMax:1E-3;AutoIncr:TRUE;addFuncStr:twoP_PrefsSetTimesProc;"
-	SetVariable RotateSetvar,format="%.2W1PSec"
-	SetVariable RotateSetvar,limits={-inf,inf,1e-06},value=root:Packages:twoP:Acquire:ScanHeadDelay
+	SetVariable RotateSetvar win=Scan_Settings_Prefs,pos={11.00,345.00},size={219.00,18.00},proc=GUIPSIsetVarProc
+	SetVariable RotateSetvar win=Scan_Settings_Prefs,title="Bi-Directional Scan Delay "
+	SetVariable RotateSetvar win=Scan_Settings_Prefs,help={"Sets the empirically determined period wherby X-Galvo position lags the X-Galvo signal"}
+	SetVariable RotateSetvar win=Scan_Settings_Prefs,userdata=A"z3eJ&`1Y0=+!<",format="%.2W1Ps"
+	SetVariable RotateSetvar win=Scan_Settings_Prefs,limits={-inf,inf,1e-06},value=root:Packages:twoP:acquire:ScanHeadDelay
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "SetVariable RotateSetvar 0;")
-	SetVariable minLiveFrameTimeSetVar,pos={9.00,370.00},size={215.00,18.00},proc=twoP_PrefsSetTimesProc
-	SetVariable minLiveFrameTimeSetVar,title="Minimum Live Frame Time"
-	SetVariable minLiveFrameTimeSetVar,help={"If frame time is shorter than this, additional frames are collected and averaged "}
-	SetVariable minLiveFrameTimeSetVar,format="%.3f Sec"
-	SetVariable minLiveFrameTimeSetVar,limits={0.25,1,0.05},value=root:Packages:twoP:Acquire:minLiveFrameTime
+	SetVariable minLiveFrameTimeSetVar win=Scan_Settings_Prefs,pos={9.00,370.00},size={215.00,18.00},proc=twoP_PrefsSetTimesProc
+	SetVariable minLiveFrameTimeSetVar win=Scan_Settings_Prefs,title="Minimum Live Frame Time"
+	SetVariable minLiveFrameTimeSetVar win=Scan_Settings_Prefs,help={"If frame time is shorter than this, additional frames are collected and averaged "}
+	SetVariable minLiveFrameTimeSetVar win=Scan_Settings_Prefs,format="%.3f Sec"
+	SetVariable minLiveFrameTimeSetVar win=Scan_Settings_Prefs,limits={0.25,1,0.05},value=root:Packages:twoP:Acquire:minLiveFrameTime
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "SetVariable minLiveFrameTimeSetVar 0;")
 	// Image Channels
 	GroupBox ImageChansGrp,pos={6.00,403.00},size={305.00,112.00}
 	GroupBox ImageChansGrp,title="Image Acquisition Channels"
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "GroupBox ImageChansGrp 0;")
-	ListBox imChansListBox,pos={10.00,421.00},size={295.00,87.00},proc=twoP_PrefsChanListBoxProc
-	ListBox imChansListBox,listWave=root:Packages:twoP:Acquire:imChanList
-	ListBox imChansListBox,selWave=root:Packages:twoP:Acquire:imChanSelList,mode=1
-	ListBox imChansListBox,selRow=1,widths={80,79,50,88,35,733},userColumnResize=1
+	ListBox imChansListBox win=Scan_Settings_Prefs,pos={10.00,421.00},size={295.00,87.00},proc=twoP_PrefsChanListBoxProc
+	ListBox imChansListBox win=Scan_Settings_Prefs,listWave=root:Packages:twoP:Acquire:imChanList
+	ListBox imChansListBox win=Scan_Settings_Prefs,selWave=root:Packages:twoP:Acquire:imChanSelList,mode=1
+	ListBox imChansListBox win=Scan_Settings_Prefs,selRow=1,widths={80,79,50,88,35,733},userColumnResize=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "ListBox imChansListBox 0;")
 	// Stage Shutter Ephys Trigs tab
 	// Stage
-	GroupBox StageGroup,pos={6.00,51.00},size={305.00,51.00},title="Stage", disable=1
+	GroupBox StageGroup win=Scan_Settings_Prefs,pos={6.00,51.00},size={305.00,51.00},title="Stage", disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "GroupBox StageGroup 0;")
-	PopupMenu StageProcPopMenu,pos={12.00,72.00},size={54.00,19.00},proc=twoP_PrefsSetStage
-	PopupMenu StageProcPopMenu,title="Stage:",mode=0,value=#"StageListEncoders()", disable=1
+	PopupMenu StageProcPopMenu win=Scan_Settings_Prefs,pos={12.00,72.00},size={54.00,19.00},proc=twoP_PrefsSetStage
+	PopupMenu StageProcPopMenu win=Scan_Settings_Prefs,title="Stage:",mode=0,value=#"StageListEncoders()", disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "PopupMenu StageProcPopMenu 0;")
-	TitleBox StageTitle,pos={68.00,74.00},size={41.00,15.00},frame=0
-	TitleBox StageTitle,variable=root:Packages:twoP:Acquire:StageProc, disable=1
+	TitleBox StageTitle win=Scan_Settings_Prefs,pos={68.00,74.00},size={41.00,15.00},frame=0
+	TitleBox StageTitle win=Scan_Settings_Prefs,variable=root:Packages:twoP:Acquire:StageProc, disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "TitleBox StageTitle 0;")
-	PopupMenu StagePortProcPopMenu,pos={137.00,72.00},size={78.00,19.00},proc=twoP_PrefsSetStagePort
-	PopupMenu StagePortProcPopMenu,title="Serial Port:"
-	PopupMenu StagePortProcPopMenu,mode=0,value=#"StageListPorts()", disable=1
+	PopupMenu StagePortProcPopMenu win=Scan_Settings_Prefs,pos={137.00,72.00},size={78.00,19.00},proc=twoP_PrefsSetStagePort
+	PopupMenu StagePortProcPopMenu win=Scan_Settings_Prefs,title="Serial Port:"
+	PopupMenu StagePortProcPopMenu win=Scan_Settings_Prefs,mode=0,value=#"StageListPorts()", disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "PopupMenu StagePortProcPopMenu 0;")
-	TitleBox StagePortTitle,pos={219.00,74.00},size={34.00,15.00},frame=0
-	TitleBox StagePortTitle,variable=root:Packages:twoP:Acquire:StagePort, disable=1
+	TitleBox StagePortTitle win=Scan_Settings_Prefs,pos={219.00,74.00},size={34.00,15.00},frame=0
+	TitleBox StagePortTitle win=Scan_Settings_Prefs,variable=root:Packages:twoP:Acquire:StagePort, disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "TitleBox StagePortTitle 0;")
 	// Shutter
-	GroupBox ShutterGroup,pos={6.00,108.00},size={305.00,71.00},title="Shutter", disable=1
+	GroupBox ShutterGroup win=Scan_Settings_Prefs,pos={6.00,108.00},size={305.00,71.00},title="Shutter", disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "GroupBox ShutterGroup 0;")
 	NVAR shutterOpenLevel = root:packages:twoP:Acquire:shutterOpenLevel 
-	PopupMenu ShutterPolarityPopMenu,pos={10.00,126.00},size={206.00,19.00},proc=twoP_PrefsSetShutterPolarity
-	PopupMenu ShutterPolarityPopMenu,title="Shutter Opens when Output is"
-	PopupMenu ShutterPolarityPopMenu,value=#"\"Low;High\"", mode = (shutterOpenLevel +1),popvalue=selectString (shutterOpenLevel, "Low", "High"), disable=1	
+	PopupMenu ShutterPolarityPopMenu win=Scan_Settings_Prefs,pos={10.00,126.00},size={206.00,19.00},proc=twoP_PrefsSetShutterPolarity
+	PopupMenu ShutterPolarityPopMenu win=Scan_Settings_Prefs,title="Shutter Opens when Output is"
+	PopupMenu ShutterPolarityPopMenu win=Scan_Settings_Prefs,value=#"\"Low;High\"", mode = (shutterOpenLevel +1),popvalue=selectString (shutterOpenLevel, "Low", "High"), disable=1	
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "PopupMenu ShutterPolarityPopMenu 0;")
-	SetVariable shutterDelaySetVar,pos={12.00,149.00},size={176.00,18.00},proc=GUIPSIsetVarProc
-	SetVariable shutterDelaySetVar,title="Shutter Delay Time"
-	SetVariable shutterDelaySetVar,userdata="addFuncStr:;ValMin:1e-06;ValMax:0.01;AutoIncr:1;MinIncr:0.0001;"
-	SetVariable shutterDelaySetVar,format="%.2W1Ps"
-	SetVariable shutterDelaySetVar,limits={-inf,inf,0.0001},value=root:Packages:twoP:Acquire:shutterDelay, disable=1
+	SetVariable shutterDelaySetVar win=Scan_Settings_Prefs,pos={12.00,150.00},size={176.00,18.00},proc=GUIPSIsetVarProc
+	SetVariable shutterDelaySetVar win=Scan_Settings_Prefs,title="Shutter Delay Time"
+	SetVariable shutterDelaySetVar win=Scan_Settings_Prefs,userdata=A"224''4j;-p3eJ&`!<",format="%.3W1Ps"
+	SetVariable shutterDelaySetVar win=Scan_Settings_Prefs,limits={-inf,inf,0.001},value=root:Packages:twoP:acquire:shutterDelay, disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "SetVariable shutterDelaySetVar 0;")
 	// ephys device
-	PopupMenu ePhysBoardPopMenu,pos={12.00,187.00},size={91.00,19.00},proc=twoP_PrefsSetBoardName
-	PopupMenu ePhysBoardPopMenu,title="ePhys Device"
-	PopupMenu ePhysBoardPopMenu,mode=0,value=#"twoP_PrefsListBoards()", disable =1
+	PopupMenu ePhysBoardPopMenu win=Scan_Settings_Prefs,pos={12.00,187.00},size={91.00,19.00},proc=twoP_PrefsSetBoardName
+	PopupMenu ePhysBoardPopMenu win=Scan_Settings_Prefs,title="ePhys Device"
+	PopupMenu ePhysBoardPopMenu win=Scan_Settings_Prefs,mode=0,value=#"twoP_PrefsListBoards()", disable =1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "PopupMenu ePhysBoardPopMenu 0;")
-	TitleBox ePhysBoardTitle,pos={109.00,189.00},size={42.00,15.00},frame=0
-	TitleBox ePhysBoardTitle,variable=root:Packages:twoP:Acquire:ePhysBoard, disable=1
+	TitleBox ePhysBoardTitle win=Scan_Settings_Prefs,pos={109.00,189.00},size={42.00,15.00},frame=0
+	TitleBox ePhysBoardTitle win=Scan_Settings_Prefs,variable=root:Packages:twoP:Acquire:ePhysBoard, disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "TitleBox ePhysBoardTitle 0;")
-	SetVariable ephysFreqSetvar,pos={12.00,210.00},size={196.00,18.00},proc=GUIPSIsetVarProc
-	SetVariable ephysFreqSetvar,title="Sampling Frequency"
-	SetVariable ephysFreqSetvar,userdata="addFuncStr:;ValMin:100;ValMax:200000;AutoIncr:1;MinIncr:1;"
-	SetVariable ephysFreqSetvar,format="%.0W1PHz"
-	SetVariable ephysFreqSetvar,limits={-inf,inf,10},value=root:Packages:twoP:Acquire:ePhysSampFreq, disable=1
-	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "SetVariable ephysFreqSetvar 0;")
+	SetVariable ephysFreqSetvar win=Scan_Settings_Prefs,pos={12.00,210.00},size={196.00,18.00},proc=GUIPSIsetVarProc, disable=1
+	SetVariable ephysFreqSetvar win=Scan_Settings_Prefs,title="Sampling Frequency"
+	SetVariable ephysFreqSetvar win=Scan_Settings_Prefs,userdata=A"6HB-,7[u^D5C`_6!<"
+	SetVariable ephysFreqSetvar win=Scan_Settings_Prefs,userdata(FUNCSTR)="twoP_PrefsSetEphysMax"
+	SetVariable ephysFreqSetvar win=Scan_Settings_Prefs,format="%.2W1PHz"
+	SetVariable ephysFreqSetvar win=Scan_Settings_Prefs,limits={-inf,inf,1000},value=root:Packages:twoP:acquire:ePhysSampFreq
+	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "SetVariable ephysFreqSetvar;")
 	// ephys channels
-	GroupBox ePhysGroup,pos={6.00,235.00},size={305.00,137.00}
-	GroupBox ePhysGroup,title="ePhys Channels", disable=1
+	GroupBox ePhysGroup win=Scan_Settings_Prefs,pos={6.00,235.00},size={305.00,137.00}
+	GroupBox ePhysGroup win=Scan_Settings_Prefs,title="ePhys Channels", disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "GroupBox ePhysGroup 0;")
-	ListBox ephysChansListBox,pos={9.00,256.00},size={293.00,109.00},proc=twoP_PrefsChanListBoxProc
-	ListBox ephysChansListBox,listWave=root:Packages:twoP:Acquire:ePhysChanList
-	ListBox ephysChansListBox,selWave=root:Packages:twoP:Acquire:ePhysChanSelList
-	ListBox ephysChansListBox,mode=1,selRow=1,widths={80,79,50,88,35,733}
-	ListBox ephysChansListBox,userColumnResize=1, disable = 1
+	ListBox ephysChansListBox win=Scan_Settings_Prefs,pos={9.00,256.00},size={293.00,109.00},proc=twoP_PrefsChanListBoxProc
+	ListBox ephysChansListBox win=Scan_Settings_Prefs,listWave=root:Packages:twoP:Acquire:ePhysChanList
+	ListBox ephysChansListBox win=Scan_Settings_Prefs,selWave=root:Packages:twoP:Acquire:ePhysChanSelList
+	ListBox ephysChansListBox win=Scan_Settings_Prefs,mode=1,selRow=1,widths={80,79,50,88,35,733}
+	ListBox ephysChansListBox win=Scan_Settings_Prefs,userColumnResize=1, disable = 1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "ListBox ephysChansListBox 0;")
 	// Triggers
-	GroupBox TriggersGroup,pos={6.00,380.00},size={305.00,87.00}
-	GroupBox TriggersGroup,title="Trigger Pulses (on ePhys Board)", disable=1
+	GroupBox TriggersGroup win=Scan_Settings_Prefs,pos={6.00,380.00},size={305.00,87.00}
+	GroupBox TriggersGroup win=Scan_Settings_Prefs,title="Trigger Pulses (on ePhys Board)", disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "GroupBox TriggersGroup 0;")
-	TitleBox TriggerTitle,pos={14.00,397.00},size={257.00,15.00}
-	TitleBox TriggerTitle,title="Trigger Num             Polarity                      Duration"
-	TitleBox TriggerTitle,frame=0, disable=1
+	TitleBox TriggerTitle win=Scan_Settings_Prefs,pos={14.00,397.00},size={257.00,15.00}
+	TitleBox TriggerTitle win=Scan_Settings_Prefs,title="Trigger Num             Polarity                      Duration"
+	TitleBox TriggerTitle win=Scan_Settings_Prefs,frame=0, disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "TitleBox TriggerTitle 0;")
 	NVAR Trig1Polarity = root:packages:twoP:acquire:Trig1Polarity
-	PopupMenu Trigger1PolarityPopMenu,pos={42.00,413.00},size={142.00,19.00},proc=twoP_PrefsSetTrigPolarity
-	PopupMenu Trigger1PolarityPopMenu,title="1              "
-	PopupMenu Trigger1PolarityPopMenu,mode=(trig1Polarity + 1),popvalue=selectString (Trig1Polarity, "Low-to-High","High-to-Low")
-	PopupMenu Trigger1PolarityPopMenu,value=#"\"Low-to-High;High to Low\"", disable=1
+	PopupMenu Trigger1PolarityPopMenu win=Scan_Settings_Prefs,pos={42.00,413.00},size={142.00,19.00},proc=twoP_PrefsSetTrigPolarity
+	PopupMenu Trigger1PolarityPopMenu win=Scan_Settings_Prefs,title="1              "
+	PopupMenu Trigger1PolarityPopMenu win=Scan_Settings_Prefs,mode=(trig1Polarity + 1),popvalue=selectString (Trig1Polarity, "Low-to-High","High-to-Low")
+	PopupMenu Trigger1PolarityPopMenu win=Scan_Settings_Prefs,value=#"\"Low-to-High;High to Low\"", disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "PopupMenu Trigger1PolarityPopMenu 0;")
-	SetVariable Trig1DurationSetVar,pos={202.00,413.00},size={103.00,18.00},proc=GUIPSIsetVarProc
-	SetVariable Trig1DurationSetVar,title=" "
-	SetVariable Trig1DurationSetVar,userdata=";1e-6;1;autoInc;0;addFuncStr:;ValMin:1e-07;ValMax:0.1;AutoIncr:1;MinIncr:1e-07;"
-	SetVariable Trig1DurationSetVar,format="%.2W1Ps"
-	SetVariable Trig1DurationSetVar,limits={-inf,inf,0.0001},value=root:Packages:twoP:Acquire:Trig1Duration, disable=1
+	SetVariable Trig1DurationSetVar win=Scan_Settings_Prefs,pos={202.00,413.00},size={103.00,18.00},proc=GUIPSIsetVarProc
+	SetVariable Trig1DurationSetVar win=Scan_Settings_Prefs,title=" ",userdata=A"1Y0=+5C`_61Y0=+!<"
+	SetVariable Trig1DurationSetVar win=Scan_Settings_Prefs,format="%.2W1Ps"
+	SetVariable Trig1DurationSetVar win=Scan_Settings_Prefs,limits={-inf,inf,0.001},value=root:Packages:twoP:acquire:Trig1Duration, disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "SetVariable Trig1DurationSetVar 0;")
 	NVAR trig2Polarity = root:packages:twoP:acquire:Trig2Polarity
-	PopupMenu Trigger2PolarityPopMenu,pos={42.00,438.00},size={142.00,19.00},proc=twoP_PrefsSetTrigPolarity
-	PopupMenu Trigger2PolarityPopMenu,title="2              "
-	PopupMenu Trigger2PolarityPopMenu, mode=(trig2Polarity + 1),popvalue=selectString (Trig2Polarity, "Low-to-High","High-to-Low")
-	PopupMenu Trigger2PolarityPopMenu,value=#"\"Low-to-High;High to Low\"", disable=1
+	PopupMenu Trigger2PolarityPopMenu win=Scan_Settings_Prefs,pos={42.00,438.00},size={142.00,19.00},proc=twoP_PrefsSetTrigPolarity
+	PopupMenu Trigger2PolarityPopMenu win=Scan_Settings_Prefs,title="2              "
+	PopupMenu Trigger2PolarityPopMenu win=Scan_Settings_Prefs, mode=(trig2Polarity + 1),popvalue=selectString (Trig2Polarity, "Low-to-High","High-to-Low")
+	PopupMenu Trigger2PolarityPopMenu win=Scan_Settings_Prefs,value=#"\"Low-to-High;High to Low\"", disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "PopupMenu Trigger2PolarityPopMenu 0;")
-	SetVariable Trig2DurationSetVar,pos={202.00,439.00},size={103.00,18.00},proc=GUIPSIsetVarProc
-	SetVariable Trig2DurationSetVar,title=" "
-	SetVariable Trig2DurationSetVar,userdata=";1e-6;1;autoInc;0;addFuncStr:;ValMin:1e-07;ValMax:0.1;AutoIncr:1;MinIncr:1e-07;"
-	SetVariable Trig2DurationSetVar,format="%.2W1Ps"
-	SetVariable Trig2DurationSetVar,limits={-inf,inf,0.0001},value=root:Packages:twoP:Acquire:Trig2Duration, disable=1
+	SetVariable Trig2DurationSetVar win=Scan_Settings_Prefs,pos={202.00,439.00},size={103.00,18.00},proc=GUIPSIsetVarProc
+	SetVariable Trig2DurationSetVar win=Scan_Settings_Prefs,title=" ",userdata=A"1Y0=+5C`_61Y0=+!<"
+	SetVariable Trig2DurationSetVar win=Scan_Settings_Prefs,format="%.2W1Ps"
+	SetVariable Trig2DurationSetVar win=Scan_Settings_Prefs,limits={-inf,inf,0.0001},value=root:Packages:twoP:acquire:Trig2Duration, disable=1
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "ePhys_Trigs", "SetVariable Trig2DurationSetVar 0;")
 end
 

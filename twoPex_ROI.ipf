@@ -1,6 +1,6 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3
-#pragma version = 3  	// Last Modified: 2025/08/05 by Jamie Boyd.
+#pragma version = 3  	// Last Modified: 2025/08/06 by Jamie Boyd.
 #pragma IgorVersion = 9
 
 //******************************************************************************************************
@@ -129,7 +129,7 @@ Function NQexROI_add (able)
 	Button ROIAvgButton win=twoP_Controls,title="ROI Avg"
 	Button ROIAvgButton win=twoP_Controls, disable =able
 	PopupMenu ROIchansPopup win=twoP_Controls,pos={69.00,547.00},size={47.00,20.00},proc=twoP_ROISelChan_PopMenuProc
-	PopupMenu ROIchansPopup win=twoP_Controls,title="of",mode=0,value=#"twoP_listImChans()+\";ratio\""
+	PopupMenu ROIchansPopup win=twoP_Controls,title="of",mode=0,value=#"twoP_ScanlistImChans()+\";ratio\""
 	PopupMenu ROIchansPopup win=twoP_Controls, disable = able
 	TitleBox ROIchansTitle win=twoP_Controls,pos={120.00,550.00},size={23.00,15.00},fSize=12,frame=0
 	TitleBox ROIchansTitle win=twoP_Controls,variable=root:packages:twoP:examine:ROIselChan
@@ -174,26 +174,27 @@ Function NQexROI_add (able)
 	CheckBox ROInameMatchCheck win=twoP_Controls,fSize=12,value=0,mode=1
 	CheckBox ROInameMatchCheck win=twoP_Controls,disable =able
 	// ROInoteMatchCheck
-	CheckBox ROInoteMatchCheck win=twoP_Controls,pos={14.00,635.00},size={124.00,15.00},proc=GUIPControls#GUIPRadioButtonProc
+	CheckBox ROInoteMatchCheck win=twoP_Controls,pos={14.00,636.00},size={118.00,15.00},proc=GUIPControls#GUIPRadioButtonProc
 	CheckBox ROInoteMatchCheck win=twoP_Controls,title="Exp Note Matching"
 	CheckBox ROInoteMatchCheck win=twoP_Controls,userdata="ROICurScanCheck;ROInameMatchCheck;ROInoteMatchCheck"
-	CheckBox ROInoteMatchCheck win=twoP_Controls,userdata(gValue) = "root:packages:twoP:examine:ROIscanSelMode"
+	CheckBox ROInoteMatchCheck win=twoP_Controls,userdata(gValue)="root:packages:twoP:examine:ROIscanSelMode"
 	CheckBox ROInoteMatchCheck win=twoP_Controls,fSize=12,value=0,mode=1
 	CheckBox ROInoteMatchCheck win=twoP_Controls, disable =able
 	// ROIKeySetVar
-	SetVariable ROIKeySetVar win=twoP_Controls,pos={89.00,638.00},size={84.00,18.00},title=" Key"
+		SetVariable ROIKeySetVar win=twoP_Controls,pos={142.00,634.00},size={70.00,18.00},title=" Key"
 	SetVariable ROIKeySetVar win=twoP_Controls,help={"Selects scans with this key in key=value;pairs in exp note."}
 	SetVariable ROIKeySetVar win=twoP_Controls,fSize=12
-	SetVariable ROIKeySetVar win=twoP_Controls,value=root:packages:twoP:examine:ROInoteKeyStr
+	SetVariable ROIKeySetVar win=twoP_Controls,value=root:Packages:twoP:examine:ROInoteKeyStr
 	SetVariable ROIKeySetVar win=twoP_Controls, disable =able
 	// ROInoteValsSetVar
-	SetVariable ROInoteValsSetVar win=twoP_Controls,pos={179.00,638.00},size={133.00,18.00}
-	SetVariable ROInoteValsSetVar win=twoP_Controls,title="Values",fSize=12
+	SetVariable ROInoteValsSetVar win=twoP_Controls,pos={221.00,634.00},size={113.00,18.00}
+	SetVariable ROInoteValsSetVar win=twoP_Controls,title="Values"
 	SetVariable ROInoteValsSetVar win=twoP_Controls,help={"Selects scans with these values in key=value;pairs in exp note."}
-	SetVariable ROInoteValsSetVar win=twoP_Controls,value=root:packages:twoP:examine:ROInoteValueStr
+	SetVariable ROInoteValsSetVar win=twoP_Controls,fSize=12
+	SetVariable ROInoteValsSetVar win=twoP_Controls,value=root:Packages:twoP:examine:ROInoteValueStr
 	SetVariable ROInoteValsSetVar win=twoP_Controls, disable =able
 	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "CheckBox ROICurScanCheck;CheckBox ROInameMatchCheck;CheckBox ROInoteMatchCheck;")
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "SetVariable ROInameMatchSetVar;SetVariable ROIKeySetVar;SetVariable ROInoteValsSetVar;")
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "SetVariable ROIKeySetVar;SetVariable ROInoteValsSetVar;")
 end
 
 
