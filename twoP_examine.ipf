@@ -19,7 +19,7 @@ Constant kePhysOnly = 5
 COnstant kMultiAq = 6
 // bit width of images, used when making displays for histograms and slider, etc.
 // either 12 for old school PCI boards or 16 for some new PCIe boards
-constant kNQimageBits = 16
+constant kNQimageBits = 12
 // Tabs on examine tab control at startup
 strConstant kNQexTabList = "export;stacks;fourD;ROI;"
 // path to where we load ipf files for examine Tab, relative to Igor Pro User Files
@@ -85,9 +85,9 @@ Function twoP_ExamineMakeFolder ()
 	setscale/p x, 0, 1	, "", HistWaveCh1
 	// Waves for sliders on the histogram
 	make/o root:Packages:twoP:examine:ImRangeLeftxCh1 = {(0.05 * 2^kNQimageBits), (0.05 * 2^kNQimageBits)}
-	make/o root:Packages:twoP:examine:ImRangeLeftyCh1 = {1,inf}
+	make/o root:Packages:twoP:examine:ImRangeLeftyCh1 = {0.1,inf}
 	make/o root:Packages:twoP:examine:ImRangeRightxCh1 = {(0.95 * 2^kNQimageBits) ,(0.95 * 2^kNQimageBits)}
-	make/o root:Packages:twoP:examine:ImRangeRightyCh1 = {1,inf}
+	make/o root:Packages:twoP:examine:ImRangeRightyCh1 = {0.1,inf}
 	// Values to control which channels to show in the ScanGraph
 	string/G root:packages:twoP:examine:ScanGraphSelChans = "ch1;"
 	variable/G root:packages:twoP:examine:ShowScanGraphAxes
@@ -109,9 +109,11 @@ Function twoP_ExamineMakeFolder ()
 	String/G root:Packages:twoP:examine:Ch1AfterColors = "65535,0,0" // red
 	variable/G root:packages:twoP:Examine:Ch1LUTAuto =0 // 0 means use given first and last values, 1 means auto LUT,ignoring 1st and last
 	variable/G root:packages:twoP:Examine:Ch1LUTto96 =0	// 1 means to adjust first and last to 96% of data values, not 100% for "to Data"
-	String/G root:packages:twoP:Examine:RGB_RedChan
-	String/G root:packages:twoP:Examine:RGB_GreenChan
-	String/G root:packages:twoP:Examine:RGB_BlueChan
+	// variablesfor RGBcolor
+	variable/G root:packages:twoP:Examine:RGB_hasRGB = 0
+	String/G root:packages:twoP:Examine:RGB_RedChan = "BLACK"
+	String/G root:packages:twoP:Examine:RGB_GreenChan= "BLACK"
+	String/G root:packages:twoP:Examine:RGB_BlueChan= "BLACK"
 	// variables used for making the movie run in the background
 	variable/g root:Packages:twoP:examine:Numframes	// The number of Frames in the current movie
 	variable/g root:Packages:twoP:examine:CurFramePos	// The position of the slider
@@ -201,9 +203,9 @@ Function twoP_ExamineAddControls (able)
 	PopupMenu ScansPopMenu win = twoP_Controls,pos={56.00,26.00},size={60.00,20.00},bodyWidth=60,proc=twoP_ScanPopMenuProc
 	PopupMenu ScansPopMenu win = twoP_Controls,title="Scan:"
 	if (able)
-		PopupMenu ScansPopMenu win = twoP_Controls,mode=0,value=#"twoP_ScanListScans (\"1,2,3,4,5,\")"
-	else
 		PopupMenu ScansPopMenu win = twoP_Controls,mode=0,value=#"twoP_ScanListScans (\"0,1,2,3,4,5,\")"
+	else
+		PopupMenu ScansPopMenu win = twoP_Controls,mode=0,value=#"twoP_ScanListScans (\"1,2,3,4,5,\")"
 	endif
 	PopupMenu ScansPopMenu win = twoP_Controls, disable = able
 	TitleBox CurScanTitleBox win = twoP_Controls,pos={118.00,28.00},size={57.00,15.00},fSize=12
@@ -692,7 +694,7 @@ Function twoP_ScanUpdateScanGraph (curScan)
 	if (V_Flag)		// scanGraph alreay exists
 		DoWindow/T twoPscanGraph "twoP Scan:" + curScan
 		// remove subwindows that are not selected
-		string existingSubWins =  RemoveFromList("controlPanel", childwindowList ("twoPscanGraph"), ";", 0)
+		string existingSubWins =  RemoveFromList("controlPanel;GRGB", childwindowList ("twoPscanGraph"), ";", 0)
 		nChans = ItemsInList(existingSubWins, ";")
 		for (iChan =0; iChan < nChans; iChan +=1)
 			aChan = stringFromList(iChan, existingSubWins)
@@ -1221,7 +1223,7 @@ Function twoP_ImGraphNew (curScan)
 	TitleBox SelChansTitle win=twoPscanGraph#controlPanel,variable=root:Packages:twoP:examine:ScanGraphSelChans
 	// RGB
 	CheckBox RGBcheck win=twoPscanGraph#controlPanel,pos={146.00,9.00},size={38.00,15.00},proc=twoP_ImGraphRGBCheckProc
-	CheckBox RGBcheck win=twoPscanGraph#controlPanel,title="RGB",value=0, fSize=12
+	CheckBox RGBcheck win=twoPscanGraph#controlPanel,title="RGB",value=0, fSize=12, variable =root:packages:twoP:examine:RGB_hasRGB
 	PopupMenu RedPopMenu win=twoPscanGraph#controlPanel,pos={193.00,7.00},size={32.00,19.00},bodyWidth=32,proc=twoP_imGraphRGBPopMenuProc
 	PopupMenu RedPopMenu win=twoPscanGraph#controlPanel,title="R",fSize=12,fColor=(65535,0,0)
 	PopupMenu RedPopMenu win=twoPscanGraph#controlPanel,mode=0,value=#"twoP_ScanListImChans()+\";BLACK\""
@@ -1455,6 +1457,14 @@ function twoP_ImGraphSetRGB ()
 	SVAR RGB_GreenChan
 	SVAR RGB_BlueChan
 	
+	string scanBaseName
+	SVAR curScan = root:packages:twoP:examine:curScan
+	if (cmpStr (curScan, "LiveScan") ==0)
+		scanBaseName = "root:twoP_Scans:LiveScan:LiveScan"
+	else
+		scanBaseName = "scanGraph"
+	endif
+	
 	string redStr, greenStr, blueStr
 	
 	if (cmpStr (RGB_RedChan, "BLACK") ==0)
@@ -1462,14 +1472,16 @@ function twoP_ImGraphSetRGB ()
 	else
 		variable/G RGB_redScal 
 		setformula RGB_redScal RGB_RedChan + "LastLutColor - " +  RGB_RedChan + "FirstLutColor" 
-		sprintf redStr "min (RGB_redScal, max (0, scanGraph_%s [p][q] - %sFirstLutColor)) / (RGB_redScal/256)", RGB_RedChan, RGB_RedChan
+		sprintf redStr "min (RGB_redScal, max (0, %s_%s [p][q] - %sFirstLutColor)) / (RGB_redScal/256)", scanBaseName, RGB_RedChan, RGB_RedChan
+		//sprintf redStr "min ((%sLastLutColor -%sFirstLutColor), max (0, %s_%s [p][q] - %sFirstLutColor)) / ((%sLastLutColor -%sFirstLutColor)/256)",RGB_RedChan, RGB_RedChan,scanBaseName, RGB_RedChan, RGB_RedChan, RGB_RedChan, RGB_RedChan
 	endif
+	
 	if (cmpStr (RGB_GreenChan, "BLACK") ==0)
-		redStr = "0"
+		greenStr = "0"
 	else
 		variable/G RGB_greenScal 
 		setformula RGB_greenScal RGB_GreenChan + "LastLutColor - " +  RGB_GreenChan + "FirstLutColor" 
-		sprintf greenStr "min (RGB_greenScal, max (0, scanGraph_%s [p][q] - %sFirstLutColor)) / (RGB_greenScal/256)", RGB_GreenChan, RGB_GreenChan
+		sprintf greenStr "min (RGB_greenScal, max (0, %s_%s [p][q] - %sFirstLutColor)) / (RGB_greenScal/256)",scanBaseName,  RGB_GreenChan, RGB_GreenChan
 	endif
 	
 	if (cmpStr (RGB_BlueChan, "BLACK") ==0)
@@ -1477,16 +1489,17 @@ function twoP_ImGraphSetRGB ()
 	else
 		variable/G RGB_blueScal 
 		setformula RGB_blueScal RGB_BlueChan + "LastLutColor - " +  RGB_BlueChan + "FirstLutColor" 
-		sprintf blueStr "min (RGB_blueScal, max (0, scanGraph_%s [p][q] - %sFirstLutColor)) / (RGB_blueScal/256)", RGB_BlueChan, RGB_BlueChan
+		sprintf blueStr "min (RGB_blueScal, max (0, %s_%s [p][q] - %sFirstLutColor)) / (RGB_blueScal/256)",scanBaseName,  RGB_BlueChan, RGB_BlueChan
 	endif
 	
 	string formulaStr
-	sprintf formulaStr "r == 0 ? %s : r == 1 ? %s : %s", redStr, greenStr, blueStr
+	sprintf formulaStr "r == 0 ? %s : (r == 1 ? %s : %s)", redStr, greenStr, blueStr
 	setformula RGBWave, formulaStr
 	
 	setdatafolder $savedfolder
 end
 
+  
 
 //******************************************************************************************************	
 // This hook function  for the scangraph window shows the value under the mouse pointer when the shift key is held down and the mouse is moved around.
@@ -2179,9 +2192,9 @@ function twoP_LUTmakeChanVars (LUTchan)
 	String/G $"root:Packages:twoP:examine:" + LUTchan + "AfterColors" = "65535,0,0" 					// use red for image values greater tan lest color, with after mode 1
 	// make waves to display LUT on histogram
 	make/o $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan = {(0.05 * 2^kNQimageBits), (0.05 * 2^kNQimageBits)}
-	make/o $"root:Packages:twoP:examine:ImRangeLefty" + LUTchan = {1,inf}
+	make/o $"root:Packages:twoP:examine:ImRangeLefty" + LUTchan = {0.1,inf}
 	make/o $"root:Packages:twoP:examine:ImRangeRightx" + LutChan = {(0.95 * 2^kNQimageBits) ,(0.95 * 2^kNQimageBits)}
-	make/o $"root:Packages:twoP:examine:ImRangeRighty" + LutChan = {1,inf}
+	make/o $"root:Packages:twoP:examine:ImRangeRighty" + LutChan = {0.1,inf}
 	// make histogram wave as well
 	make/o/n = (2^kNQimageBits) $"root:Packages:twoP:Examine:HistWave" + LUTchan
 	WAVE HistWave = $"root:Packages:twoP:Examine:HistWave" + LUTchan

@@ -106,8 +106,11 @@ Function twoP_AcquireMakeFolder ()
 	variable/G root:Packages:twoP:Acquire:xEndVoltsBU= xEndVoltsFS
 	NVAR yStartVoltsFS = root:Packages:twoP:Acquire:yStartVoltsFS
 	variable/G root:Packages:twoP:Acquire:yStartVolts=yStartVoltsFS
+	variable/G root:Packages:twoP:Acquire:yStartVoltsBU=yStartVoltsFS
 	NVAR yEndVoltsFS = root:Packages:twoP:Acquire:yEndVoltsFS
 	variable/G root:Packages:twoP:Acquire:yEndVolts = yEndVoltsFS
+	variable/G root:Packages:twoP:Acquire:yEndVoltsBU = yEndVoltsFS
+	
 	// Initialize X and Y Voltages for line scans
 	variable/G root:Packages:twoP:Acquire:LSStartVolts =xStartVoltsFS
 	variable/G root:Packages:twoP:Acquire:LSStartVoltsBU =xStartVoltsFS
@@ -364,7 +367,7 @@ Function twoP_AcquireAddControls ()
 	CheckBox TurboCheck,variable=root:Packages:twoP:Acquire:FlyBackMode
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Acquire", "GroupBox TimesGrpBox;SetVariable LineTimeSetVar;SetVariable FrameTimeSetVar;SetVariable expTimeSetvar;CheckBox TurboCheck;")
 	// Buttons to Open other windows
-	Button aqShowScansButton,pos={7.00,547.00},size={49.00,18.00},proc=NQ_ShowScansProc
+	Button aqShowScansButton,pos={7.00,547.00},size={49.00,18.00},proc=twoP_ScanShowScan
 	Button aqShowScansButton,title="Scans"
 	Button aqShowTracesButton,pos={73.00,547.00},size={57.00,18.00},proc=NQ_showTracesProc
 	Button aqShowTracesButton,title="Traces"
@@ -2435,7 +2438,7 @@ Function NQ_LoadScanStruct (s)
 				if (liveROIRatioCheck)
 					SVAR topChan = root:Packages:twoP:Acquire:liveROItopChan
 					SVAR bottomChan = root:Packages:twoP:Acquire:liveROIBottomChan
-					if ((cmpStr (bottomChan, "") ==0) || (cmpStr (bottomChan, "") !=0)) 
+					if ((cmpStr (bottomChan, "") ==0) || (cmpStr (bottomChan, "") ==0)) 
 						liveROIRatioCheck = 0
 					else
 						s.liveRatioTopChan = topChan
@@ -2703,9 +2706,9 @@ Function NQ_MakeImageScanWaves (s)
 		case kLiveMode:
 			WAVE/WAVE/Z threadData = root:packages:twoP:acquire:threadData
 			if (WaveExists(threadData))
-				redimension/n=(3*nChans) threadData
+				redimension/n=(5*nChans) threadData
 			else
-				make/WAVE/n=(3*nChans) threadData
+				make/WAVE/n=(5*nChans) threadData
 				WAVE/WAVE threadData = root:packages:twoP:acquire:threadData
 			endif
 			break
@@ -2748,7 +2751,7 @@ Function NQ_MakeImageScanWaves (s)
 					setscale/p x 0, 1e-03, "s" Acq1D
 					fastop Acq1D =0
 				endif
-				threadData[3*iChan] = Acq1D
+				threadData[5*iChan] = Acq1D
 				// make the 3D wave we copy linear data into and process into the 2D frame we display
 				WAVE/Z Acq3D = $"root:packages:twoP:acquire:Acq3D_" + chanName
 				if (waveExists (Acq3D))
@@ -2758,7 +2761,7 @@ Function NQ_MakeImageScanWaves (s)
 					WAVE/Z Acq3D = $"root:packages:twoP:acquire:Acq3D_" + chanName
 				endif
 				fastop Acq3D =0
-				threadData[3*iChan+1] = Acq3D
+				threadData[5*iChan+1] = Acq3D
 				// make the 2D wave we display - it lives in a regular twoPScans folder named LiveScan. This is what Examine tab sees as a scan
 				WAVE/Z scanWave= $baseName + chanName
 				if (waveExists (scanWave))
@@ -2770,17 +2773,23 @@ Function NQ_MakeImageScanWaves (s)
 				SetScale/P x s.xPos, s.XPixSize, "m", scanWave
 				SetScale/P Y s.yPos, s.YPixSize, "m", scanWave
 				fastop scanWave =0
-				threadData[3*iChan+2] = scanWave
+				threadData[5*iChan+2] = scanWave
 				// make the RGB wave in case we need it
-				WAVE/Z RGBWave= root:packages:twoP:acquire:RGBwave
+				WAVE/Z RGBWave= root:packages:twoP:examine:RGBwave
 				if (waveExists (RGBWave))
 					redimension/n = ((s.PixWidth), (s.PixHeight), 3) RGBWave
 				else
-					make/b/u/n = ((s.PixWidth), (s.PixHeight))  root:packages:twoP:acquire:RGBwave
-					WAVE RGBWave= root:packages:twoP:acquire:RGBwave
+					make/b/u/n = ((s.PixWidth), (s.PixHeight))  root:packages:twoP:examine:RGBwave
+					WAVE RGBWave= root:packages:twoP:examine:RGBwave
 				endif
 				SetScale/P x s.xPos, s.XPixSize, "m", RGBWave
 				SetScale/P Y s.yPos, s.YPixSize, "m", RGBWave
+				// HIst wave
+				WAVE/Z histWave = $"root:Packages:twoP:Examine:HistWave" + chanName
+				threadData[5*iChan+3] = histWave
+				// ROI wave
+				WAVE/Z LROIWave =  $"root:Packages:twoP:acquire:LroiWave_" + chanName
+				threadData[5*iChan+4] = LROIWave
 				break
 		endswitch
 	endfor
@@ -3903,7 +3912,7 @@ Function NQ_ScanInit (s)
 	sprintf ScanErrhook, "twoP_ScanErr(%d)", s.ScanMode
 	try
 		// Set counter 1  to make the LineGate - it is low during data collection portion of the line, high during turnaround/flyback
-		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={s.PixWidth-1, (s.PixWidthTotal - (s.PixWidth-1))} /IDLE=1 /NPLS=0/TBAS="/" + s.ImageBoard + "/ao/SampleClock" /Rate=(1/s.PixTime) 1; ABORTONRTE
+		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - (s.PixWidth)), s.PixWidth} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/ao/SampleClock" /Rate=(1/s.PixTime) 1; ABORTONRTE
 		// output the line gate to the normal counter1 output pin
 		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/Ctr1InternalOutput", "/" + s.ImageBoard + "/ctr1Out", 0), 0
 		// while we are connecting signals, may as well ouput scan clock and input sample clock for use with chunkulator, e.g.
@@ -3912,7 +3921,7 @@ Function NQ_ScanInit (s)
 		Switch (s.ScanMode)
 			case kLiveMode:
 				RPTChook = "twoP_LiveHook()"
-				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/ao/SampleClock", 1}/PAUS={"/" + s.imageBoard + "/Ctr1InternalOutput", 1, 0, 0}/RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/ao/SampleClock", 0}/PAUS={"/" + s.imageBoard + "/Ctr1InternalOutput", 1, 1}/RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 				break
 		endSwitch
 
@@ -3938,7 +3947,7 @@ Function NQ_ScanInit (s)
 			scanWavesList = "root:packages:twoP:acquire:HorWave, 0;root:packages:twoP:acquire:VerWave, 1;"
 		endif
 		if (s.inputTrigger)
-			DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/Strt=1 /TRIG={"/" + s.imageBoard + "/PFI6", 1} scanWavesList; abortOnRTE
+			DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/Strt=1 /TRIG={"/" + s.imageBoard + "/PFI6", 0} scanWavesList; abortOnRTE
 		else
 			DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/Strt=1 scanWavesList;abortOnRTE
 		endif
@@ -4043,6 +4052,7 @@ Function twoP_LiveHook()
 	String aChan
 	variable iChan
 	NVAR nChans = root:packages:twoP:acquire:LiveNchannels
+	
 	for (ichan =0; iChan < nChans; iChan +=1)
 		newdatafolder/s :tdata
 		variable/G iFrameG = LiveiFrame
@@ -4050,6 +4060,8 @@ Function twoP_LiveHook()
 		string/G aChanG = stringFromList (0, stringFromList(iChan, selImageChanList,";"),":")
 		ThreadGroupPutDF gThreadGroupID, :
 	endfor
+
+	
 	LiveiFrame +=1
 	if (LiveiFrame == LiveNframes)
 		LiveiFrame =0
@@ -4096,13 +4108,13 @@ ThreadSafe Function twoP_LiveThread(threadfWaves, threadGroupID, isByFrame, numF
 		NVAR iPlane=dfr:iFrameG
 		NVAR iChan = dfr:iChanG
 		SVAR aChan = dfr:aChanG
-		WAVE acq1d = threadfWaves [iChan *3]
-		WAVE acq2D = threadfWaves [iChan *3 + 1]
-		WAVE acq3D = threadfWaves [iChan *3 +2]
+		WAVE acq1d = threadfWaves [iChan *5]
+		WAVE acq2D = threadfWaves [iChan *5 + 1]
+		WAVE acq3D = threadfWaves [iChan *5 +2]
 		
 		if (isByFrame)
 			acq3D [] [] [iPlane] = acq1d [q*pixWidth + p]
-			acq3D [] [] [iPlane] = acq3D  > 2^kNQimageBits ? 0 :  acq3D
+			acq3D [] [] [iPlane] = acq3D > 2^kNQimageBits ? 0 :  acq3D
 		else
 			acq3D = acq1d
 			acq3D = acq3D > 2^kNQimageBits ? 0: acq3D
@@ -4113,17 +4125,20 @@ ThreadSafe Function twoP_LiveThread(threadfWaves, threadGroupID, isByFrame, numF
 			SwapEven (acq2D)
 		endif
 		
-		if (liveHist)
-			WAVE histWave = $"root:Packages:twoP:Examine:HistWave" + aChan
+ 		if (liveHist)
+			WAVE/Z histWave = threadfWaves [iChan *5 +3]
 			Histogram /B=2 acq1d, HistWave
 		endif
 		
 		if (liveROI)
-			WAVE LROIWave =  $"root:Packages:twoP:acquire:LroiWave_" +aChan
-			ImageStats/Q/M=1/GS={LROIleft, LROIright, LROIbottom, LROItop} acq2D
-			Rotate -1, LROIWave
+			WAVE LROIWave = threadfWaves [iChan *5 +4]
+			ImageStats/M=1/GS={ LROIleft,LROIright,LROIbottom,  LROItop } acq3D
 			LROIWave [0] = V_avg
-		endif				
+			Rotate 1, LROIWave
+			
+		endif
+			
+				
 		killdataFolder dfr
 	endfor
 	return 0	
@@ -4526,7 +4541,7 @@ Function NQ_Tseries_Bkg(s)
 			endif
 		endif
 		if (hasMrg)
-			NQ_ApplyImSettings (4)
+			//NQ_ApplyImSettings (4)
 			TextBox/W = twoPScanGraph#gmrg/C/N=PosText/F=0/A=LT/X=0.00/Y=0.00 valueStr
 			if (LiveROIcheck)
 				NVAR RatioCheck = root:Packages:twoP:Acquire:LiveROiRatioCheck
@@ -4798,7 +4813,7 @@ Function twoP_MakeLROIGraph (s)
 	if (s.liveROISecs == 0)
 		return 0
 	endif
-	variable iChan, nChans= itemsInList (s.onlyChansImage)
+	variable iChan, nChans= itemsInList (s.onlyChansImage, ",")
 	string aChan
 	string axisStr = ""
 	variable lroiPoints = round(s.liveROISecs/s.FrameTime)
@@ -4811,17 +4826,17 @@ Function twoP_MakeLROIGraph (s)
 		else
 			redimension/n= (lroiPoints) LROIWave
 		endif
-		SetScale /p x, 0, (s.FrameTime),  "s",  LROIWave
 		LROIWave = NaN
+		SetScale /p x, 0, (-s.FrameTime),  "s",  LROIWave
 		axisStr = AddListItem(aChan, axisStr, ";")
 	endfor
 	if (s.liveRatio)
 		WAVE/Z LroiWave_ratio =  root:Packages:twoP:acquire:LroiWave_ratio
-		if (!(WaveExists(LroiWave_ratio)))
-			make/n= (lroiPoints) LroiWave_ratio
-			WAVE/Z LroiWave_ratio =  root:Packages:twoP:acquire:LroiWave_ratio
+		if (WaveExists(LroiWave_ratio))
+			redimension/n= (lroiPoints) LroiWave_ratio
 		else
-			redimension/n= (s.liveROISecs/s.FrameTime) LroiWave_ratio
+			make/n= (lroiPoints) root:Packages:twoP:acquire:LroiWave_ratio
+			WAVE LroiWave_ratio =  root:Packages:twoP:acquire:LroiWave_ratio
 		endif
 		SetScale /p x, 0, (s.FrameTime),  "",  LroiWave_ratio
 		SVAR topChan = root:packages:twoP:acquire:LiveROItopChan
@@ -4838,7 +4853,7 @@ Function twoP_MakeLROIGraph (s)
 		anAxis = stringfromlist (iAxis, axisStr) 
 		WAVE lROIWave = $"Root:Packages:twoP:acquire:LroiWave_" + anAxis
 		appendtoGraph/L=$"L_" + anAxis lROIWave
-		ModifyGraph freePos($"L_" + anAxis)={0,bottom}
+		ModifyGraph freePos($"L_" + anAxis)=0
 		ModifyGraph axisEnab($"L_" +  anAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis* .01)}
 		label $"L_" + anAxis "Live ROI " + stringfromlist (iAxis, axisStr)
 		ModifyGraph lblPos( $"L_" + anAxis)=60
@@ -4861,24 +4876,16 @@ Function twoP_MakeLiveRawGraph (s)
 	// Kill old lROI graph
 	DoWindow/K twoPLiveRawGraph
 	// check for new graph
-	if (s.liveROISecs == 0)
-		return 0
-	endif
-	variable iChan, nChans= itemsInList (s.selImageChanList)
+
+	variable iChan, nChans= itemsInList (s.onlyChansImage, ",")
 	string aChan
 	string axisStr = ""
 	for (ichan= 0; iChan < nChans; iChan +=1)
-		aChan = stringFromList(iChan, s.selImageChanList)
-		WAVE/Z LiveRaw = $"root:Packages:twoP:acquire:LiveRaw_" +aChan
-		if (!(WaveExists(LiveRaw)))
-			make/n= (s.liveROISecs/s.FrameTime) $"root:Packages:twoP:acquire:LiveRaw_" +aChan
-			WAVE LiveRaw = $"root:Packages:twoP:acquire:LiveRaw_" +aChan
-		else
-			redimension/n= (s.liveROISecs/s.FrameTime) LiveRaw
-		endif
-		SetScale /p x, (-s.liveROISecs), (s.FrameTime),  "s",  LiveRaw
-		LiveRaw = NaN
+		aChan = stringFromList(iChan, s.onlyChansImage, ",")
+		WAVE/Z LiveRaw = $"root:Packages:twoP:acquire:Acq1D_" +aChan
+		if (WaveExists(LiveRaw))
 		axisStr = AddListItem(aChan, axisStr, ";")
+		endif
 	endfor
 	variable nAxes=Itemsinlist(axisStr, ";")
 	// Display Graph
@@ -4887,7 +4894,7 @@ Function twoP_MakeLiveRawGraph (s)
 	string anAxis
 	for (iAxis =0; iAxis < nAxes; iAxis += 1)
 		anAxis = stringfromlist (iAxis, axisStr) 
-		WAVE LiveRaw = $"Root:Packages:twoP:acquire:LiveRaw" + anAxis
+		WAVE LiveRaw = $"Root:Packages:twoP:acquire:Acq1D_" + anAxis
 		appendtoGraph/L=$"L_" + anAxis LiveRaw
 		ModifyGraph freePos($"L_" + anAxis)={0,bottom}
 		ModifyGraph axisEnab($"L_" +  anAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis* .01)}
@@ -4901,7 +4908,7 @@ Function twoP_MakeLiveRawGraph (s)
 	ModifyGraph mode=1,useNegRGB=1,usePlusRGB=1,negRGB=(65535,0,0),plusRGB=(0,0,0)
 	// Hook to save window position
 	WC_WindowCoordinatesRestore("twoPLROIGraph")
-	SetWindow twoPLROIGraph hook (saveHook)= twoP_UtilSaveWinPosHook, hookevents = 2
+	SetWindow twoPLiveRawGraph hook (saveHook)= twoP_UtilSaveWinPosHook, hookevents = 2
 end
 
 
