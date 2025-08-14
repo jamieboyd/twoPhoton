@@ -1,7 +1,7 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2025/08/11 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2025/08/14 by Jamie Boyd.
 #pragma IgorVersion = 7
 
 #include "twoP_Prefs"
@@ -521,7 +521,7 @@ Function twoP_AcquireAddControls ()
 	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "PopupMenu LiveROIRatioBottomPopMenu", "Live;Tser")
 	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "TitleBox LiveROIRatioBottomChanTitle","Live;Tser")
 	// Live mode sepecific
-	SetVariable LiveAvgFramesSetVar, disable =1, pos={9.00,205.00},size={163.00,18.00},proc=NQ_SetTimesProc
+	SetVariable LiveAvgFramesSetVar, pos={9.00,205.00},size={163.00,18.00},proc=NQ_SetTimesProc
 	SetVariable LiveAvgFramesSetVar,title="Average per Frame",fSize=12
 	SetVariable LiveAvgFramesSetVar,limits={0,inf,1},value=root:Packages:twoP:Acquire:numLiveAvgFrames
 	CheckBox LiveHistCheck,title="Live Histogram",fSize=12
