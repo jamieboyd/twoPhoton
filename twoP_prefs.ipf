@@ -1,7 +1,7 @@
 ﻿#pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2025/07/18 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2025/08/14 by Jamie Boyd.
 #pragma IgorVersion = 7
 
 #include "GUIPControls"
@@ -13,7 +13,9 @@ Menu "Macros"
 		"Edit Acquire Preferences", /Q, twoP_PrefsMakePanel()
 	end
 end
-constant kTwoPPrefsVers = 110 // Preferences structure version number
+constant kTwoPPrefsVers = 111 // Preferences structure version number
+
+constant kPrefsNQePhysCounterSize = 24
 
 // **************************************************************************************************************
 // for storing imformation about twoP settings
@@ -52,7 +54,7 @@ EndStructure
 
 // **************************************************************************************************************
 // each analog input channel is represented by this structure
-// Last Modified 2015/04/28 by Jamie Boyd
+// Last Modified 2025/08/14 by Jamie Boyd - saved selected state of channel
 // aToDtype can be differential, pseudodifferential, referenced single-ended, or non-referenced single-ended
 // Differential is typical, USB devices may need referenced single-ended, S-series devices (like pci-6110) require pseudo-differential
 // NIDAQtools sets a max and a min Voltage for digitization scaling, but our boards all have symetrical ranges, so one value is enough
@@ -64,6 +66,7 @@ Structure twoPChanStruct
 	float inputScaling		// minimum/maximum expected range of input signals, used for digitization 
 	float scaling			// scaling applied AFTER A/D conversion, use to fill 16 bit int wave range, or for floating point, wave, make scaling nice
 	float offset			// offset applied AFTER A/D conversion, used to fit data into unsigned waves, e.g.
+	char selected			// is channel selected by default?
 EndStructure
 
 
@@ -151,7 +154,7 @@ Function twoP_PrefsSetBoardName (pa) : PopupMenuControl
 						break
 				endswitch
 			endif
-			// readjustchannel list for number of channels on the board
+			// readjust channel list for number of channels on the board
 			redimension/n=(numChans, -1) chanList, chanSelList
 			chanSelList [*] [0] = 32 // check box for channel number is active
 			chanSelList [*] [1] = 2	 // channel name, editable
@@ -508,7 +511,7 @@ function twoP_PrefsSetEphysMax (sva) : SetVariableControl
 			Variable dval = sva.dval
 			String sval = sva.sval
 			if (cmpStr ("twoP_Controls", WinList("twoP_Controls", "", "WIN:64" )) ==0)
-				GUIPSISetVarSetMax ("twoP_Controls", "ePhysOnlyTimeSetVar", (2^kNQePhysCounterSize/sva.dval))
+				GUIPSISetVarSetMax ("twoP_Controls", "ePhysOnlyTimeSetVar", (2^kPrefsNQePhysCounterSize/sva.dval))
 			endif
 			break
 		case -1: // control being killed
@@ -609,6 +612,7 @@ Function twoP_PrefsLoad (prefsFileName)
 		chanList[iChan] [3] = num2str(thePrefs.imageChans[iChan].inputScaling)
 		chanList [iChan] [4] = num2str (thePrefs.imageChans[iChan].scaling)
 		chanList [iChan] [5] = num2Str (thePrefs.imageChans[iChan].offset)
+		chanSelList [iChan] [0] += thePrefs.imageChans[iChan].selected
 	endfor
 	//Objective scaling
 	variable iObj,  numObjs = thePrefs.numObjs
@@ -660,6 +664,7 @@ Function twoP_PrefsLoad (prefsFileName)
 		chanList [iChan] [3] = num2str (thePrefs.ePhysChans[iChan].inputScaling)
 		chanList [iChan] [4] = num2str (thePrefs.ePhysChans[iChan].scaling)
 		chanList [iChan] [5] = num2str (thePrefs.ePhysChans[iChan].offset)
+		chanSelList [iChan] [0] += thePrefs.ePhysChans[iChan].selected
 	endfor
 	String/G root:Packages:twoP:Acquire:selEphysChanList = ""
 	// Triggers
@@ -802,7 +807,7 @@ end
 
 // **************************************************************************************************************
 // Saves twoP preferences to a preferences file in twoPhoton folder
-// Last Modified 2025/07/09 by Jamie Boyd
+// Last Modified 2025/07/14 by Jamie Boyd
 Function twoP_PrefsSave(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 
@@ -842,6 +847,7 @@ Function twoP_PrefsSave(ba) : ButtonControl
 			thePrefs.minLiveFrameTime = minLiveFrameTime
 			// image channels
 			WAVE/T imChanList = root:packages:twoP:acquire:imChanList
+			WAVE imChanSelList =  root:packages:twoP:acquire:imChanSelList
 			variable iChan,  numChans = min (4, dimsize (imChanList, 0))
 			thePrefs.numImChans = numChans
 			for (iChan=0;ichan< numChans;iChan += 1)
@@ -850,6 +856,7 @@ Function twoP_PrefsSave(ba) : ButtonControl
 				thePrefs.imageChans[iChan].inputScaling = str2Num (imChanList[iChan] [3])
 				thePrefs.imageChans[iChan].scaling =  str2num (imChanList [iChan] [4])
 				thePrefs.imageChans[iChan].offset =  str2num (imChanList [iChan] [5])
+				thePrefs.imageChans[iChan].selected += (imChanSelList [ichan][0] & 16)
 			endfor
 			//Objective scaling
 			wave/t objWave = root:packages:twoP:acquire:objWave
@@ -879,6 +886,7 @@ Function twoP_PrefsSave(ba) : ButtonControl
 			thePrefs.ePhysSampFreq = ePhysSampFreq
 			//ePhys channels
 			WAVE/T ephysChans = root:packages:twoP:acquire:ePhysChanList
+			WAVE ephysChanSelList = root:packages:twoP:acquire:ephyschanSellist
 			numChans = dimSize(ephysChans, 0)
 			thePrefs.numEphysChans = numChans
 			for(iChan =0; iChan < numChans; iChan +=1)
@@ -887,6 +895,7 @@ Function twoP_PrefsSave(ba) : ButtonControl
 				thePrefs.ePhysChans[iChan].inputScaling = str2num(ephysChans [iChan] [3])
 				thePrefs.ePhysChans[iChan].scaling = str2num(ephysChans [iChan] [4])
 				thePrefs.ePhysChans[iChan].offset = str2num(ephysChans [iChan] [5])
+				thePrefs.ePhysChans[iChan].selected = (ephysChanSelList [ichan][0] & 16)
 			endfor
 			// Triggers
 			thePrefs.numTriggers = 2

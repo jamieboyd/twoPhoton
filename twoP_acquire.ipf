@@ -1640,11 +1640,7 @@ Function RevertSettingstoWaveProc(pa) : PopupMenuControl
 		case 2: // mouse up
 			Variable popNum = pa.popNum
 			String theScan = pa.popStr
-			if (cmpStr (theScan, "LiveScan") == 0)
-				SVAR scanStr = root:twoP_Scans:LiveScan_info
-			else
-				SVAR scanStr = $"root:twoP_Scans:" + theScan + ":" + theScan + "_info"
-			endif
+			SVAR scanStr = $"root:twoP_Scans:" + theScan + ":" + theScan + "_info"
 			// Globals to reset		
 			NVAR PixWidth = root:Packages:twoP:acquire:PixWidth
 			NVAR PixHeight = root:Packages:twoP:acquire:PixHeight
@@ -2562,6 +2558,7 @@ end
 // Some variables are used in calculations, and need to be accessed later, some are just for maintaining
 // a record of settings for the user. The latter can be printed with easier to read but harder to parse %W formatting
 // Last Modified 2025/08/08 by Jamie Boyd
+// *** <enter your marker text here> ***
 Function NQ_ScanNoter (s)
 	STRUCT NQ_ScanStruct &s
 	
@@ -3744,6 +3741,13 @@ Function NQ_StartScan (ba) : ButtonControl
 		// make a folder for this scan
 		newDataFolder/O $"root:twoP_Scans:" + s.newScanName
 		
+		
+		// Make info string 
+		if (NQ_ScanNoter (s))
+			doAlert 0,"Scan not not found"
+			return 0
+		endif
+		
 		// make waves for imaging - laser scan waves and imaging data
 		if (s.scanMode != kePhysOnly)
 			// set galvos to end of X and Y images
@@ -3771,9 +3775,7 @@ Function NQ_StartScan (ba) : ButtonControl
 		if (s.vOutChans)
 			NQ_DoVoltagePulseWaves (s)
 		endif
-		
-		// Make info string 
-		NQ_ScanNoter (s)
+
 		
 		// Update stage and X,Y position unless repeated multiAq
 		variable xS=1, yS=1, zS=1, axS=NaN				
@@ -4890,24 +4892,29 @@ Function twoP_MakeLiveRawGraph (s)
 	variable nAxes=Itemsinlist(axisStr, ";")
 	// Display Graph
 	Display/N=twoPLiveRawGraph as "Live Raw A/D Graph: " +s.newScanName
-	variable iAxis, axisFrac = (1-.02*(nAxes-1))/nAxes
+	variable iAxis, axisFrac = (1-.04*(nAxes-1))/nAxes
 	string anAxis
 	for (iAxis =0; iAxis < nAxes; iAxis += 1)
 		anAxis = stringfromlist (iAxis, axisStr) 
 		WAVE LiveRaw = $"Root:Packages:twoP:acquire:Acq1D_" + anAxis
 		appendtoGraph/L=$"L_" + anAxis LiveRaw
 		ModifyGraph freePos($"L_" + anAxis)={0,bottom}
-		ModifyGraph axisEnab($"L_" +  anAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis* .01)}
+		ModifyGraph axisEnab($"L_" +  anAxis)={(iAxis * axisFrac) + (iAxis * .02) , ((iAxis + 1) * axisFrac) + (iAxis* .02)}
 		label $"L_" + anAxis "Live Raw A/D " + stringfromlist (iAxis, axisStr)
-		ModifyGraph lblPos( $"L_" + anAxis)=60
+		ModifyGraph lblPos($"L_" + anAxis)=60
+		ModifyGraph fSize($"L_" + anAxis)=12
+		ModifyGraph btLen($"L_" + anAxis)=4
 		SetDrawEnv dash=2, ycoord= $"L_" + anAxis
 		DrawLine 0,0,1,0
-		Setaxis $"L_" + anAxis -2048, 2047
+		Setaxis $"L_" + anAxis -2048, 4095
 	endfor
-	Label bottom "\\Z12Time (Seconds)"
+	// Don't really have a time scaling on bottom axis because of pause triggerfor flyback
+	ModifyGraph nticks(bottom)=0
+	ModifyGraph noLabel(bottom)=2
 	ModifyGraph mode=1,useNegRGB=1,usePlusRGB=1,negRGB=(65535,0,0),plusRGB=(0,0,0)
 	// Hook to save window position
-	WC_WindowCoordinatesRestore("twoPLROIGraph")
+	WC_WindowCoordinatesRestore("twoPLiveRawGraph")
+	ModifyGraph margin(left)=50,margin(bottom)=5,margin(right)=5,margin(top)=5
 	SetWindow twoPLiveRawGraph hook (saveHook)= twoP_UtilSaveWinPosHook, hookevents = 2
 end
 

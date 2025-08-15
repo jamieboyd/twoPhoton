@@ -632,8 +632,12 @@ Function twoP_ScanPopMenuProc(pa) : PopupMenuControl
 	switch( pa.eventCode )
 		case 2: // mouse up
 			SVAR curScan = root:Packages:twoP:examine:CurScan
-			SVAR scanNote =$"root:twoP_Scans:" + curScan + ":" + curScan+ "_info"
 			curScan = pa.popStr
+			SVAR/Z scanNote =$"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
+			if (!(SVAR_Exists(scanNote)))
+				print "root:twoP_Scans:" + curScan + ":" + curScan + "_info"
+			endif
+			
 			// if numeric series, set scan num
 			NVAR scanNum = root:packages:twoP:Examine:curScanNum
 			scanNum = str2num (stringfromlist (1, pa.popStr, "_"))
@@ -905,12 +909,12 @@ function/S twoP_ScanListImChans()
 	string chanlist
 	SVAR curScan = root:packages:twoP:examine:curScan
 	if (cmpStr (CurScan, "no current scan") ==0)
-		DoAlert 0, "There is no scan selected from which to choose a channel!"
+		// DoAlert 0, "There is no scan selected from which to choose a channel!"
 		chanlist = ""
 	else
 		SVAR/Z scanNote = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 		if (!(SVAR_Exists(scanNote)))
-			DoAlert 0, "Can't find scan note for current scan!"
+			//DoAlert 0, "Can't find scan note for current scan!"
 			chanlist = ""
 		else
 			chanlist = replaceString (",", stringbykey ("imChanDesc", scanNote, ":", "\r"), ";")
