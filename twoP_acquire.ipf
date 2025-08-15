@@ -1,8 +1,8 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2025/08/14 by Jamie Boyd.
-#pragma IgorVersion = 7
+#pragma version = 2.1  			// Last Modified: 2025/08/15 by Jamie Boyd.
+#pragma IgorVersion = 7			//Not sure about this. Perhaps some Igor 9isms have slipped in
 
 #include "twoP_Prefs"
 #include "twoP_examine"
@@ -100,17 +100,16 @@ Function twoP_AcquireMakeFolder ()
 	// image sizes (and backups) for normal images, start at full scale (some are alreadyy made by loading  twoPPrefs)
 	NVAR xStartVoltsFS = root:Packages:twoP:Acquire:xStartVoltsFS
 	variable/G root:Packages:twoP:Acquire:xStartVolts =  xStartVoltsFS
-	variable/G root:Packages:twoP:Acquire:xStartVoltsBU =xStartVoltsFS
+	variable/G root:Packages:twoP:acquire:XStartVoltsBU =xStartVoltsFS
 	NVAR xEndVoltsFS = root:Packages:twoP:Acquire:xEndVoltsFS
 	variable/G root:Packages:twoP:Acquire:xEndVolts =xEndVoltsFS
-	variable/G root:Packages:twoP:Acquire:xEndVoltsBU= xEndVoltsFS
+	variable/G root:Packages:twoP:acquire:XEndVoltsBU= xEndVoltsFS
 	NVAR yStartVoltsFS = root:Packages:twoP:Acquire:yStartVoltsFS
 	variable/G root:Packages:twoP:Acquire:yStartVolts=yStartVoltsFS
-	variable/G root:Packages:twoP:Acquire:yStartVoltsBU=yStartVoltsFS
+	variable/G root:Packages:twoP:acquire:YStartVoltsBU=yStartVoltsFS
 	NVAR yEndVoltsFS = root:Packages:twoP:Acquire:yEndVoltsFS
 	variable/G root:Packages:twoP:Acquire:yEndVolts = yEndVoltsFS
 	variable/G root:Packages:twoP:Acquire:yEndVoltsBU = yEndVoltsFS
-	
 	// Initialize X and Y Voltages for line scans
 	variable/G root:Packages:twoP:Acquire:LSStartVolts =xStartVoltsFS
 	variable/G root:Packages:twoP:Acquire:LSStartVoltsBU =xStartVoltsFS
@@ -328,7 +327,7 @@ Function twoP_AcquireAddControls ()
 	Button RevertScaleButton,title="Revert", help={"Sets image pixel sizes and galvo scan voltage endpoints to last used values"}
 	PopupMenu RevertScalePopMenu,pos={93.00,96.00},size={64.00,19.00},proc=RevertSettingstoWaveProc
 	PopupMenu RevertScalePopMenu,title="to Scan:"
-	PopupMenu RevertScalePopMenu,mode=0,value=#"\"LiveScan;\\\\M1(-;\" + NQ_ListScans (\"1,2,4,\")"
+	PopupMenu RevertScalePopMenu,mode=0,value=#"twoP_ScanListScans (\"0,1,2,3,4,5,\")"
 	SetVariable AspRatSetVar,pos={163.00,97.00},size={90.00,18.00},proc=NQ_AspectRatioProc
 	SetVariable AspRatSetVar,title="Aspect",fSize=12,format="%#.3G"
 	SetVariable AspRatSetVar,limits={0,inf,0.1},value=root:Packages:twoP:Acquire:AspectRatio
@@ -2227,6 +2226,7 @@ Structure NQ_ScanStruct
 	// image settings
 	string selImageChanList		// list of channel name: aiChan pairs
 	string onlyChansImage			// just ths channel names, stripped of ai number
+	variable hasRGB					// if we are displaying RGB wave while acquiring, live mode, zMode, time Series will want to update RGB wave
 	string scanWavePath			 // string containing paths to image waves to scan and channels on which to scan them, in NIDAQ format "root:twoP_Scans:Scan_000:Scan_000_ch1, 0/DIFF, -5, 5;
 	string imageBoard
 	variable numFrames
@@ -2263,6 +2263,8 @@ Structure NQ_ScanStruct
 	variable liveRatio	// set if doing live ratio
 	string liveRatioTopChan 	// name of top chan for live ratio, or "" if not doing ratio
 	string liveRatioBottomChan
+	variable ratioTopChanNum
+	variable ratioBottomChanNum
 	variable LROIleft
 	variable LROItop
 	variable LROIright
@@ -2355,6 +2357,8 @@ Function NQ_LoadScanStruct (s)
 			aChan = stringFromList (0, stringFromList (iChan, s.selImageChanList, ";"), ":")
 			s.onlyChansImage = AddListItem(aChan, s.onlyChansImage, ",")
 		endfor
+		NVAR hasRGB = root:packages:twoP:examine:RGB_hasRGB
+		s.hasRGB = hasRGB
 		// objective used for scaling
 		SVAR obj = root:Packages:twoP:Acquire:curObj 
 		NVAR objNum = root:Packages:twoP:Acquire:curObjNum
@@ -2699,18 +2703,47 @@ Function NQ_MakeImageScanWaves (s)
 	WAVE/T chanList = root:packages:twoP:acquire:imChanList
 	string ai_chanName, ai,chanName, type, range, scaling, offset
 	variable iChan, nChans = itemsInList(s.selImageChanList)
+	
+	
+	// make the RGB wave for every scan type
+	WAVE/Z RGBWave= root:packages:twoP:examine:RGBwave
+	if (waveExists (RGBWave))
+		redimension/n = ((s.PixWidth), (s.PixHeight), 3) RGBWave
+	else
+		make/b/u/n = ((s.PixWidth), (s.PixHeight))  root:packages:twoP:examine:RGBwave
+		WAVE RGBWave= root:packages:twoP:examine:RGBwave
+	endif
+	
+	// make live ROI ratio for livemode or time series
+	variable roiPoints =round(s.liveROISecs/s.FrameTime)
+	if ((s.liveRatio) && ((s.ScanMode == kLiveMode) || (s.ScanMode== kTImeSeries)))
+		WAVE/Z LroiWave_ratio =  root:Packages:twoP:acquire:LroiWave_ratio
+		if (WaveExists(LroiWave_ratio))
+			redimension/n= (roiPoints) LroiWave_ratio
+		else
+			make/n= (roiPoints) root:Packages:twoP:acquire:LroiWave_ratio
+			WAVE LroiWave_ratio =  root:Packages:twoP:acquire:LroiWave_ratio
+		endif
+	endif
+	
+	// make or resize wave references for thread data according to scan type
 	Switch (s.scanMode)
 		case kLiveMode:
 			WAVE/WAVE/Z threadData = root:packages:twoP:acquire:threadData
 			if (WaveExists(threadData))
-				redimension/n=(5*nChans) threadData
+				redimension/n=(5*nChans + 2) threadData
 			else
-				make/WAVE/n=(5*nChans) threadData
+				make/WAVE/n=(5*nChans + 2) threadData
 				WAVE/WAVE threadData = root:packages:twoP:acquire:threadData
 			endif
+			if (s.liveRatio)
+				threadData [5*nChans] = LroiWave_ratio
+			endif
+			threadData [5*nChans + 1] = RGBWave
 			break
 	endSwitch
 	
+	// fillout NI-DAQ info for scan command, and make waves according to scan mode
 	for (iChan=0; iChan < nChans; iChan +=1)
 		ai_chanName = stringFromList(iChan, s.selImageChanList,";")
 		ai = stringFromList (1, ai_chanName, ":")
@@ -2771,22 +2804,34 @@ Function NQ_MakeImageScanWaves (s)
 				SetScale/P Y s.yPos, s.YPixSize, "m", scanWave
 				fastop scanWave =0
 				threadData[5*iChan+2] = scanWave
-				// make the RGB wave in case we need it
-				WAVE/Z RGBWave= root:packages:twoP:examine:RGBwave
-				if (waveExists (RGBWave))
-					redimension/n = ((s.PixWidth), (s.PixHeight), 3) RGBWave
-				else
-					make/b/u/n = ((s.PixWidth), (s.PixHeight))  root:packages:twoP:examine:RGBwave
-					WAVE RGBWave= root:packages:twoP:examine:RGBwave
-				endif
-				SetScale/P x s.xPos, s.XPixSize, "m", RGBWave
-				SetScale/P Y s.yPos, s.YPixSize, "m", RGBWave
 				// HIst wave
-				WAVE/Z histWave = $"root:Packages:twoP:Examine:HistWave" + chanName
-				threadData[5*iChan+3] = histWave
+				if (s.liveHIst)
+					WAVE/Z histWave = $"root:Packages:twoP:Examine:HistWave" + chanName
+					if (!(WAVEExists(histWave)))
+						make/o/n = (2^kNQimageBits) $"root:Packages:twoP:Examine:HistWave" + chanName
+						WAVE HistWave = $"root:Packages:twoP:Examine:HistWave" + chanName
+						setscale/p x, 0, 1	, "", HistWave
+					endif
+					threadData[5*iChan+3] = histWave
+				endif
 				// ROI wave
-				WAVE/Z LROIWave =  $"root:Packages:twoP:acquire:LroiWave_" + chanName
-				threadData[5*iChan+4] = LROIWave
+				if (s.liveROI)
+					WAVE/Z LROIWave = $"root:Packages:twoP:acquire:LroiWave_" + chanName
+					if (WaveExists(LROIWave))
+						redimension/n= (roiPoints) LROIWave
+					else
+						make/n= (roiPoints) $"root:Packages:twoP:acquire:LroiWave_" + chanName
+						WAVE LROIWave = $"root:Packages:twoP:acquire:LroiWave_" + chanName
+					endif
+					threadData[5*iChan+4] = LROIWave
+					if (s.liveRatio)
+						if (cmpStr (chanName, s.liveRatioTopChan) ==0)
+							s.ratioTopChanNum = 5*iChan+4
+						elseif (cmpStr (chanName, s.liveRatioBottomChan) ==0)
+							s.ratioBottomChanNum = 5*iChan+4
+						endif
+					endif
+				endif
 				break
 		endswitch
 	endfor
@@ -3819,7 +3864,7 @@ Function NQ_StartScan (ba) : ButtonControl
 		endif
 		
 		
-		// Select our new scan as current scan, with selected channels to match channels being acquired
+		// Select our new scan as current scan, with selected channels on scanGraph to match channels being acquired
 		SVAR selChans = root:packages:twoP:examine:scanGraphSelChans
 		selChans=s.onlyChansImage
 		STRUCT WMPopupAction pa
@@ -4028,12 +4073,11 @@ Function twoP_AcquireStartThreads(s)
 			NVAR minLiveFrameTme =root:packages:twoP:acquire:minLiveFrameTime
 			variable isByFrame= (s.frameTime > minLiveFrameTme)
 			for (iChan=0; iChan < nCHans; iChan +=1)
-				ThreadStart gThreadGroupID, iChan, twoP_LiveThread(threadData, gThreadGroupID, isByFrame, s.numFrames, s.pixWidth, s.pixHeight, s.flybackMode, s.LiveHist, s.LiveROI, s.LROIleft, s.LROItop, s.LROIright, s.LROIbottom)
+				ThreadStart gThreadGroupID, iChan, twoP_LiveThread(threadData, nChans, gThreadGroupID, isByFrame, s.numFrames, s.pixWidth, s.pixHeight, s.flybackMode, s.LiveHist, s.LiveROI, s.LROIleft, s.LROItop, s.LROIright, s.LROIbottom, s.liveRatio, s.ratioTopChanNum, s.ratioBottomChanNum)
 			endfor
 			break
 	endSwitch
 end
-
 
 
 //**************************************************************************************************
@@ -4089,9 +4133,10 @@ end
 
 //**************************************************************************************************
 // Thread function for live mode
-// Last modified 2025/08/12 by Jamie Boyd
-ThreadSafe Function twoP_LiveThread(threadfWaves, threadGroupID, isByFrame, numFrames, pixWidth, pixHeight, flybackMode, LiveHist, LiveROI, LROIleft, LROItop, LROIright, LROIbottom)
+// Last modified 2025/08/15 by Jamie Boyd
+ThreadSafe Function twoP_LiveThread(threadfWaves, nChans,threadGroupID, isByFrame, numFrames, pixWidth, pixHeight, flybackMode, LiveHist, LiveROI, LROIleft, LROItop, LROIright, LROIbottom, liveRatio, topChan,bottomChan)
 	WAVE/WAVE threadfWaves
+	variable nChans
 	variable threadGroupID
 	variable isByFrame
 	variable numFrames
@@ -4104,7 +4149,16 @@ ThreadSafe Function twoP_LiveThread(threadfWaves, threadGroupID, isByFrame, numF
 	variable LROItop
 	variable LROIright
 	variable LROIbottom
-
+	variable liveRatio
+	variable topChan
+	variable bottomChan
+	
+	if (liveRatio)
+		WAVE LROIRatio = threadfWaves [5*nChans]
+		WAVE topWave =  threadfWaves [topChan]
+		WAVE bottomWave =  threadfWaves [bottomChan]
+	endif
+				
 	for (;;)
 		DFREF dfr = ThreadGroupGetDFR(threadGroupID,inf)
 		NVAR iPlane=dfr:iFrameG
@@ -4128,16 +4182,19 @@ ThreadSafe Function twoP_LiveThread(threadfWaves, threadGroupID, isByFrame, numF
 		endif
 		
  		if (liveHist)
-			WAVE/Z histWave = threadfWaves [iChan *5 +3]
+			WAVE/Z histWave = threadfWaves [iChan*5 +3]
 			Histogram /B=2 acq1d, HistWave
 		endif
 		
 		if (liveROI)
-			WAVE LROIWave = threadfWaves [iChan *5 +4]
+			WAVE LROIWave = threadfWaves [iChan*5 + 4]
 			ImageStats/M=1/GS={ LROIleft,LROIright,LROIbottom,  LROItop } acq3D
 			LROIWave [0] = V_avg
 			Rotate 1, LROIWave
-			
+			if ((liveRatio) && (iChan == nChans-1))
+				LROIRatio [1] = topWave[1]/bottomWave[1]
+				Rotate 1, LROIRatio
+			endif
 		endif
 			
 				
@@ -4840,10 +4897,8 @@ Function twoP_MakeLROIGraph (s)
 			make/n= (lroiPoints) root:Packages:twoP:acquire:LroiWave_ratio
 			WAVE LroiWave_ratio =  root:Packages:twoP:acquire:LroiWave_ratio
 		endif
-		SetScale /p x, 0, (s.FrameTime),  "",  LroiWave_ratio
-		SVAR topChan = root:packages:twoP:acquire:LiveROItopChan
-		SVAR bottomChan =  root:packages:twoP:acquire:LiveROIbottomChan
-		SetFormula  root:Packages:twoP:acquire:LroiWave_ratio,  "root:Packages:twoP:acquire:LroiWave_" + topChan  + "/ root:Packages:twoP:acquire:LroiWave_" + bottomChan
+		SetScale /p x, 0, (-s.FrameTime),  "",  LroiWave_ratio
+		LroiWave_ratio = NaN
 		axisStr = AddListItem("ratio", axisStr, ";")
 	endif
 	variable nAxes=Itemsinlist(axisStr, ";")
@@ -4898,6 +4953,8 @@ Function twoP_MakeLiveRawGraph (s)
 		anAxis = stringfromlist (iAxis, axisStr) 
 		WAVE LiveRaw = $"Root:Packages:twoP:acquire:Acq1D_" + anAxis
 		appendtoGraph/L=$"L_" + anAxis LiveRaw
+		ModifyGraph mode($"Acq1D_" + anAxis)=2,lsize($"Acq1D_" + anAxis)=2, zColorMin($"Acq1D_" + anAxis)=(65535,0,0), zColorMax($"Acq1D_" + anAxis)=(0,0,0)
+		ModifyGraph zColor($"Acq1D_" + anAxis)={LiveRaw,0,1,Grays,0}
 		ModifyGraph freePos($"L_" + anAxis)={0,bottom}
 		ModifyGraph axisEnab($"L_" +  anAxis)={(iAxis * axisFrac) + (iAxis * .02) , ((iAxis + 1) * axisFrac) + (iAxis* .02)}
 		label $"L_" + anAxis "Live Raw A/D " + stringfromlist (iAxis, axisStr)
@@ -4907,11 +4964,11 @@ Function twoP_MakeLiveRawGraph (s)
 		SetDrawEnv dash=2, ycoord= $"L_" + anAxis
 		DrawLine 0,0,1,0
 		Setaxis $"L_" + anAxis -2048, 4095
+		
 	endfor
 	// Don't really have a time scaling on bottom axis because of pause triggerfor flyback
 	ModifyGraph nticks(bottom)=0
 	ModifyGraph noLabel(bottom)=2
-	ModifyGraph mode=1,useNegRGB=1,usePlusRGB=1,negRGB=(65535,0,0),plusRGB=(0,0,0)
 	// Hook to save window position
 	WC_WindowCoordinatesRestore("twoPLiveRawGraph")
 	ModifyGraph margin(left)=50,margin(bottom)=5,margin(right)=5,margin(top)=5
@@ -5333,11 +5390,7 @@ Function NQ_SetScanSize(type)
 	// Current Scan
 	SVAR curScan = root:Packages:twoP:examine:CurScan
 	// Scan Note
-	if (cmpStr (curScan, "LiveScan") == 0)
-		SVAR scanStr = root:twoP_Scans:LiveScanStr
-	else
-		SVAR scanStr =$"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-	endif
+	SVAR scanStr =$"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 	// Globals for Voltage sizes and pixel size
 	if (type == 2) // setting values for a line scan
 		NVAR XSV = root:Packages:twoP:acquire:LSStartVolts

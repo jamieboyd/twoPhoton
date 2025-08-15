@@ -557,12 +557,8 @@ Function/S twoP_ScanListScans (modeList)
 			endSwitch
 		endif
 	endfor
-	// now copy free wave into scanlist wave
-	if (nScans > 0)
-		Wave/T scanListWave = root:Packages:twoP:examine:scanListWave
-		Redimension/N=(nScans) scanListWave
-		scanListWave = tempForScanList [p]
-	endif
+
+
 	string outPutList = ""
 	if (WhichListItem("0", modeList, ",") > -1)
 		outPutList += "\\M1(Live;" + LiveModeList + "\\M1(-;"
