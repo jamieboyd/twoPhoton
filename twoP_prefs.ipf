@@ -1,7 +1,7 @@
 ﻿#pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2025/08/14 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2025/08/15 by Jamie Boyd.
 #pragma IgorVersion = 7
 
 #include "GUIPControls"
@@ -134,8 +134,8 @@ Function twoP_PrefsSetBoardName (pa) : PopupMenuControl
 				WAVE/t chanList = root:packages:twoP:Acquire:ePhysChanList
 				WAVE chanSelList = root:packages:twoP:Acquire:ePhysChanSelList
 			endif
-			variable numChans = fdaqmx_NumAnalogInputs(boardNameG)
 			boardNameG = stringfromlist (0, pa.popStr, ":")
+			variable numChans = fdaqmx_NumAnalogInputs(boardNameG)
 			boardClassG = trimString (stringfromlist (2, pa.popStr, ":"))
 			if (cmpStr (boardNameG, "None") != 0)
 				strswitch (boardClassG)

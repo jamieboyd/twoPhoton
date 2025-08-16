@@ -428,6 +428,8 @@ Function twoP_AcquireAddControls ()
 	PopupMenu ImageChansPopMenu,mode=0,value=#"twoP_listActiveChans(1)"
 	TitleBox imChanListTitle,pos={107.00,180.00},size={62.00,15.00},frame=0
 	TitleBox imChanListTitle,variable=root:Packages:twoP:Acquire:selImageChanList
+	SVAR selImageChans = root:Packages:twoP:Acquire:selImageChanList
+	selImageChans = twoP_listActiveChans(1)
 	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "PopupMenu ImageChansPopMenu", "Live;Tser;Avg;Zser;Multi")
 	GUIPTabAddCtrlToTabs ("twoP_Controls", "SmodeTabControl", "TitleBox imChanListTitle", "Live;Tser;Avg;Zser;Multi")
 	// ephys chans - TSer;Lines;ePhys;Multi
@@ -1260,10 +1262,9 @@ Function NQ_SetTimes ()
 			break
 		case kLiveMode:
 			NVAR numLiveAvgFrames = root:Packages:twoP:Acquire:numLiveAvgFrames
-			NVAR liveAvgFrames = root::Packages:twoP:acquire:numLiveAvgFrames
-			liveAvgFrames = max (liveAvgFrames, minLiveFrames)
+			numLiveAvgFrames = max (numLiveAvgFrames, minLiveFrames)
 			SetVariable LiveAvgFramesSetVar win=twoP_Controls, limits={minLiveFrames,inf,1}
-			numFrames = liveAvgFrames
+			numFrames = numLiveAvgFrames
 			break
 		case ksingleImage:
 			NVAR averageFrames = root:Packages:twoP:acquire:numAverageFrames
@@ -2713,7 +2714,8 @@ Function NQ_MakeImageScanWaves (s)
 		make/b/u/n = ((s.PixWidth), (s.PixHeight))  root:packages:twoP:examine:RGBwave
 		WAVE RGBWave= root:packages:twoP:examine:RGBwave
 	endif
-	
+	SetScale/P x s.xPos, s.XPixSize, "m", RGBWave
+	SetScale/P Y s.yPos, s.YPixSize, "m", RGBWave
 	// make live ROI ratio for livemode or time series
 	variable roiPoints =round(s.liveROISecs/s.FrameTime)
 	if ((s.liveRatio) && ((s.ScanMode == kLiveMode) || (s.ScanMode== kTImeSeries)))
@@ -2767,7 +2769,7 @@ Function NQ_MakeImageScanWaves (s)
 						make/o/w/n=(s.PixWidth * s.PixHeight) $"root:packages:twoP:acquire:Acq1D_" + chanName
 						WAVE/Z Acq1D = $"root:packages:twoP:acquire:Acq1D_" + chanName
 					endif
-					setscale/p x 0, 1e-03, "s" Acq1D
+					setscale/p x 0, (s.pixTime), "s" Acq1D
 					fastop Acq1D =0
 				else  // collect data for numFrames frames at a time, assemble into stack and average
 					// make the 1D wave that we directly scan into
@@ -4170,10 +4172,10 @@ ThreadSafe Function twoP_LiveThread(threadfWaves, nChans,threadGroupID, isByFram
 		
 		if (isByFrame)
 			acq3D [] [] [iPlane] = acq1d [q*pixWidth + p]
-			acq3D [] [] [iPlane] = acq3D > 2^kNQimageBits ? 0 :  acq3D
+			acq3D [] [] [iPlane] = acq3D > 32767 ? 0 :  acq3D
 		else
 			acq3D = acq1d
-			acq3D = acq3D > 2^kNQimageBits ? 0: acq3D
+			acq3D = acq3D > 32767 ? 0: acq3D
 		endif
 			
 		KalmanSpecFrames(acq3D, 0, (numFrames -1), acq2D, 0, 16)
@@ -4189,15 +4191,13 @@ ThreadSafe Function twoP_LiveThread(threadfWaves, nChans,threadGroupID, isByFram
 		if (liveROI)
 			WAVE LROIWave = threadfWaves [iChan*5 + 4]
 			ImageStats/M=1/GS={ LROIleft,LROIright,LROIbottom,  LROItop } acq3D
-			LROIWave [0] = V_avg
 			Rotate 1, LROIWave
+			LROIWave [0] = V_avg
 			if ((liveRatio) && (iChan == nChans-1))
-				LROIRatio [1] = topWave[1]/bottomWave[1]
 				Rotate 1, LROIRatio
+				LROIRatio [0] = topWave[0]/bottomWave[0] 
 			endif
 		endif
-			
-				
 		killdataFolder dfr
 	endfor
 	return 0	
@@ -6212,7 +6212,7 @@ function NQ_StartBKGThreads (s)
 					variable/G :zAvgFrames = s.zAvg
 					WAVE scanWave = $"root:twoP_Scans:" +  s.NewScanName + ":" + s.NewScanName + "_ch" + num2str(iChan + 1)
 					WAVE acqWave = $"root:packages:twoP:acquire:TempZWave_ch" + num2str (iChan + 1)
-					setscale/p x 0, 1e-06, acqWave
+					setscale/p x 0, 1e-03, acqWave
 					variable/G :avgStackAtOnce = s.zAvgStackAtOnce // acqWave is 3D if this variable is set, else 2D
 					//ThreadStart bkgThreadIDs [iChan], 0, NQ_zSeriesChanThread (scanWave, acqWave, scanGraphWave, mergeWave)
 					break
@@ -6224,7 +6224,7 @@ function NQ_StartBKGThreads (s)
 						variable/G :tBufferSize = bufferSize
 						variable/G :numFrames = nTFrames
 						WAVE acqWave = $"root:packages:twoP:acquire:TempZWave_ch" + num2str (iChan + 1)
-						setscale/p x 0, 1e-06, acqWave
+						setscale/p x 0, 1e-03, acqWave
 						//ThreadStart bkgThreadIDs [iChan], 0, NQ_tSeriesCyclicChanThread (scanWave, acqWave, scanGraphWave, mergeWave)
 					else
 						NVAR firstColorG = $"root:packages:twoP:examine:Ch" + num2Str (iChan + 1) + "FirstLutColor"

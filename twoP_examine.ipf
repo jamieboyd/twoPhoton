@@ -759,6 +759,12 @@ Function twoP_ScanAdjustExamineControls (curScan)
 		endfor
 	endif
 	TitleBox ChannnelsTitleBox Win=twoP_Controls, title = ChanTitleStr
+	// Make sure UT chan points to a displayed channel
+	SVAR ScanGraphSelChans = root:packages:twoP:examine:ScanGraphSelChans
+	STRUCT WMPopupAction pa
+	pa.eventCode =2
+	pa.popStr = stringFromList (0, ScanGraphSelChans, ",")
+	twoP_LUTchanPopMenuProc(pa)
 	// adjust movie and average controls
 	if ((mode == kTimeSeries) || (mode == kZSeries))
 		// reset the slider values
