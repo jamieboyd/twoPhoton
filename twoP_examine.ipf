@@ -338,6 +338,7 @@ Function twoP_ExamineAddControls (able)
 	Button PrevFrame win = twoP_Controls, disable=able
 	Button NextFrame win = twoP_Controls, pos={31,318},size={23,18},proc=NQ_MovieNextPrevious,title="->"
 	Button NextFrame win = twoP_Controls, disable=able
+	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Button MovieButton;Slider FramePositionSlider;Button PrevFrame;Button NextFrame;")
 	// Dynamic ROI
 	CheckBox DROICheck win = twoP_Controls,pos={14,346},size={19,35},title="", proc=twoP_DROICheckProc
 	CheckBox DROICheck win = twoP_Controls,variable=root:Packages:twoP:examine:doDROI
@@ -345,21 +346,36 @@ Function twoP_ExamineAddControls (able)
 	SetVariable DROIRadSetVar win = twoP_Controls, pos={30,342},size={214,19},title="Dynamic ROI  Radius (pixels)", fSize=12
 	SetVariable DROIRadSetVar win = twoP_Controls, limits={0,inf,1},value= root:Packages:twoP:examine:DROIRad
 	SetVariable DROIRadSetVar win = twoP_Controls, disable=able
-	CheckBox DroiCheckCh1 win = twoP_Controls, pos={25,365},size={58,16},title="Chan 1",fSize=12
-	CheckBox DroiCheckCh1 win = twoP_Controls, variable = root:Packages:twoP:examine:doDROIch1, proc = twoP_DROIchanCheckProc
-	CheckBox DroiCheckCh1 win = twoP_Controls, disable=able
-	CheckBox DroiCheckCh2 win = twoP_Controls, pos={87,365},size={58,16},title="Chan 2",fSize=12
-	CheckBox DroiCheckCh2 win = twoP_Controls, variable = root:Packages:twoP:examine:doDROIch2, proc = twoP_DROIchanCheckProc
-	CheckBox DroiCheckCh2 win = twoP_Controls,  disable=able
-	CheckBox DroiCheckRatio,win = twoP_Controls,pos={150,365},size={47,16},title="Ratio",fSize=12
-	CheckBox DroiCheckRatio,win = twoP_Controls, variable= root:Packages:twoP:examine:doDROIRatio, proc = twoP_DROIchanCheckProc
-	CheckBox DroiCheckRatio,win = twoP_Controls, disable=able
-	PopupMenu DROIRatPopUp win = twoP_Controls, pos={203,363},size={80,20},proc=twoP_DROIPopMenuProc, fSize=12
-	PopupMenu DROIRatPopUp,win = twoP_Controls, mode=2,popvalue="Ch1/Ch2",value= #"\"Ch1/Ch2;Ch2/Ch1\""
-	PopupMenu DROIRatPopUp win = twoP_Controls, disable=able
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Button MovieButton;Slider FramePositionSlider;Button PrevFrame;Button NextFrame;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Checkbox DROICheck;Setvariable DROIRadSetVar;Checkbox DroiCheckCh1;Checkbox DroiCheckCh2;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Checkbox DroiCheckRatio;Popupmenu DROIRatPopUp;")
+	
+	PopupMenu DROIChansPopmenu win = twoP_Controls,pos={11.00,365.00},size={55.00,20.00},bodyWidth=55,proc=twoP_DROIChansPopMenuProc
+	PopupMenu DROIChansPopmenu win = twoP_Controls,title="Chan",fSize=12
+	PopupMenu DROIChansPopmenu win = twoP_Controls,mode=0,value=#"twoP_DROIListChans()",frame=0
+	PopupMenu DROIChansPopmenu win = twoP_Controls, disable=able
+
+	TitleBox SelDROIChansTitle win = twoP_Controls,pos={67.00,368.00},size={53.00,15.00},fSize=12
+	TitleBox SelDROIChansTitle win = twoP_Controls,variable=root:packages:twoP:examine:DROISelChans
+	TitleBox SelDROIChansTitle win = twoP_Controls,disable=able
+	
+	PopupMenu ROItopChanPopUp win = twoP_Controls,pos={173.00,365.00},size={45.00,20.00},bodyWidth=45,proc=NQ_ROIPopMenuProc
+	PopupMenu ROItopChanPopUp win = twoP_Controls,title="top",fSize=12
+	PopupMenu ROItopChanPopUp win = twoP_Controls,mode=0,value=#"twoP_ScanListImChans()"
+	PopupMenu ROItopChanPopUp win = twoP_Controls,disable=able
+	
+	TitleBox ROItopChanTitle win = twoP_Controls,pos={220.00,368.00},size={19.00,15.00},fSize=12,frame=0
+	TitleBox ROItopChanTitle win = twoP_Controls,variable=root:packages:twoP:examine:ROItopChan
+	TitleBox ROItopChanTitle win = twoP_Controls,disable=able
+	
+	PopupMenu ROIbottomChanPopUp win = twoP_Controls,pos={263.00,365.00},size={45.00,20.00},bodyWidth=45,proc=NQ_ROIPopMenuProc
+	PopupMenu ROIbottomChanPopUp win = twoP_Controls,title="bot",fSize=12
+	PopupMenu ROIbottomChanPopUp win = twoP_Controls,mode=0,value=#"twoP_ScanListImChans()"
+	PopupMenu ROIbottomChanPopUp win = twoP_Controls,disable=able
+	
+	TitleBox ROIbottomChanTitle win = twoP_Controls,pos={312.00,368.00},size={19.00,15.00},fSize=12,frame=0
+	TitleBox ROIbottomChanTitle win = twoP_Controls,variable=root:packages:twoP:examine:ROIbottomChan
+	TitleBox ROIbottomChanTitle win = twoP_Controls,disable=able
+
+	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Checkbox DROICheck;Setvariable DROIRadSetVar;PopupMenu DROIChansPopmenu;TitleBox SelDROIChansTitle;")
+	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "PopupMenu ROItopChanPopUp;TitleBox ROItopChanTitle;PopupMenu ROIbottomChanPopUp;TitleBox ROIbottomChanTitle;")
 	// Show Other windows
 	GroupBox ShowOthersGroupBox win = twoP_Controls,pos={3,664},size={337,40},title="Show Other Windows", frame=0
 	GroupBox ShowOthersGroupBox win = twoP_Controls, disable=able
@@ -1954,7 +1970,7 @@ Function twoP_HistMakeGraph ()
 	endif
 	ModifyGraph margin(left)=35
 	// save/apply window position
-	SetWindow twoP_HistGraph hook (infoHook)= twoP_imGraphHookProc, hookevents = 2
+	SetWindow twoP_HistGraph hook (infoHook)= twoP_UtilSaveWinPosHook, hookevents = 2
 	WC_WindowCoordinatesRestore("twoP_HistGraph")
 	
 end
@@ -2867,7 +2883,6 @@ Function twoP_LUTAutoCheckProc(cba) : CheckBoxControl
 		case -1: // control being killed
 			break
 	endswitch
-
 	return 0
 End
 
@@ -2876,9 +2891,82 @@ End
 //-------------------------Code for Dynamic ROI ---------------------------------------------------------
 //******************************************************************************************************
 
+//****************************************************************************************************
+// Lists channels for DROI, marking with checkmarks ones already displayed
+// Last Modified: 2025/08/15 by Jamie Boyd
+function/S twoP_DROIListChans()
+	SVAR curScan = root:packages:twoP:examine:curScan
+	SVAR/Z scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
+	if (SVAR_EXISTS(scanStr))
+		string chanList = StringByKey("imChanDesc", scanStr, ":", "\r") + ",ratio"
+		SVAR selChans = root:packages:twoP:examine:DROISelChans
+		variable iChan, nChans = itemsInList(chanList, ",")
+		string aChan, outList = ""
+		for (iChan =0; iChan < nChans; iChan += 1)
+			aChan = stringfromlist (iChan, chanList, ",")
+			if (FindListItem(aChan, selChans, ",") > -1)
+				outList += "\\M1!"  +num2char(18)
+			endif
+			outList += aChan + ";"
+		endfor
+		return outList
+	else
+		return ""
+	endif
+end
+
+// ***********************************************************************************
+// adds or removes DROI for selected channel
+// Last Modified: 2025/08/15 by Jamie Boyd
+Function twoP_DROIChansPopMenuProc(pa) : PopupMenuControl
+	STRUCT WMPopupAction &pa
+
+	switch( pa.eventCode )
+		case 2: // mouse up
+			SVAR selChans = root:packages:twoP:examine:DROISelChans
+			if (FindListItem(pa.popStr, selChans, ",") > -1)  // removing a channel
+				selChans = sortList (removeFromList(pa.popStr, selChans, ","), ",")
+				doWindow/F twoP_DroiGraph
+				if (V_Flag) // window was found
+					removefromGraph/W=twoP_DroiGraph $"Droi_" + pa.popStr
+				endif
+			else
+				selChans = sortList (addlistItem(pa.popStr, selChans, ","), ",") // adding a channel
+				doWindow/F twoP_DroiGraph
+				if (V_Flag) // window was found
+					WAVE dROIWave = $"root:Packages:twoP:examine:Droi_" + pa.popStr
+					appendtograph/w=twoP_DroiGraph /L= $"L_" + pa.popStr dROIWave
+					ModifyGraph/w=twoP_DroiGraph  freePos($"L_" + pa.popStr)={dimoffset (dROIWave, 0),bottom}
+					label/w=twoP_DroiGraph  $"L_" + pa.popStr "DROI " + pa.popStr
+					ModifyGraph/w=twoP_DroiGraph  lblPos( $"L_" + pa.popStr)=60
+				endif
+			endif
+			twoP_DROIShareAxisSpace ()
+			break
+		case -1: // control being killed
+			break
+	endswitch
+	return 0
+End
+
+// **********************************************************************************
+// shares left axis space for all the channels - run after adding or removing a channel
+// Last Modified: 2025/08/02 by Jamie Boyd
+Function twoP_DROIShareAxisSpace ()
+	string LeftAxes = removefromlist ("bottom", axisList("twoP_DroiGraph"), ";")
+	variable iAxis, nAxes = itemsinList (LeftAxes, ";")
+	variable axisFrac = (1-.02*(nAxes-1))/nAxes
+	string anAixs
+	for (iAxis  =0; iAxis < nAxes; iAxis +=1)
+		anAixs = stringFromList (iAxis, LeftAxes, ";")
+		ModifyGraph axisEnab($anAixs)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
+	endfor
+end
+
+
 // **************************************************************************************
 // Makes waves for dynamic ROI and displays DROI channels in a graph
-// last modified 2025/07/21 by Jamie Boyd
+// last modified 2025/08/16 by Jamie Boyd
 Function twoP_DROICheckProc(cba) : CheckBoxControl
 	STRUCT WMCheckboxAction &cba
 	switch( cba.eventCode )
@@ -2893,7 +2981,7 @@ Function twoP_DROICheckProc(cba) : CheckBoxControl
 					doDroi =0
 					return 1
 				endif
-				variable imChans = numberbykey ("imChans", scanStr, ":", "\r")
+				
 				string ModeUnits = ""
 				variable frameSize, zStart
 				if (mode == kTimeSeries)
@@ -2906,52 +2994,37 @@ Function twoP_DROICheckProc(cba) : CheckBoxControl
 					zStart = numberbykey ("zPos", scanStr, ":", "\r")
 				endif
 				variable ROIpnts = numberbykey ("NumFrames", scanStr, ":", "\r")
-				NVAR doCh1 = root:Packages:twoP:examine:doDROIch1
-				NVAR doCh2 = root:Packages:twoP:examine:doDROIch2
-				NVAR doRatio = root:Packages:twoP:examine:doDROIratio
+				
 				// make waves so they can be appened later, even if not selected now
-				if (imChans & 1)
-					WAVE data1Wave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch1"
-					make/o/n= (ROIpnts) root:Packages:twoP:examine:Droi_ch1
-					WAVE Droi_ch1 = root:Packages:twoP:examine:Droi_ch1
-					SetScale/p x (zStart),(FrameSize),modeUnits, Droi_ch1
-				else
-					doCh1 = 0
-				endif
-				if (imChans & 2)
-					WAVE data2Wave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch2"
-					make/o/n= (ROIpnts) root:Packages:twoP:examine:Droi_ch2
-					WAVE Droi_ch2 = root:Packages:twoP:examine:Droi_ch2
-					SetScale/p x (zStart),(FrameSize),modeUnits, Droi_ch2
-				else
-					doCh2 = 0
-				endif
-				if ((imChans && 1) && (imChans && 2))
-					make/o/n= (ROIpnts) root:Packages:twoP:examine:Droi_ratio
-					WAVE Droi_ratio = root:Packages:twoP:examine:Droi_ratio
-					SetScale/p x (zStart),(FrameSize),modeUnits, Droi_ratio
-				else
-					doRatio =0
-				endif
+				string aChan, imChans = StringByKey("onlyChansImage", scanStr, ":", "\r") + ",ratio"
+				variable iChan, nChans = itemsInList(imChans, ",")
+				for (iChan = 0; iChan < nCHans; iChan += 1)
+					aChan = stringFromList(iChan, imChans, ",")
+					WAVE/Z roiWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
+					if (waveExists(roiWave))
+						redimension/n= (ROIpnts)roiWave
+					else
+						make/o/n= (ROIpnts) $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
+						WAVE roiWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
+					endif
+					SetScale/p x (zStart),(FrameSize),modeUnits, roiWave
+				endfor
+
 				// plot channels selected now
+				SVAR selChans = root:packages:twoP:examine:DROISelChans
+				nChans = itemsInList(selChans, ",")
 				variable nAxes =0, iAxis
 				string axisStr = "", anAxis
-				if (doCh1)
+				for (iChan = 0; iChan < nCHans; iChan += 1)
+					aChan = stringFromList(iChan, selChans, ",")
 					nAxes +=1
-					axisStr= AddListItem("ch1", axisStr, ";", INF)
-				endif
-				if (doCh2)
-					nAxes += 1
-					axisStr= AddListItem("ch2", axisStr, ";", INF)
-				endif
-				if (doRatio)
-					nAxes += 1
-					axisStr= AddListItem("ratio", axisStr, ";", INF)
-				endif
+					axisStr= AddListItem(aChan, axisStr, ";", INF)
+				endfor
+	
 				// kill old graph
-				doWindow/K NQ_DROI_graph
+				doWindow/K twoP_DroiGraph
 				// make new graph
-				display/k=2/N=NQ_DROIgraph as "Dynamic ROI for " + CurScan
+				display/k=2/N=twoP_DroiGraph as "Dynamic ROI for " + CurScan
 				variable axisFrac = (1-.02*(nAxes-1))/nAxes
 				for (iAxis =0; iAxis < nAxes; iAxis += 1)
 					anAxis = stringfromlist (iAxis, axisStr, ";")
@@ -2962,85 +3035,16 @@ Function twoP_DROICheckProc(cba) : CheckBoxControl
 					label $"L_" + anAxis "DROI " + stringfromlist (iAxis, axisStr)
 					ModifyGraph lblPos( $"L_" + anAxis)=60
 				endfor
-				SetWindow NQ_DROIgraph hook (infoHook)= twoP_imGraphHookProc, hookevents = 2
-				WC_WindowCoordinatesRestore("twoP_HistGraph")
+				SetWindow twoP_DroiGraph hook (infoHook)= twoP_UtilSaveWinPosHook, hookevents = 2
+				WC_WindowCoordinatesRestore("twoP_DroiGraph")
 			else //kill old graph
-				DoWindow/k NQ_DROIgraph
+				DoWindow/k twoP_DroiGraph
 			endif
 			break
 	endSwitch
 end
 
 
-//******************************************************************************************************
-// Sets the global variable for which channel is the numerator in the ratio to be calculated from the 2 channels
-// Last modified JUl 16 2010 by Jamie
-Function twoP_DROIPopMenuProc(pa) : PopupMenuControl
-	STRUCT WMPopupAction &pa
-
-	switch( pa.eventCode )
-		case 2: // mouse up
-			if (cmpStr (pa.ctrlName, "DROIRatPopUp") == 0)
-				NVAR TopChan = root:packages:twoP:examine:doDROITopChan
-			elseif (cmpStr (pa.ctrlName, "ROIRatPopUp") == 0)
-				NVAR TopChan =root:packages:twoP:examine:ROITopChan
-			endif
-			TopChan =  pa.popNum
-			break
-	endswitch
-	return 0
-End
-
-
-//******************************************************************************************************
-// allows individual selection of channels for DROI after DROI graph has already been made
-// last modified 2025/07/22 by Jamie Boyd
-Function twoP_DROIchanCheckProc(cba) : CheckBoxControl
-	STRUCT WMCheckboxAction &cba
-	switch( cba.eventCode )
-		case 2: // mouse up
-			string chanName  = cba.ctrlName 
-			chanName = chanName [9, strlen (cba.ctrlName)-1]
-			SVAR curScan = root:packages:twoP:examine:curScan
-			SVAR scanNote = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-			string chanList =stringbykey ("imChanDesc", scanNote, ":", "\r")
-			if (cba.checked)
-				if (cmpStr (chanName, "ratio") == 0)
-					if ((WhichListItem("ch1", chanList, ",", 0,0) == -1) || (WhichListItem("ch2", chanList, ",", 0,0) == -1))
-						checkbox $cba.ctrlName value = 0
-						return 1
-					endif
-			 	elseif (WhichListItem(chanName, chanList, ",", 0,0) == -1)
-			 		checkbox $cba.ctrlName value = 0
-					return 1
-				endif
-			endif
-			// if Checked we are adding a trace, else removing
-			NVAR doROI = root:Packages:twoP:examine:doDroi
-			if (doROI)
-				if (cba.checked ==0)
-					removefromGraph/W=NQ_DROIgraph $"Droi_" + chanName
-				else
-					WAVE dROIWave = $"root:Packages:twoP:examine:Droi_" + chanName
-					appendtograph/w=NQ_DROIgraph /L= $"L_" + chanName dROIWave
-					ModifyGraph/w=NQ_DROIgraph  freePos($"L_" + chanName)={dimoffset (dROIWave, 0),bottom}
-					label/w=NQ_DROIgraph  $"L_" + chanName "DROI " + chanName
-					ModifyGraph/w=NQ_DROIgraph  lblPos( $"L_" + chanName)=60
-				endif			
-				string axesStr = ListMatch(axislist ("NQ_DROIgraph"), "L_*" , ";"), anAxis
-				variable iAxis, nAxes = itemsinlist (axesStr, ";")
-				variable axisFrac = (1-.02*(nAxes-1))/nAxes
-				for (iAxis  =0; iAxis < nAxes; iAxis +=1)
-					anAxis = StringFromList(iAxis, axesStr, ";")
-					ModifyGraph/w=NQ_DROIgraph axisEnab($anAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis* .01)}
-				endfor
-			endif
-			break
-		case -1: // control being killed
-			break
-	endswitch
-	return 0
-End
 
 // ***************************************************************************************************
 // --------------------------------- Controls for Stack Movies

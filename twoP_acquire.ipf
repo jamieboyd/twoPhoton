@@ -11,7 +11,7 @@
 
 
 // Constants that are not (yet) set from peferences
-// Size of counters on NI boards. These limit size that can be aquired at one shot
+// Size of counters on NI boards. These limit size that can be aquired at one shot. Older boards are 24, mewer boards might be 32
 CONSTANT kNQImageCounterSize = 24
 CONSTANT kNQePhysCounterSize = 24
 // when desired acquisition size is larger than counter size, we use
@@ -1400,7 +1400,6 @@ Function NQ_SetTimes ()
 end
 
 
-
 //*************************************************************************************************************************************
 //Changing the aspect ratio involves manipulating either pixel width/height or image extent 
 // Last Modified Jul 21 2011 by Jamie
@@ -2706,7 +2705,7 @@ Function NQ_MakeImageScanWaves (s)
 	variable iChan, nChans = itemsInList(s.selImageChanList)
 	
 	
-	// make the RGB wave for every scan type
+	// make the RGB wave, 
 	WAVE/Z RGBWave= root:packages:twoP:examine:RGBwave
 	if (waveExists (RGBWave))
 		redimension/n = ((s.PixWidth), (s.PixHeight), 3) RGBWave

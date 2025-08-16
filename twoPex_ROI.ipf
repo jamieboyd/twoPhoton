@@ -1,6 +1,6 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3
-#pragma version = 3  	// Last Modified: 2025/08/06 by Jamie Boyd.
+#pragma version = 3  	// Last Modified: 2025/08/15 by Jamie Boyd.
 #pragma IgorVersion = 9
 
 //******************************************************************************************************
@@ -60,7 +60,8 @@ Function NQexROI_add (able)
 	// Globals for ROI Tab
 	string/G root:packages:twoP:examine:ROIimPath = "no folder selected"
 	string/G root:packages:twoP:examine:newROIname
-	variable/G root:packages:twoP:examine:ROITopChan = 1 //1 for channel 1/ channel 2, 2 for channel 2/channel 1
+	string/G root:packages:twoP:examine:ROItopChan 
+	string/G root:packages:twoP:examine:ROIbottomChan 
 	variable/G root:packages:twoP:examine:ROISubtractBkg = 0
 	variable/G root:packages:twoP:examine:ROIdoDetaF= 0
 	variable/G root:packages:twoP:examine:ROIBaseStart =0
@@ -128,18 +129,38 @@ Function NQexROI_add (able)
 	Button ROIAvgButton win=twoP_Controls,pos={8.00,547.00},size={57.00,20.00},proc=NQ_ROIRunButtonProc
 	Button ROIAvgButton win=twoP_Controls,title="ROI Avg"
 	Button ROIAvgButton win=twoP_Controls, disable =able
-	PopupMenu ROIchansPopup win=twoP_Controls,pos={69.00,547.00},size={47.00,20.00},proc=twoP_ROISelChan_PopMenuProc
-	PopupMenu ROIchansPopup win=twoP_Controls,title="of",mode=0,value=#"twoP_ScanlistImChans()+\";ratio\""
-	PopupMenu ROIchansPopup win=twoP_Controls, disable = able
-	TitleBox ROIchansTitle win=twoP_Controls,pos={120.00,550.00},size={23.00,15.00},fSize=12,frame=0
-	TitleBox ROIchansTitle win=twoP_Controls,variable=root:packages:twoP:examine:ROIselChan
-	TitleBox ROIchansTitle win=twoP_Controls, disable = able
-	PopupMenu ROIRatPopUp win=twoP_Controls,pos={166, 547.00},size={84.00,20.00},proc=NQ_ROIPopMenuProc
-	PopupMenu ROIRatPopUp win=twoP_Controls,fSize=12
-	PopupMenu ROIRatPopUp win=twoP_Controls,mode=1,popvalue="Ch1/Ch2",value=#"\"Ch1/Ch2;Ch2/Ch1\""
-	PopupMenu ROIRatPopUp win=twoP_Controls, disable = able
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "Button ROIAvgButton;PopupMenu ROIchansPopup;TitleBox ROIchansTitle;",applyAbleState=0)
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "PopupMenu ROIRatPopUp;",applyAbleState=0)
+	
+	
+	PopupMenu ROIchanPopup win=twoP_Controls,pos={69.00,547.00},size={47.00,20.00},proc=twoP_ROISelChan_PopMenuProc
+	PopupMenu ROIchanPopup win=twoP_Controls,title="of",mode=0,value=#"twoP_ScanlistImChans()+\";ratio\""
+	PopupMenu ROIchanPopup win=twoP_Controls, disable = able
+	
+	TitleBox ROIchanTitle win=twoP_Controls,pos={120.00,550.00},size={23.00,15.00},fSize=12,frame=0
+	TitleBox ROIchanTitle win=twoP_Controls,variable=root:packages:twoP:examine:ROIselChan
+	TitleBox ROIchanTitle win=twoP_Controls, disable = able
+	
+	PopupMenu ROItopChanPopUp win=twoP_Controls,pos={149.00,547.00},size={45.00,20.00},bodyWidth=45,proc=NQ_ROIPopMenuProc
+	PopupMenu ROItopChanPopUp win=twoP_Controls,title="top",fSize=12
+	PopupMenu ROItopChanPopUp win=twoP_Controls,mode=0,value=#"twoP_ScanListImChans()"
+	PopupMenu ROItopChanPopUp win=twoP_Controls, disable = able
+	
+	TitleBox ROItopChanTitle win=twoP_Controls,pos={196.00,549.00},size={19.00,15.00},fSize=12, frame=0
+	TitleBox ROItopChanTitle win=twoP_Controls,variable=root:packages:twoP:examine:ROItopChan
+	TitleBox ROItopChanTitle win=twoP_Controls, disable = able
+	
+	PopupMenu ROIbottomChanPopUp win=twoP_Controls,pos={239.00,547.00},size={45.00,20.00},bodyWidth=45,proc=NQ_ROIPopMenuProc
+	PopupMenu ROIbottomChanPopUp win=twoP_Controls,title="bot",fSize=12
+	PopupMenu ROIbottomChanPopUp win=twoP_Controls,mode=0,value=#"twoP_ScanListImChans()"
+	PopupMenu ROIbottomChanPopUp win=twoP_Controls, disable =able
+	
+	TitleBox ROIbottomChanTitle win=twoP_Controls,pos={286.00,549.00},size={19.00,15.00},fSize=12
+	TitleBox ROIbottomChanTitle win=twoP_Controls,frame=0
+	TitleBox ROIbottomChanTitle win=twoP_Controls,variable=root:packages:twoP:examine:ROIbottomChan
+	TitleBox ROIbottomChanTitle win=twoP_Controls,disable = able
+	
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "Button ROIAvgButton;PopupMenu ROIchanPopup;TitleBox ROIchanTitle;",applyAbleState=0)
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "PopupMenu ROItopChanPopUp 1;TitleBox ROItopChanTitle 1;",applyAbleState=1)
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "PopupMenu ROIbottomChanPopUp 1;TitleBox ROIbottomChanTitle 1;", applyAbleState=1)
 	// deltaF/F and background options
 	CheckBox ROIDeltaFCheck win=twoP_Controls,pos={14.00,572.00},size={133.00,16.00}
 	CheckBox ROIDeltaFCheck win=twoP_Controls,title="ΔF/F    Baseline from",fSize=12,value=1
@@ -217,6 +238,17 @@ Function twoP_ROISelChan_PopMenuProc(pa) : PopupMenuControl
 		case 2: // mouse up
 			SVAR selChan = root:packages:twoP:examine:ROIselChan
 			selChan = pa.popStr
+			variable state
+			if (cmpStr(pa.popStr, "ratio") ==0)
+				state =0
+			else
+				state =1
+			endif
+			PopupMenu ROItopChanPopUp win=twoP_Controls, disable = state
+			titleBox ROItopChanTitle win=twoP_Controls, disable = state
+			PopupMenu ROIbottomChanPopUp win=twoP_Controls, disable = state
+			titleBox ROIbottomChanTitle win=twoP_Controls, disable = state
+			
 			break
 		case -1: // control being killed
 			break
@@ -476,14 +508,18 @@ end
 
 //******************************************************************************************************
 // sets ratio top channel for ROI analysis
-// Last Modified Jul 16 2010 b y Jamie Boyd
+// Last Modified 2025/05/15 by Jamie Boyd
 Function NQ_ROIPopMenuProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 
 	switch( pa.eventCode )
 		case 2: // mouse up
-			NVAR TopChan = root:packages:twoP:examine:ROITopChan
-			TopChan =  pa.popNum
+			if (cmpStr (pa.ctrlName, "ROItopChanPopUp") ==0)
+				SVAR Chan = root:packages:twoP:examine:ROItopChan
+			elseif (cmpStr (pa.ctrlName, "ROIbottomChanPopUp") ==0)
+				SVAR Chan = root:packages:twoP:examine:ROIbottomChan
+			endif
+			Chan =  pa.popStr
 			break
 	endswitch
 	return 0
@@ -491,7 +527,7 @@ End
 
 //******************************************************************************************************
 // Deletes selected ROIs in ROI list box
-// Last Modified Seo 02 2010 b y Jamie Boyd
+// Last Modified Seo 02 2010 by Jamie Boyd
 Function NQ_DelRoiButtonProc (ba) : ButtonControl
 	STRUCT WMbuttonAction &ba		
 		
@@ -1024,14 +1060,10 @@ Function NQ_DoRoiFromList (curScan)
 	endif
 	SVAR ROIchan = root:packages:twoP:examine:ROISelChan
 	if (cmpStr (ROIChan, "ratio") == 0) // do ROI ratio
-		NVAR TopChan =root:packages:twoP:examine:ROITopChan
-		if (topChan == 1)
-			Wave/z topWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch1"
-			Wave/z bottomWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch2"
-		else
-			Wave/z topWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch2"
-			Wave/z bottomWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch1"
-		endif
+		SVAR TopChan = root:packages:twoP:examine:ROItopChan
+		SVAR BottomChan = root:packages:twoP:examine:ROIbottomChan
+		Wave/z topWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + TopChan
+		Wave/z bottomWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + BottomChan
 		if (!(waveExists (topWave) && waveExists (bottomWave)))
 			doAlert 0, "The selected scan \"" + curScan + "\" does not have both channels, so no ROI ratio for you."
 			return 1
