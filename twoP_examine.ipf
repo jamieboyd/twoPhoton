@@ -1071,10 +1071,10 @@ Function twoP_ImGraphFillcs (cs, curScan, aChan)
 			else
 				if (mode == kTimeSeries)
 					// make a kalman averge of first 20 frames
-					KalmanSpecFrames (ScanWave, 0, max (20, zSize), channelWave, 0, 16)
-					sprintf cs.UserStrings[2], "%s:%.2W0Ps to %.2W0Ps", aChan, 0, frameTime*max (20, zSize)
+					KalmanSpecFrames (ScanWave, 0, max (19, zSize-1), channelWave, 0, 16)
+					sprintf cs.UserStrings[2], "%s:%.2W0Ps to %.2W0Ps", aChan, 0, frameTime*max (19, zSize-1)
 				else // project all frames for a Zstack
-					ProjectSpecFrames (ScanWave, 0, zSize, channelWave, 0, 2, 1)
+					ProjectSpecFrames (ScanWave, 0, zSize-1, channelWave, 0, 2, 1)
 					sprintf cs.UserStrings[2], "%s%.2W0Pm to %.2W0Pm", aChan, zOffset, zOffset + zSize * numberbyKey ("ZstepSize",  ScanInfo, ":", "\r")
 				endif
 			endif
