@@ -124,8 +124,7 @@ Function twoP_ExamineMakeFolder ()
 	variable/G root:packages:twoP:examine:doDROICh1 = 1
 	variable/G root:packages:twoP:examine:doDROICh2 = 0
 	variable/G root:packages:twoP:examine:doDROIRatio = 0
-	variable/G root:packages:twoP:examine:doDROITopChan = 1 //1 for channel 1/ channel 2, 2 for channel 2/channel 1
-	
+	string/G root:packages:twoP:examine:DROISelChans
 	make/o/t/n=1 root:Packages:twoP:examine:scanListWave
 	// Variables for Nidaq Traces Graph ROI deltaF processing
 	variable/g root:Packages:twoP:examine:startffordeltaf =0		//The range of points at in the ROI wave used for determining the  "F"  used for calculating "deltaF" is stored in these two variables
@@ -356,26 +355,26 @@ Function twoP_ExamineAddControls (able)
 	TitleBox SelDROIChansTitle win = twoP_Controls,variable=root:packages:twoP:examine:DROISelChans
 	TitleBox SelDROIChansTitle win = twoP_Controls,disable=able
 	
-	PopupMenu ROItopChanPopUp win = twoP_Controls,pos={173.00,365.00},size={45.00,20.00},bodyWidth=45,proc=NQ_ROIPopMenuProc
-	PopupMenu ROItopChanPopUp win = twoP_Controls,title="top",fSize=12
-	PopupMenu ROItopChanPopUp win = twoP_Controls,mode=0,value=#"twoP_ScanListImChans()"
-	PopupMenu ROItopChanPopUp win = twoP_Controls,disable=able
+	PopupMenu dROItopChanPopUp win = twoP_Controls,pos={173.00,365.00},size={45.00,20.00},bodyWidth=45,proc=NQ_ROIPopMenuProc
+	PopupMenu dROItopChanPopUp win = twoP_Controls,title="top",fSize=12
+	PopupMenu dROItopChanPopUp win = twoP_Controls,mode=0,value=#"twoP_ScanListImChans()"
+	PopupMenu dROItopChanPopUp win = twoP_Controls,disable=able
 	
-	TitleBox ROItopChanTitle win = twoP_Controls,pos={220.00,368.00},size={19.00,15.00},fSize=12,frame=0
-	TitleBox ROItopChanTitle win = twoP_Controls,variable=root:packages:twoP:examine:ROItopChan
-	TitleBox ROItopChanTitle win = twoP_Controls,disable=able
+	TitleBox dROItopChanTitle win = twoP_Controls,pos={220.00,368.00},size={19.00,15.00},fSize=12,frame=0
+	TitleBox dROItopChanTitle win = twoP_Controls,variable=root:packages:twoP:examine:ROItopChan
+	TitleBox dROItopChanTitle win = twoP_Controls,disable=able
 	
-	PopupMenu ROIbottomChanPopUp win = twoP_Controls,pos={263.00,365.00},size={45.00,20.00},bodyWidth=45,proc=NQ_ROIPopMenuProc
-	PopupMenu ROIbottomChanPopUp win = twoP_Controls,title="bot",fSize=12
-	PopupMenu ROIbottomChanPopUp win = twoP_Controls,mode=0,value=#"twoP_ScanListImChans()"
-	PopupMenu ROIbottomChanPopUp win = twoP_Controls,disable=able
+	PopupMenu dROIbottomChanPopUp win = twoP_Controls,pos={263.00,365.00},size={45.00,20.00},bodyWidth=45,proc=NQ_ROIPopMenuProc
+	PopupMenu dROIbottomChanPopUp win = twoP_Controls,title="bot",fSize=12
+	PopupMenu dROIbottomChanPopUp win = twoP_Controls,mode=0,value=#"twoP_ScanListImChans()"
+	PopupMenu dROIbottomChanPopUp win = twoP_Controls,disable=able
 	
 	TitleBox ROIbottomChanTitle win = twoP_Controls,pos={312.00,368.00},size={19.00,15.00},fSize=12,frame=0
 	TitleBox ROIbottomChanTitle win = twoP_Controls,variable=root:packages:twoP:examine:ROIbottomChan
 	TitleBox ROIbottomChanTitle win = twoP_Controls,disable=able
 
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Checkbox DROICheck;Setvariable DROIRadSetVar;PopupMenu DROIChansPopmenu;TitleBox SelDROIChansTitle;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "PopupMenu ROItopChanPopUp;TitleBox ROItopChanTitle;PopupMenu ROIbottomChanPopUp;TitleBox ROIbottomChanTitle;")
+	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "PopupMenu dROItopChanPopUp;TitleBox dROItopChanTitle;PopupMenu dROIbottomChanPopUp;TitleBox dROIbottomChanTitle;")
 	// Show Other windows
 	GroupBox ShowOthersGroupBox win = twoP_Controls,pos={3,664},size={337,40},title="Show Other Windows", frame=0
 	GroupBox ShowOthersGroupBox win = twoP_Controls, disable=able
@@ -2917,7 +2916,7 @@ end
 
 // ***********************************************************************************
 // adds or removes DROI for selected channel
-// Last Modified: 2025/08/15 by Jamie Boyd
+// Last Modified: 2025/08/18 by Jamie Boyd
 Function twoP_DROIChansPopMenuProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 
@@ -2929,6 +2928,7 @@ Function twoP_DROIChansPopMenuProc(pa) : PopupMenuControl
 				doWindow/F twoP_DroiGraph
 				if (V_Flag) // window was found
 					removefromGraph/W=twoP_DroiGraph $"Droi_" + pa.popStr
+					twoP_DROIShareAxisSpace ()
 				endif
 			else
 				selChans = sortList (addlistItem(pa.popStr, selChans, ","), ",") // adding a channel
@@ -2939,9 +2939,9 @@ Function twoP_DROIChansPopMenuProc(pa) : PopupMenuControl
 					ModifyGraph/w=twoP_DroiGraph  freePos($"L_" + pa.popStr)={dimoffset (dROIWave, 0),bottom}
 					label/w=twoP_DroiGraph  $"L_" + pa.popStr "DROI " + pa.popStr
 					ModifyGraph/w=twoP_DroiGraph  lblPos( $"L_" + pa.popStr)=60
+					twoP_DROIShareAxisSpace ()
 				endif
 			endif
-			twoP_DROIShareAxisSpace ()
 			break
 		case -1: // control being killed
 			break
