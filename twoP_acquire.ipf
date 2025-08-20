@@ -3946,9 +3946,8 @@ Function NQ_ScanInit (s)
 	string ScanErrhook
 	sprintf ScanErrhook, "twoP_ScanErr(%d)", s.ScanMode
 	try
-		print s.pixWidthTotal
 		// Set counter 1  to make the LineGate - it is low during data collection portion of the line, high during turnaround/flyback, counting ticks of ao clock
-		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={ s.PixWidth, (s.PixWidthTotal - s.PixWidth)} /IDLE=1 /NPLS=0/TBAS="/" + s.ImageBoard + "/ao/SampleClock" /Rate=(1/s.PixTime) 1; ABORTONRTE
+		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth),  s.PixWidth} /IDLE=1 /NPLS=0/TBAS="/" + s.ImageBoard + "/ao/SampleClock" /Rate=(1/s.PixTime) 1; ABORTONRTE
 		// set counter 0 to give pixel clock ticks gated by counter 1 - 
 		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/SEC={s.pixTime/2, s.pixTime/2}/IDLE=1/PAUS={"/" + s.imageBoard + "/Ctr1InternalOutput", 1, 1}/NPLS=0 0
 		// output the line gate to the normal counter1 output pin
