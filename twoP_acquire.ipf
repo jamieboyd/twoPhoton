@@ -1,7 +1,7 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2025/08/15 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2025/08/19 by Jamie Boyd.
 #pragma IgorVersion = 7			//Not sure about this. Perhaps some Igor 9isms have slipped in
 
 #include "twoP_Prefs"
@@ -3378,7 +3378,6 @@ Function NQ_MakeEphysWaves (s)
 		expSize = NQ_GetExpSize ()
 		newDataFolder/O $"root:twoP_Scans:" + s.newScanName
 		//string/G $"root:twoP_Scans:" + s.newScanName + ":" +  s.newScanName + "_info"
-		NQ_ScanNoter (s)
 	endif
 	doupdate
 	return 0
@@ -3738,7 +3737,7 @@ end
 
 //******************************************************************************************************
 // Function called by the "Start Scan" Button.
-// Last Modified: 2025/08/11 by Jamie Boyd
+// Last Modified: 2025/08/19 by Jamie Boyd
 Function NQ_StartScan (ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 	
@@ -3778,13 +3777,13 @@ Function NQ_StartScan (ba) : ButtonControl
 		
 		// Make info string 
 		if (NQ_ScanNoter (s))
-			doAlert 0,"Scan not not found"
+			doAlert 0,"Scan not created"
 			return 0
 		endif
 		
 		// make waves for imaging - laser scan waves and imaging data
 		if (s.scanMode != kePhysOnly)
-			// set galvos to end of X and Y images
+			// set galvos to start of X and Y images
 			fDAQmx_WriteChan(s.ImageBoard, 0, s.xsv, -10, 10)
 			fDAQmx_WriteChan(s.ImageBoard, 1, s.ysv, -10, 10)
 			if (!(s.isMulti && (s.multiAqiAq > 0)))
@@ -3796,7 +3795,7 @@ Function NQ_StartScan (ba) : ButtonControl
 		
 		// make waves for ePhys
 		if (itemsInList (s.selEphysChanList, ";") > 0)
-			//NQ_MakeEphysWaves (s)
+			NQ_MakeEphysWaves (s)
 		endif
 		
 		
@@ -3947,8 +3946,11 @@ Function NQ_ScanInit (s)
 	string ScanErrhook
 	sprintf ScanErrhook, "twoP_ScanErr(%d)", s.ScanMode
 	try
-		// Set counter 1  to make the LineGate - it is low during data collection portion of the line, high during turnaround/flyback
-		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth), s.PixWidth} /IDLE=1 /NPLS=0/TBAS="/" + s.ImageBoard + "/ao/SampleClock" /Rate=(1/s.PixTime) 1; ABORTONRTE
+		print s.pixWidthTotal
+		// Set counter 1  to make the LineGate - it is low during data collection portion of the line, high during turnaround/flyback, counting ticks of ao clock
+		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={ s.PixWidth, (s.PixWidthTotal - s.PixWidth)} /IDLE=1 /NPLS=0/TBAS="/" + s.ImageBoard + "/ao/SampleClock" /Rate=(1/s.PixTime) 1; ABORTONRTE
+		// set counter 0 to give pixel clock ticks gated by counter 1 - 
+		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/SEC={s.pixTime/2, s.pixTime/2}/IDLE=1/PAUS={"/" + s.imageBoard + "/Ctr1InternalOutput", 1, 1}/NPLS=0 0
 		// output the line gate to the normal counter1 output pin
 		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/Ctr1InternalOutput", "/" + s.ImageBoard + "/ctr1Out", 0), 0
 		// while we are connecting signals, may as well ouput scan clock and input sample clock for use with chunkulator, e.g.
@@ -3957,14 +3959,14 @@ Function NQ_ScanInit (s)
 		Switch (s.ScanMode)
 			case kLiveMode:
 				RPTChook = "twoP_LiveHook()"
-				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/ao/SampleClock", 0}/PAUS={"/" + s.imageBoard + "/Ctr1InternalOutput", 1, 1}/RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/Ctr0InternalOutput", 0}/RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 				break
 		endSwitch
 
-		// if not triggered, open shutter and wait shutter open time
+		// if triggered, start a background task that waits for the trigger
 		if (s.inPutTrigger)
 			CtrlNamedBackground shutterTask, period = 1, burst =0, start =0, proc= twoP_WaitForShutter
-		else
+		else // if not triggered, open shutter and wait shutter open time
 			// Open up the shutter. Pugged into digital line 0 on the Image Board
 			NVAR shutterTaskNum = root:packages:twoP:Acquire:shutterTaskNum
 			NVAR shutterOpen = root:Packages:twoP:acquire:shutterOpenLevel
@@ -4037,8 +4039,9 @@ function twoP_LiveStop  (ba) : ButtonControl
 			fDAQmx_ScanStop(imageBoard)
 			// Stop the waveform Generator
 			fDAQmx_WaveformStop(imageBoard)
-			// stop the counter 
+			// stop the counters
 			fDAQmx_CTR_Finished(imageBoard, 1)
+			fDAQmx_CTR_Finished(imageBoard, 0)
 			Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65535, 0), proc= NQ_StartScan
 			liveStop=0
 		endif
@@ -4113,8 +4116,9 @@ Function twoP_LiveHook()
 		fDAQmx_ScanStop(imageBoard)
 		// Stop the waveform Generator
 		fDAQmx_WaveformStop(imageBoard)
-		// stop the counter 
+		// stop the counters
 		fDAQmx_CTR_Finished(imageBoard, 1)
+		fDAQmx_CTR_Finished(imageBoard, 0)
 		Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65535, 0), proc= NQ_StartScan
 	endif
 end

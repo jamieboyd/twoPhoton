@@ -3234,6 +3234,19 @@ End
 //******************************************************************************************************
 
 
+// ***************************************************
+// hook function to save window position
+// Last modified: 2025/08/08 by Jamie Boyd
+Function twoP_UtilSaveWinPosHook (s)
+	STRUCT WMWinHookStruct &s
+	
+	if (s.eventCode ==2)
+		WC_WindowCoordinatesSave(s.WinName)
+	endif
+	return 0
+end
+
+
 // This little function returns the full path to the current scan for channel 1
 Function/S sc1 ()
 	SVAR curScan = root:packages:twoP:examine:curScan
@@ -3245,6 +3258,15 @@ end
 Function/S sc2 ()
 	SVAR curScan = root:packages:twoP:examine:curScan
 	return "root:twoP_Scans:" + curScan + ":" + curScan + "_ch2"
+end
+
+
+//******************************************************************************************************
+// This little function returns the full path to the current scan for channel 2
+Function/S sChan (chan)
+	string chan
+	SVAR curScan = root:packages:twoP:examine:curScan
+	return "root:twoP_Scans:" + curScan + ":" + curScan + "_" + chan
 end
 
 //******************************************************************************************************
@@ -3553,145 +3575,4 @@ Function NQ_MeasureMarquee()
 	else
 		printf "Velocity (rise/run) = %.2W1P%s/%s\r", xSize/ysize, bottomAxisUnits, leftAxisUnits
 	endif
-end
-
-
-function NQ_UpdateOldData ()
-	if (DataFolderExists("root:Nidaq_Scans"))
-		RenameDataFolder root:Nidaq_Scans, twoP_Scans
-	endif
-	string scans = GUIPListObjs ("root:twoP_Scans:", 4, "*", 0, "")
-	variable iScan,nScans= itemsinList (scans, ";")
-	string scan, chans, chanStr
-	variable iChan, nChans
-	variable startX, xScal, startY, yScal, startZ, zScal
-	for (iscan=0;iScan < nScans; iScan +=1)
-		scan = StringFromList(iScan,scans,";")
-		SVAR infoStr = $"root:twoP_Scans:" + scan + ":" + scan + "_info"
-		startx= NumberByKey("Xpos",infoStr, ":","\r")
-		startY =  NumberByKey("Ypos",infoStr, ":","\r")
-		xScal = NumberByKey("XpixSize",infoStr, ":","\r")
-		yScal = NumberByKey("YpixSize",infoStr, ":","\r")
-		chans = StringByKey("imChanDesc", infoStr, ":", "\r")
-		for (iChan=0, nChans = (itemsinlist (chans, ",")); iChan < nChans;iChan +=1)
-			chanStr = stringFromList (iChan, chans,",")
-			WAVE chanWave =  $"root:twoP_Scans:" + scan + ":" + scan + "_" + chanStr
-			Setscale/P x startX, xScal, "m", chanWave
-			Setscale/P y starty, yScal, "m", chanWave
-			if (!(wavetype (chanWave) & 0x40))
-				chanWave += 2^11
-				redimension/w/u chanwave
-			endif
-		endfor
-	endfor
-end
-
-//*********************************************************************************************************
-// Creates Scan ListBox Panel and makes waves for dynamic DSI and displays them in a graph
-// Added Oct 11 2017 by Ben Murphy-Baum
-Function DroiDSICheckProc(cba) : CheckBoxControl
-	STRUCT WMCheckboxAction &cba
-	NVAR DroiDSIcheck = root:Packages:twoP:examine:DroiDSIcheck
-	Wave/T scanListWave = root:Packages:twoP:examine:scanListWave
-	Make/O/N=(DimSize(scanListWave,0)) root:Packages:twoP:examine:selWave
-	Wave selWave = root:Packages:twoP:examine:selWave
-	
-	switch( cba.eventCode )
-		case 2: // mouse up
-			Variable checked = cba.checked
-			DroiDSIcheck = checked
-			If(checked)
-				NewPanel/HOST=twoP_Controls/EXT=0/W=(0,0,0.15,0.4)/K=1/N=ScanListPanel
-				ListBox/Z scanListBox win=twoP_Controls#ScanListPanel,size={140,380},pos={5,10},mode=4,selWave=selWave,listWave=scanListWave,proc=ScanListBoxProc
-			Else
-				KillWindow/Z twoP_Controls#ScanListPanel
-			Endif
-			
-			break
-		case -1: // control being killed
-			break
-	endswitch
-
-	return 0
-End
-
-
-
-
-//******************************************************************************************************
-//Reorders a wave with directional information so angles are in linear order 
-//Added Oct. 11 2017 by Ben Murphy-Baum
-
-Function ReorderDSTrace(inputWave,numDirections)
-	wave inputWave
-	variable numDirections
-	variable delta,i,j
-	
-	delta = 360/numDirections
-	
-	If(DataFolderExists("root:var:") == 0) //data folder doesn't exist
-		NewDataFolder root:var 
-	Endif
-	
-	Make/O/N=(numDirections) root:var:temp
-	wave temp = root:var:temp
-	
-	j = 0
-	For(i=0;i<numDirections/2;i+=1)
-		temp[i] = inputWave[j]
-		j+=2
-	Endfor
-	j = 1
-	For(i=numDirections/2;i<numDirections;i+=1)
-		temp[i] = inputWave[j]
-		j+=2
-	Endfor
-	inputWave = temp
-	SetScale/P x,0,delta,inputWave
-	KillWaves temp
-End
-
-//BMB edit for DSI mapping button
-
-Function dsiMapButtonProc(ba) : ButtonControl
-	STRUCT WMButtonAction &ba
-	NVAR curScanNumber = root:packages:twoP:examine:curScanNum
-	switch( ba.eventCode )
-		case 2: //mouse up
-		
-//			qkSpot(1,"Scan",curScanNumber,1)
-			break
-		case -1: //control being killed
-			break
-	endswitch
-	
-	return 0
-End
-
-
-
-function/S scanNote ()
-	SVAR currentScan = root:packages:twoP:examine:curScan
-	if (cmpStr (currentScan, "LiveWave") == 0)
-		SVAR scanStr =root:packages:twoP:Acquire:LiveModeScanStr
-	else
-		SVAR scanStr = $"root:twoP_Scans:" + currentScan + ":" + currentScan + "_info"
-	endif
-	return scanStr
-end
-
-
-
-
-
-// ***************************************************
-// hook function to save window position
-// Last modified: 2025/08/08 by Jamie Boyd
-Function twoP_UtilSaveWinPosHook (s)
-	STRUCT WMWinHookStruct &s
-	
-	if (s.eventCode ==2)
-		WC_WindowCoordinatesSave(s.WinName)
-	endif
-	return 0
 end
