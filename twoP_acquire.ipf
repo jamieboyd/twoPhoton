@@ -1,7 +1,7 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2025/08/19 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2025/08/26 by Jamie Boyd.
 #pragma IgorVersion = 7			//Not sure about this. Perhaps some Igor 9isms have slipped in
 
 #include "twoP_Prefs"
@@ -17,6 +17,8 @@ CONSTANT kNQePhysCounterSize = 24
 // when desired acquisition size is larger than counter size, we use
 // continuous acquisition into a buffer and copy the buffer into the scan waves
 STATIC CONSTANT kNQtBufferTime = 5
+
+STATIC CONSTANT kNQminLiveFrameTime =0.4
 
 //Defined constants for multiacquisition mode
 CONSTANT kMultiUsePeriod = 0
@@ -2223,6 +2225,7 @@ Structure NQ_ScanStruct
 	variable inPutTrigger
 	variable RunTime
 	// image settings
+	variable scanChans
 	string selImageChanList		// list of channel name: aiChan pairs
 	string onlyChansImage			// just ths channel names, stripped of ai number
 	variable hasRGB					// if we are displaying RGB wave while acquiring, live mode, zMode, time Series will want to update RGB wave
@@ -2287,6 +2290,7 @@ Structure NQ_ScanStruct
 	string ePhysPath  // string containing paths to ePhys waves to scan and channels on which to scan them, in NIDAQ format
 	variable ePhysFreq
 	variable ePhysIsCyclic
+	variable ePhysChans
 	// multiMode
 	variable isMulti
 	variable multiAqiAq
@@ -2310,6 +2314,8 @@ endStructure
 Function NQ_LoadScanStruct (s)
 	STRUCT NQ_ScanStruct &s
 	
+	NVAR inPutTrigger = root:packages:twoP:acquire:inputTriggerCheck
+	s.inPutTrigger= inPutTrigger
 	// scan mode
 	NVAR scanMode = root:packages:twoP:Acquire:ScanMode
 	s.ScanMode = scanMode
@@ -2836,8 +2842,6 @@ Function NQ_MakeImageScanWaves (s)
 		endswitch
 	endfor
 end
-
-
 
 
 
@@ -3536,7 +3540,7 @@ Function CosExpansionPh(w,x) : FitFunc
 	//CurveFitDialog/ These comments were created by the Curve Fitting dialog. Altering them will
 	//CurveFitDialog/ make the function less convenient to work with in the Curve Fitting dialog.
 	//CurveFitDialog/ Equation:
-	//CurveFitDialog/ f(x) = H * (cos (x+ph)) + H3 * (cos (3 * (x+ph))) + H5 * (cos (5 * (x+ph))) + offset
+	//CurveFitDialog/ f(x) = H1 * (cos (x+ph)) + H3 * (cos (3 * (x+ph))) + H5 * (cos (5 * (x+ph))) + offset
 	//CurveFitDialog/ End of Equation
 	//CurveFitDialog/ Independent Variables 1
 	//CurveFitDialog/ x
@@ -3553,14 +3557,14 @@ End
 //******************************************************************************************************
 // Makes the X and Y scan waves output to the Galvos by the Analog out channels on the image board for the various scan types
 //  returns 1 if an error ocurred, else 0
-// Last Modified 2025/08/19 by Jamie Boyd
+// Last Modified 2025/08/25 by Jamie Boyd
 Function twoP_MakeGalvoScanWaves (s)
 	STRUCT NQ_ScanStruct &s
 
 	variable anError
 	try
 		// Check input for errors
-		// scan mode can not be ePhysOnly
+		// scan mode can not be ePhysOnly - not an error, just exit
 		if (s.ScanMode == kEphysOnly)
 			return 0
 		endif
@@ -3583,119 +3587,114 @@ Function twoP_MakeGalvoScanWaves (s)
 		//Pixel Time needs to be greater than 1/analog out max frequency (2.5 MHz for S-series boards) , probably a generous maximum is .01 sec
 		anError = ((s.pixTime < 0.4e-06) || (s.pixTime > 0.1))
 		AbortOnValue anError, 7
-
+		// Make Horizontal wave by fitting a cosine function to data collection region and 1/2 the turnaround
+		// values for fitting curve
 		variable scanpnts = round (s.Pixwidth/s.DutyCycle)						// the collecting data direction of laser wave, with turnaraound
-		variable turnAroundPts = scanpnts-s.Pixwidth							// when thelaser is reversing directtion, not collecting data
-
+		variable turnAroundPts = scanpnts-s.Pixwidth							// when the laser is reversing directtion, not collecting data
 		variable FBpnts =  round (s.Pixwidth*s.FlyBackProp/s.DutyCycle)			// for not-bidirectional,the non-collecting data direction of laser wave, with turnarond
-		variable Scanpnts_total
-
-		// translate scan head delay in seconds into horizontal pixels
-		variable galvoDelayPixels = s.ScanHeadDelay/s.pixTime
-
-		// make a straight line to constrain cosine fit over the linear scanning region
-		//straight line segment range is based on duty cycle
-		variable x1= -(pi/2) - pi* s.DutyCycle/2
-		variable x2 = -(pi/2) + pi* s.DutyCycle/2
-		// formula for line, voltage versus radians
-		variable slope = (s.xev-s.xsv)/(x2-x1)
-		variable intercept = s.xsv - slope * x1
+		// fit a cosine function for turnaround and data collection region
+		// cosine function goes from 0 to 1 to 0 over the range -pi/2 to pi/2
+		// for biderectional scanning, both sides will be linearized, starting from 0 on the left side, ending at 0 on the right side
+		// make a straight line to constrain cosine fit to be linear over the scanning region where we collect data
+		// straight line segment x range is based on duty cycle, y range is based on start and end voltages for linear range of scanning
+		variable line_x1= (pi/2) - (pi* s.DutyCycle)/2
+		variable line_x2 = (pi/2) + (pi* s.DutyCycle)/2
+		// formula for line, in voltage versus radians
+		variable slope = (s.xev-s.xsv)/(line_x2-line_x1)
+		variable intercept = s.xsv - slope * line_x1
 		make/o/n = (s.PixWidth) root:Packages:twoP:acquire:StraightLine
 		WAVE StraightLine =  root:Packages:twoP:acquire:StraightLine
-		SetScale x (x1), (x2),"", StraightLine
+		SetScale /I x (line_x1), (line_x2),"", StraightLine
 		StraightLine =  slope * x + intercept
-		WAVE Scan_coefs =  root:packages:twoP:acquire:Scan_Coefs //Coeficient wave for Sine curve fitting will hold the fitted values
-
-		// Make Horizontal wave
+		
+		
+		WAVE Scan_coefs =  root:packages:twoP:acquire:Scan_Coefs 	//Coeficient wave for Sine curve fitting will hold the fitted values
+		variable cyclePnts											// points in a full cycle of X galvo movement
+		variable ScanPnts_total										// total number of points in X-galvo and Y-galvo waves, for a whole frame
+		variable cos_start											// starting position, in radians, of cosine segment
+		variable cos_End											// ending  position, in radians, of cosine segment
+		variable verTurnAroundPts									// points for vertical turnaround
 		if (s.flybackMode)
-			// if bi-directional, both sides are linearized
-			// note we start the cosine section right where we want galvo waves to start (x1), 1st point of data collection
-			// because we can rotate with the curve fitting
-			make/o/n= (2*scanpnts) root:packages:twoP:acquire:tempCos
-			WAVE tempCos = root:packages:twoP:acquire:tempCos
-			setscale/p x x1,(pi/scanpnts), "rad", tempCos
+			// if bi-directional, both sides of the cosine segment are linearized
+			cyclePnts = 2*scanPnts
+			ScanPnts_total = scanPnts * s.PixHeight
+			make/o/n= (cyclePnts) root:packages:twoP:acquire:tempCos	// scanPnts includes turnaround points plus linearized points
+			WAVE tempCos = root:packages:twoP:acquire:tempCos			
+			cos_start = (- pi* ((1-s.dutyCycle)/2))						// starts the cosine section at start of turnaround
+			setscale/p x cos_start, (pi/scanPnts), "rad", tempCos
 			// translate scan head delay in seconds into radians
 			variable galvoRadians = ((pi/((s.pixWidth*s.pixTime)/s.dutyCycle)) * s.ScanHeadDelay)
-			Scan_coefs [3] = ( s.XEV + s.XSV)/2
-			Scan_Coefs [4] =0
+			Scan_coefs [0] = -(s.XEV - s.XSV)/2		// starting amplitude of H1. Setting it will make curve fitting faster
+			Scan_coefs [3] = (s.XEV + s.XSV)/2		// offset. Setting it will make curve fitting faster
+			Scan_Coefs [4] =0						// fit with phase held to 0, then add phase 
 			FuncFit/Q/H="00001"/w=2 CosExpansionPh Scan_coefs StraightLine
-			Scan_Coefs [4] = GalvoRadians
+			Scan_Coefs [4] = GalvoRadians			// add the phase for galvo rotation to fitting coeficients
 			tempCos = CosExpansionPh (Scan_coefs,x)
-			if (s.scanMode == kLineScan)	// Line Scan
-				make/o/n= (2*scanpnts) root:packages:twoP:acquire:HorWave
-				WAVE HorWave = root:packages:twoP:acquire:HorWave
-				horwave = tempCos
-			else //Image
-				Scanpnts_total = ScanPnts * s.PixHeight
-				make/o/n= (Scanpnts_total) root:packages:twoP:acquire:HorWave
-				WAVE HorWave = root:packages:twoP:acquire:HorWave
-				HorWave = tempCos [mod (p,2*ScanPnts)]
-
-			endif
 		else
-			// just one side is linearized,other side may have a steeper slope
-			// note we start cosine section at start of turnaround (-pi) instead of start of data collection
-			make/o/n= (scanpnts + FBpnts) root:packages:twoP:acquire:tempCos
+			// not bi-directional, just one side is linearized, other side may have a steeper slope
+			// Our cosine section is not symetrical around 0, we do each side separately
+			cyclePnts = scanpnts + FBpnts
+			ScanPnts_total = cyclePnts * s.PixHeight
+			make/o/n= (cyclePnts) root:packages:twoP:acquire:tempCos
 			WAVE tempCos = root:packages:twoP:acquire:tempCos
-			setscale/p x (-pi),(pi/scanpnts), "rad", tempCos
-			Scan_coefs [3] = (s.XEV + s.XSV)/2
-			Scan_Coefs [4] =0
+			// we want to end at pi to fit the linear stage 
+			cos_End = pi
+			cos_Start = pi- (scanpnts + FBpnts)*(pi/scanpnts)
+			setscale x cos_Start, cos_End, "rad", tempCos
+			Scan_coefs [0] = -(s.XEV - s.XSV)/2		// starting amplitude of H1. Setting it will make curve fitting faster
+			Scan_coefs [3] = (s.XEV + s.XSV)/2		// offset. Setting it will make curve fitting faster
+			Scan_Coefs [4] =0						// fit with phase held to 0, we add phase with rotation
 			FuncFit/Q/H="00001"/w=2 CosExpansionPh Scan_coefs StraightLine
 			tempCos = CosExpansionPh (Scan_coefs,x)
-			x1 = tempCos [0]
-			x2= tempCos [ scanpnts-1]
-			variable scal = (x2-x1)/2
-			variable offset = (x1 + x2)/2
-			tempCos[scanpnts, scanpnts+FBpnts-1] = cos (x/s.flybackProp) *scal + offset
-			if (s.scanMode == kLineScan)	// Line Scan
-				make/o/n= (scanpnts + FBpnts) root:packages:twoP:acquire:HorWave
-				WAVE HorWave = root:packages:twoP:acquire:HorWave
-				horwave = tempCos
-			else //Image
-				Scanpnts_total = (scanpnts + FBpnts) * s.PixHeight
-				make/o/n= (Scanpnts_total) root:packages:twoP:acquire:HorWave
-				WAVE HorWave = root:packages:twoP:acquire:HorWave
-				HorWave = tempCos [mod (p,(scanpnts + FBpnts))]
-			endif
-			rotate -(turnAroundPts/2),HorWave
+			// now the un-linearized flyback side - get min from tempCos (0) and max from tempCos (pi)
+			variable gMin = tempCos [scanpnts + FBpnts -1]		// point position of 0
+			variable gMax= tempCos [FBpnts]					// point position of pi
+			variable scal = (gMax-gMin)/2
+			variable offset = (gMax + gMin)/2
+			tempCos[0, FBpnts-1] = cos (x/s.flybackProp) *scal + offset
+			rotate round((turnAroundPts/2) - (s.ScanHeadDelay/s.pixTime)),tempCos // translate scan head delay in seconds into pixels and include
 		endif
-		SetScale/p x 0, (s.pixtime) ,"", HorWave
+		// copy cosine segment into horizontal wave as many times as is needed
+		if (s.scanMode == kLineScan)	// Line Scan,onlyone copy needed
+			make/o/n= (cyclePnts) root:packages:twoP:acquire:HorWave
+			WAVE HorWave = root:packages:twoP:acquire:HorWave
+			horwave = tempCos
+		else //Image
+			make/o/n= (Scanpnts_total) root:packages:twoP:acquire:HorWave
+			WAVE HorWave = root:packages:twoP:acquire:HorWave
+			HorWave = tempCos [mod (p,(cyclePnts))]
+		endif
+		SetScale/p x 0, (s.pixtime) ,"", HorWave		// pix time sets analog out clock, which controls ai and line gate clock
+		// Vertical wave not neded for line scan
 		if (s.scanMode != kLineScan)
-			// Make vertical wave
-			make/o/n = (Scanpnts_total)root:packages:twoP:acquire:VerWave
+			// Make vertical wave, it starts with vertical flyback
+			make/o/n = (Scanpnts_total) root:packages:twoP:acquire:VerWave
 			WAVE VerWave = root:packages:twoP:acquire:VerWave
+			SetScale/p x 0, (s.pixtime) ,"", verWave
+			// do the vertical flyback in one horizontal flyback and turnaround (uni-directional) or one turnaround (bi-directional)
+			if (s.flybackMode)
+				verTurnAroundPts = turnAroundPts
+				cyclePnts = scanPnts
+			else
+				verTurnAroundPts = fbPnts + turnAroundPts
+				cyclePnts = scanPnts + fbPnts
+			endif
 			variable voltOut, voltDiv = (s.YEV - s.YSV)/(s.PixHeight-1)
 			variable iPnt
-			x1 =s.ysv
-			x2= s.yev
-			scal = (x2-x1)/2
-			offset = (x1 + x2)/2
+			scal = -(s.yev - s.ysv)/2
+			offset = (s.yev + s.ysv)/2
 			VerWave=NaN
-			if (s.flybackMode)
-				VerWave[0, s.pixWidth-1] = s.YSV
-				for (iPnt = s.pixWidth, voltOut = s.YSV + voltDiv; voltOut < s.YEV ; iPnt += scanpnts,voltOut += voltDiv)
-					VerWave [iPnt, iPnt + scanpnts -1]=voltOut
-				endfor
-				SetScale/p x 0, (s.pixtime) ,"", verWave;doupdate
-				VerWave [iPnt, Scanpnts_total-1] =  s.YEV
-				doupdate
-				redimension/n=(turnaroundPts) tempCos
-				setscale/I x 0,pi, "rad", tempCos
-				tempCos = cos (x)*scal + offset
-				VerWave[Scanpnts_total - turnaroundPts ,Scanpnts_total-1]=tempCos[p-(Scanpnts_total - turnaroundPts)]
-			else
-				VerWave[0, s.pixWidth-1] = s.YSV
-				for (iPnt = s.pixWidth, voltOut = s.YSV + voltDiv;  voltOut < s.YEV ; iPnt += scanpnts + FBpnts,voltOut += voltDiv)
-					VerWave [iPnt, iPnt + scanpnts + FBpnts -1]=voltOut
-				endfor
-				VerWave [iPnt, Scanpnts_total-1] =  s.YEV
-				variable verTurnAround = fbPnts + turnAroundPts
-				redimension/n=(verTurnAround) tempCos
-				setscale/I x 0,pi, "rad", tempCos
-				tempCos = cos (x)*scal + offset
-				VerWave[Scanpnts_total - verTurnAround ,Scanpnts_total-1]=tempCos[p-(Scanpnts_total -verTurnAround)]
-			endif
-			rotate -(galvoDelayPixels) , VerWave
+			// re-use tempcos for vertical flyback
+			redimension/n=(verTurnAroundPts) tempCos
+			setscale/I x -pi, 0, "rad", tempCos
+			tempCos = cos (x)*scal + offset
+			// copy tempCos to first points of verWave
+			VerWave[0, verTurnAroundPts-1]=tempCos
+			// finish first cycle with pixWidth, then  do cycle at a time
+			VerWave[verTurnAroundPts,verTurnAroundPts + s.pixWidth-1]=s.YSV
+			for (iPnt = verTurnAroundPts + s.pixWidth, voltOut = s.YSV + voltDiv ; iPnt < Scanpnts_total-verTurnAroundPts ; iPnt += cyclePnts,voltOut += voltDiv)
+				VerWave [iPnt, iPnt + cyclePnts -1]=voltOut
+			endfor
 			SetScale/p x 0, (s.pixtime) ,"", verWave
 		endif
 		return 0  //successs
@@ -3783,15 +3782,17 @@ Function NQ_StartScan (ba) : ButtonControl
 		
 		// make waves for imaging - laser scan waves and imaging data
 		if (s.scanMode != kePhysOnly)
-			// set galvos to start of X and Y images
-			fDAQmx_WriteChan(s.ImageBoard, 0, s.xsv, -10, 10)
-			fDAQmx_WriteChan(s.ImageBoard, 1, s.ysv, -10, 10)
 			if (!(s.isMulti && (s.multiAqiAq > 0)))
 				twoP_MakeGalvoScanWaves (s)
 			endif
+			// set galvos to start of X and Y galvo waves
+			WAVE HorWave=root:Packages:twoP:acquire:HorWave
+			WAVE VerWave=root:Packages:twoP:acquire:VerWave
+			fDAQmx_WriteChan(s.ImageBoard, 0, HorWave [0], -10, 10)
+			fDAQmx_WriteChan(s.ImageBoard, 1, VerWave [0], -10, 10)
 			NQ_MakeImageScanWaves(s) // also fills out paths and channels in s.scanWavePath entry in scanStruct for NI-DAQ
 		endif
-		
+				
 		
 		// make waves for ePhys
 		if (itemsInList (s.selEphysChanList, ";") > 0)
@@ -3922,7 +3923,7 @@ Function NQ_StartScan (ba) : ButtonControl
 	endswitch
 end
 
-			
+
 //******************************************************************************************************
 // Starts the image board scanning, or waiting for input trigger
 //  returns 1 if an error ocurred, else 0
@@ -3946,25 +3947,34 @@ Function NQ_ScanInit (s)
 	string ScanErrhook
 	sprintf ScanErrhook, "twoP_ScanErr(%d)", s.ScanMode
 	try
-		// Set counter 1  to make the LineGate - it is low during data collection portion of the line, high during turnaround/flyback, counting ticks of ao clock
-		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth),  s.PixWidth} /IDLE=1 /NPLS=0/TBAS="/" + s.ImageBoard + "/ao/SampleClock" /Rate=(1/s.PixTime) 1; ABORTONRTE
-		// set counter 0 to give pixel clock ticks gated by counter 1 - 
-		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/SEC={s.pixTime/2, s.pixTime/2}/IDLE=1/PAUS={"/" + s.imageBoard + "/Ctr1InternalOutput", 1, 1}/NPLS=0 0
-		// output the line gate to the normal counter1 output pin
-		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/Ctr1InternalOutput", "/" + s.ImageBoard + "/ctr1Out", 0), 0
-		// while we are connecting signals, may as well ouput scan clock and input sample clock for use with chunkulator, e.g.
-		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ao/SampleClock", "/" + s.ImageBoard + "/PFI5", 0), 0	// rests high, brief high-to-low low pulses, leads
-		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ai/SampleClock", "/" + s.ImageBoard + "/PFI7", 0), 0   // rests low, brif high pulse on low-to-high of ao sample clock
+		// ouput scan clock and input sample clock for use with chunkulator, e.g.
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ao/SampleClock", "/" + s.ImageBoard + "/PFI5", 0), 1	// rests high, brief high-to-low low pulses, leads
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ai/SampleClock", "/" + s.ImageBoard + "/PFI7", 0), 2   // rests low, brif high pulse on low-to-high of ao sample clock
+		// start analog input 
 		Switch (s.ScanMode)
 			case kLiveMode:
 				RPTChook = "twoP_LiveHook()"
-				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/Ctr0InternalOutput", 0}/RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/ctr0InternalOutput", 0}/TRIG={"/" + s.imageBoard + "/ctr0Gate", 1, 1} /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 				break
 		endSwitch
 
+		// Start the waveform generator
+		string scanWavesList
+		If (s.ScanMode == kLineScan)
+			scanWavesList = "root:packages:twoP:acquire:HorWave, 0;"
+		else
+			scanWavesList = "root:packages:twoP:acquire:HorWave, 0;root:packages:twoP:acquire:VerWave, 1;"
+		endif
+		DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/Strt=1 /TRIG={"/" + s.imageBoard + "/ctr0Gate", 1, 0} scanWavesList;abortOnRTE
+		// make analog input pixel clock on ctr 0, gated with output of ctr1. NOTE: start of ctr0 is not synched to ctr1
+		variable pixTix = round (s.pixTime*20e06)
+		variable pixOn=floor (pixTix/2)
+		variable pixOff= pixTix - pixON
 		// if triggered, start a background task that waits for the trigger
 		if (s.inPutTrigger)
 			CtrlNamedBackground shutterTask, period = 1, burst =0, start =0, proc= twoP_WaitForShutter
+			// lineGate on ctr 1 WITH TRIGGER
+			DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth)*pixTix, s.PixWidth*pixTix} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/20MhzTimeBase" /Rate=(20e06)/TRIG={"/" + s.imageBoard + "/PFI6", 1, 0} 1; ABORTONRTE
 		else // if not triggered, open shutter and wait shutter open time
 			// Open up the shutter. Pugged into digital line 0 on the Image Board
 			NVAR shutterTaskNum = root:packages:twoP:Acquire:shutterTaskNum
@@ -3975,25 +3985,19 @@ Function NQ_ScanInit (s)
 			if (shutterDelay > 0)
 				Sleep/c=-1/S shutterDelay
 			endif
+			// lineGate on ctr 1 WITH OUT TRIGGER
+			DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth)*pixTix, s.PixWidth*pixTix} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/20MhzTimeBase" /Rate=(20e06) 1; ABORTONRTE
 		endif
-		// Start up the waveform generator that actually starts everything going
-		string scanWavesList
-		If (s.ScanMode == kLineScan)
-			scanWavesList = "root:packages:twoP:acquire:HorWave, 0;"
-		else
-			scanWavesList = "root:packages:twoP:acquire:HorWave, 0;root:packages:twoP:acquire:VerWave, 1;"
-		endif
-		if (s.inputTrigger)
-			DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/Strt=1 /TRIG={"/" + s.imageBoard + "/PFI6", 0} scanWavesList; abortOnRTE
-		else
-			DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/Strt=1 scanWavesList;abortOnRTE
-		endif
+		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={pixOn, pixOff} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/20MhzTimeBase" /Rate=(20e06)/PAUS={"/" + s.imageBoard + "/ctr1InternalOutput", 1, 1}  0; ABORTONRTE
+
 	catch
+		variable err=GetRTError(1)
 		printf  "The \"NQ_ScanInit\" function failed:\r%s\r", fDAQmx_ErrorString()
 		return 1 // exit with failure
 	endtry
 	return 0
 end
+		
 
 
 
