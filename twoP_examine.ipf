@@ -76,6 +76,7 @@ Function twoP_ExamineMakeFolder ()
 	string/g root:Packages:twoP:examine:curScan = "no current scan"	
 	// Variable for scan numbers, when scans are sequentially numbered
 	variable/G root:packages:twoP:Examine:curScanNum
+	variable/G root:Packages:twoP:examine:FrameTime 
 	// Wave is used by the ListBox on the Examine Panel to display the experiment note of the currently selected scan.
 	make/t/n=0 root:Packages:twoP:examine:NoteListWave
 	// Wave for Histogram
@@ -1060,12 +1061,12 @@ Function twoP_ImGraphFillcs (cs, curScan, aChan)
 		sprintf cs.UserStrings[2], "%s", aChan
 		WAVE cs.userWaves[0] = channelWave
 	else
-		// make sure wave for the channel exists. For lineScan, single image, liveScan, this is the scanGraph image
-		WAVE/Z ScanWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
-		if (!(waveExists (ScanWave)))
-			doAlert 0, "Channel " + aChan + " does not exist for " + curScan
-			return 1
-		endif
+		
+			WAVE/Z ScanWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
+			if (!(isAcquire ||(waveExists (ScanWave))))
+				doAlert 0, "Channel " + aChan + " does not exist for " + curScan
+				return 1
+			endif
 		
 		if ((mode == kTimeSeries) || (mode == kZSeries))  // make a separate 2D image to display a frame of 3D stack
 			// make or redimension 2D waves for scanGraph
@@ -1084,13 +1085,15 @@ Function twoP_ImGraphFillcs (cs, curScan, aChan)
 			if (isAcquire)
 				sprintf cs.UserStrings[2], "%s", aChan
 			else
-				if (mode == kTimeSeries)
-					// make a kalman averge of first 20 frames
-					KalmanSpecFrames (ScanWave, 0, max (19, zSize-1), channelWave, 0, 16)
-					sprintf cs.UserStrings[2], "%s:%.2W0Ps to %.2W0Ps", aChan, 0, frameTime*max (19, zSize-1)
-				else // project all frames for a Zstack
-					ProjectSpecFrames (ScanWave, 0, zSize-1, channelWave, 0, 2, 1)
-					sprintf cs.UserStrings[2], "%s%.2W0Pm to %.2W0Pm", aChan, zOffset, zOffset + zSize * numberbyKey ("ZstepSize",  ScanInfo, ":", "\r")
+				if (waveExists (ScanWave))
+					if (mode == kTimeSeries)
+						// make a kalman averge of first 20 frames
+						KalmanSpecFrames (ScanWave, 0, max (19, zSize-1), channelWave, 0, 16)
+						sprintf cs.UserStrings[2], "%s:%.2W0Ps to %.2W0Ps", aChan, 0, frameTime*max (19, zSize-1)
+					else // project all frames for a Zstack
+						ProjectSpecFrames (ScanWave, 0, zSize-1, channelWave, 0, 2, 1)
+						sprintf cs.UserStrings[2], "%s%.2W0Pm to %.2W0Pm", aChan, zOffset, zOffset + zSize * numberbyKey ("ZstepSize",  ScanInfo, ":", "\r")
+					endif
 				endif
 			endif
 			WAVE cs.userWaves[0] = channelWave
@@ -1465,6 +1468,7 @@ Function twoP_imGraphRGBPopMenuProc(pa) : PopupMenuControl
 
 	return 0
 End
+
 
 // *************************************************************************
 // Makes and applies a dependeny for RGB wave
