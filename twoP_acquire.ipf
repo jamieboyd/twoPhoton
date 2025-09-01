@@ -64,10 +64,6 @@ function twoP_ZeroGalvos()
 	fDAQmx_WriteChan(imageBoard, 1, 0, -10, 10)
 end
 
-//******************************************************************************************************
-//*********************Code that handles the User Interface **************************************
-//******************************************************************************************************
-
 // ***********************************************************************************************
 // Start up stuff for initializiing global variables, controls on panel, setting up NI boards
 // Last Modified: 2025/08/11 by Jamie Boyd
@@ -2253,6 +2249,8 @@ Structure NQ_ScanStruct
 	variable yImSize
 	variable xPixSize
 	variable yPixSize
+	variable xScalStart
+	variable yScalStart
 	//  image Timing
 	variable pixTime
 	variable dutyCycle
@@ -2571,7 +2569,6 @@ end
 // Some variables are used in calculations, and need to be accessed later, some are just for maintaining
 // a record of settings for the user. The latter can be printed with easier to read but harder to parse %W formatting
 // Last Modified 2025/08/08 by Jamie Boyd
-// *** <enter your marker text here> ***
 Function NQ_ScanNoter (s)
 	STRUCT NQ_ScanStruct &s
 	
@@ -2641,6 +2638,10 @@ Function NQ_ScanNoter (s)
 	// image channel descriptions
 	if (scanMode != kePhysOnly)
 		// Image size and Pixel scaling
+		sprintf tempStr, "Xoffset:%.8f\r", s.xScalStart 
+		noteStr += tempStr
+		sprintf tempStr, "Yoffset:%.8f\r", s.yScalStart 
+		noteStr += tempStr
 		noteStr += "PixWidth:" + num2str (s.pixWidth) + "\r"
 		noteStr += "XpixSize:" + num2str (s.xPixSize) + "\r"
 		noteStr += "PixHeight:" + num2str (s.pixHeight) + "\r"
@@ -2721,8 +2722,8 @@ Function NQ_MakeImageScanWaves (s)
 		make/b/u/n = ((s.PixWidth), (s.PixHeight))  root:packages:twoP:examine:RGBwave
 		WAVE RGBWave= root:packages:twoP:examine:RGBwave
 	endif
-	SetScale/P x s.xPos, s.XPixSize, "m", RGBWave
-	SetScale/P Y s.yPos, s.YPixSize, "m", RGBWave
+	SetScale/p x s.xScalStart, s.xPixSize, "m", RGBWave
+	SetScale/p y s.yScalStart, s.yPixSize, "m", RGBWave
 
 	// make live ROI ratio for livemode or time series
 	variable roiPoints =round(s.liveROISecs/s.FrameTime)
@@ -2758,7 +2759,6 @@ Function NQ_MakeImageScanWaves (s)
 		make/WAVE/n=(numThreadWaves*nChans + 1 + numExtra) threadData
 		WAVE/WAVE threadData = root:packages:twoP:acquire:threadData
 	endif
-
 
 	// add extra waves, not done per channel, at the end of the threadData wave
 	threadData [numThreadWaves * nChans] = RGBWave		//we don't use this now, but better RGB is on the todo list
@@ -2835,8 +2835,8 @@ Function NQ_MakeImageScanWaves (s)
 					make/w/u/n = ((s.PixWidth), (s.PixHeight)) $baseName + chanName
 					WAVE scanWave= $baseName + chanName
 				endif
-				SetScale/P x s.xPos, s.XPixSize, "m", scanWave
-				SetScale/P Y s.yPos, s.YPixSize, "m", scanWave
+				SetScale/P x s.xScalStart, s.XPixSize, "m", scanWave
+				SetScale/P Y s.ScalStart, s.YPixSize, "m", scanWave
 				fastop scanWave =0
 				threadData[5*iChan+2] = scanWave
 				// HIst wave
@@ -2869,7 +2869,7 @@ Function NQ_MakeImageScanWaves (s)
 				endif
 				break
 			case kTimeSeries:
-				// make scan wave. In non-cyclic, we acquire into it directly. In cyclic, we copy into it during scan - position 0. Make it signed either way
+				// make scan wave. In non-cyclic, we acquire into it directly. In cyclic, we copy into it from repeated scan hook. Make it signed - position 0. 
 				WAVE/Z Acq1D= $baseName + chanName
 				if (waveExists (Acq1D))
 					redimension/w/n = (s.PixWidth * s.PixHeight * s.numFrames) Acq1D
@@ -2906,8 +2906,8 @@ Function NQ_MakeImageScanWaves (s)
 					make/o/w/u/n=(s.PixWidth * s.PixHeight) $"root:packages:twoP:examine:scanGraph_" + chanName
 					WAVE/Z scanGraphChanWave =$"root:packages:twoP:examine:scanGraph_" + chanName
 				endif
-				SetScale/P x s.xPos, s.XPixSize, "m", scanGraphChanWave
-				SetScale/P Y s.yPos, s.YPixSize, "m", scanGraphChanWave
+				SetScale/P x s.xScalStart, s.XPixSize, "m", scanGraphChanWave
+				SetScale/P Y s.yScalStart, s.YPixSize, "m", scanGraphChanWave
 				fastop scanGraphChanWave =0
 				threadData[numThreadWaves*iChan + 2] = scanGraphChanWave
 				// ROI wave - pos 3
@@ -3830,6 +3830,10 @@ Function  NQ_StartScan (ba) : ButtonControl
 		// Load ScanStruct with settings variables
 		STRUCT NQ_ScanStruct s
 		NQ_LoadScanStruct (s)
+		// check for overwriting 
+		if (NQ_CheckOverWrite (s))
+			return 1
+		endif
 		// check for channel selection according to scan mode
 		if (s.scanMode == kEphysOnly)
 			if (itemsInList (s.selEphysChanList, ";") ==0)
@@ -3842,9 +3846,38 @@ Function  NQ_StartScan (ba) : ButtonControl
 				return 1
 			endif
 		endif
-		// check for overwriting before making waves
-		if (NQ_CheckOverWrite (s))
-			return 1
+		variable xS=1, yS=1, zS=1, axS=NaN
+		// if Z-stack, move to start of stack
+		if (s.ScanMode == kzSeries)
+			xS=NaN; yS=NaN; zS=s.zPos; axS =NaN
+			funcref StageMove_Template stageMove = $"StageMove_" + s.stageProc
+			stageMove (0, 1, xS, yS, zS, axS)
+			// Set focus increment to zStepsize
+			funcref StageSetInc_Template SetInc= $"StageSetInc_" + s.stageProc
+			SetInc (zVal=s.zStepSize)
+		endif
+		// Update stage and X,Y position unless repeated multiAq
+		if (!(s.isMulti && (s.multiAqiAq > 0)))
+			funcref  StageUpdate_Template UpdateStage=$"StageUpDate_" + s.StageProc
+			UpdateStage (xS, yS, zS, axS)
+			// if reading stage fails, set stage values to 0
+			if (((numtype (xS) != 0) ||  (numtype (yS) != 0)) ||(numtype (zS) != 0))
+				s.xPos = 0
+				s.yPos =0
+				s.zPos =0
+				print "Stage reading failed; XYZ positions for " + s.newScanName + " set arbitrarily to 0"
+			else
+				s.xPos=xS
+				s.yPos = yS
+				s.zPos =zS
+			endif
+			WAVE/T objWave = root:packages:twoP:acquire:ObjWave
+			variable xScaling= str2num (objWave [s.objNum] [1])
+			variable yScaling= str2num (objWave [s.objNum] [2])
+			variable xOffset = str2num (objWave [s.objNum] [3])
+			variable yOffset = str2num (objWave [s.objNum] [4])
+			s.xScalStart = s.xPos - xOffset + s.xSV * xScaling
+			s.yScalStart = s.yPos - yOffset + s.ySV * yScaling
 		endif
 		// make a folder for this scan
 		newDataFolder/O $"root:twoP_Scans:" + s.newScanName
@@ -3877,45 +3910,7 @@ Function  NQ_StartScan (ba) : ButtonControl
 		if (s.vOutChans)
 			NQ_DoVoltagePulseWaves (s)
 		endif
-		// Update stage and X,Y position unless repeated multiAq
-		variable xS=1, yS=1, zS=1, axS=NaN				
-		if (!(s.isMulti && (s.multiAqiAq > 0)))
-			funcref  StageUpdate_Template UpdateStage=$"StageUpDate_" + s.StageProc
-			UpdateStage (xS, yS, zS, axS)
-			// if reading stage fails, set values to 0
-			if (((numtype (xS) != 0) ||  (numtype (yS) != 0)) ||(numtype (zS) != 0))
-				s.xPos = 0
-				s.yPos =0
-				s.zPos =0
-				print "Stage reading failed; XYZ positions for " + s.newScanName + " set arbitrarily to 0"
-			else
-				NVAR xStartVoltsFS = root:packages:twoP:acquire:xStartVoltsFS
-				NVAR xEndVoltsFS = root:packages:twoP:acquire:xEndVoltsFS
-				NVAR yStartVoltsFS = root:packages:twoP:acquire:yStartVoltsFS
-				NVAR yEndVoltsFS = root:packages:twoP:acquire:yEndVoltsFS
-				variable xCenterV = (xStartVoltsFS + xEndVoltsFS)/2
-				variable yCenterV = (yStartVoltsFS + yEndVoltsFS)/2
-				WAVE/T objWave = root:packages:twoP:acquire:ObjWave
-				variable xScaling= str2num (objWave [s.objNum] [1])
-				variable yScaling= str2num (objWave [s.objNum] [2])
-				variable xOffset = str2num (objWave [s.objNum] [3])
-				variable yOffset = str2num (objWave [s.objNum] [4])
-				s.xPos = xS - xOffset + ((xCenterV - s.xSV) * xScaling) 
-				s.yPos = yS - yOffset + ((yCenterV - s.ySV) * yScaling)
-				if (s.ScanMode != kzSeries)
-					s.zPos=zS
-				endif
-			endif
-		endif
-		// if Z-stack, move to start of stack
-		if (s.ScanMode == kzSeries)
-			xS=NaN; yS=NaN; zS=s.zPos; axS =NaN
-			funcref StageMove_Template stageMove = $"StageMove_" + s.stageProc
-			stageMove (0, 0, xS, yS, zS, axS)
-			// Set focus increment to zStepsize
-			funcref StageSetInc_Template SetInc= $"StageSetInc_" + s.stageProc
-			SetInc (zVal=s.zStepSize)
-		endif
+
 		// Select our new scan as current scan, with selected channels on scanGraph to match channels being acquired
 		SVAR selChans = root:packages:twoP:examine:scanGraphSelChans
 		selChans=s.onlyChansImage
@@ -4241,7 +4236,7 @@ Function twoP_LiveHook(selImageChanList, numChans)
 	endfor
 	
 	// to update the RGB wave dependency formula, one of the waves has to be modified outside the thread
-	// will probably update RGB wave directly from thread at some point
+	// TODO: wupdate RGB wave directly from thread
 	NVAR hasRGB = root:Packages:twoP:examine:RGB_hasRGB
 	if (hasRGB)
 		wave touchMe = $"root:twoP_scans:LiveScan:liveScan_" +stringFromList (0, stringFromList(0, selImageChanList,";"),":")
