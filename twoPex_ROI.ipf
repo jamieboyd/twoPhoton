@@ -514,10 +514,10 @@ Function NQ_ROIPopMenuProc(pa) : PopupMenuControl
 
 	switch( pa.eventCode )
 		case 2: // mouse up
-			if (cmpStr (pa.ctrlName, "ROItopChanPopUp") ==0)
-				SVAR Chan = root:packages:twoP:examine:ROItopChan
-			elseif (cmpStr (pa.ctrlName, "ROIbottomChanPopUp") ==0)
-				SVAR Chan = root:packages:twoP:examine:ROIbottomChan
+			if (cmpStr (pa.ctrlName, "dROItopChanPopUp") ==0)
+				SVAR Chan = root:packages:twoP:examine:dROItopChan
+			elseif (cmpStr (pa.ctrlName, "dROIbottomChanPopUp") ==0)
+				SVAR Chan = root:packages:twoP:examine:dROIbottomChan
 			endif
 			Chan =  pa.popStr
 			break
@@ -1006,7 +1006,7 @@ Function NQ_DoRoiFromList (curScan)
 	SVAR ScanNote = $"root:twoP_Scans:" + curscan  + ":" + curScan +  "_info"
 	variable scanMode = numberByKey ("Mode", scanNote, ":", "\r")
 	if (!(((scanMode == kLineScan) || (scanMode == kTimeSeries)) || (scanMode == kZseries)))
-		//doalert 0, "This function only works with a time series, a Z- series,  or a Line Scan."
+		doalert 0, "This function only works with a time series, a Z- series,  or a Line Scan."
 		return 1
 	endif
 	// read some variables
@@ -1256,7 +1256,7 @@ Function NQ_doSquareROIavg (chWave, ROI, ROIavg, darkL, darkR, darkT, darkB)
 	// look at each frame in the scan
 	variable ii, numFrames = dimsize (chWave, 2)
 	FOR (ii=0; ii < NumFrames; ii += 1)
-		imagestats/GS={left, right, bottom, top}/P=(ii) chwave
+		imagestats/GS={left, right, top, bottom}/P=(ii) chwave
 		RoiAvg [ii] = V_avg
 	ENDFOR
 	// calculate dark values ?
@@ -1673,7 +1673,7 @@ Function NQ_DeleteRoiProc(pa) : PopupMenuControl
 			variable iR, nR = dimsize (RoiListWave, 0), foundROI
 			string ROIBase
 			FOR (ii =0; ii < numRois; ii+=1)
-				WAVE roiAvgwave = $"root:twoP_Scans:" + curscan + ":" + stringfromlist (ii, RoiList)
+				WAVE/Z roiAvgwave = $"root:twoP_Scans:" + curscan + ":" + stringfromlist (ii, RoiList)
 				if (waveExists (roiAvgwave))	
 					// remove average from traces graph
 					removefromgraph /W=twoP_TracesGraph/Z $nameofwave (roiAvgwave)

@@ -122,10 +122,10 @@ Function twoP_ExamineMakeFolder ()
 	// Variables for dynamic ROI
 	variable/G root:packages:twoP:examine:doDROI = 0
 	variable/G root:Packages:twoP:examine:DROIRad = 0 // This variable stores the radius for the dynamic ROI from the examine panel
-	variable/G root:packages:twoP:examine:doDROICh1 = 1
-	variable/G root:packages:twoP:examine:doDROICh2 = 0
 	variable/G root:packages:twoP:examine:doDROIRatio = 0
 	string/G root:packages:twoP:examine:DROISelChans
+	string/G root:packages:twoP:examine:DROITopChan
+	string/G root:packages:twoP:examine:DROIBottomChan
 	make/o/t/n=1 root:Packages:twoP:examine:scanListWave
 	// Variables for Nidaq Traces Graph ROI deltaF processing
 	variable/g root:Packages:twoP:examine:startffordeltaf =0		//The range of points at in the ROI wave used for determining the  "F"  used for calculating "deltaF" is stored in these two variables
@@ -362,8 +362,13 @@ Function twoP_ExamineAddControls (able)
 	PopupMenu dROItopChanPopUp win = twoP_Controls,disable=able
 	
 	TitleBox dROItopChanTitle win = twoP_Controls,pos={220.00,368.00},size={19.00,15.00},fSize=12,frame=0
-	TitleBox dROItopChanTitle win = twoP_Controls,variable=root:packages:twoP:examine:ROItopChan
+	TitleBox dROItopChanTitle win = twoP_Controls,variable=root:packages:twoP:examine:DROItopChan
 	TitleBox dROItopChanTitle win = twoP_Controls,disable=able
+	
+	TitleBox dROIbottomChanTitle win = twoP_Controls,pos={311.00,368.00},size={19.00,15.00},fSize=12,frame=0
+	TitleBox dROIbottomChanTitle win = twoP_Controls,variable=root:Packages:twoP:examine:dROIBottomChan
+	TitleBox dROIBottomChanTitle win = twoP_Controls,disable=able
+	
 	
 	PopupMenu dROIbottomChanPopUp win = twoP_Controls,pos={263.00,365.00},size={45.00,20.00},bodyWidth=45,proc=NQ_ROIPopMenuProc
 	PopupMenu dROIbottomChanPopUp win = twoP_Controls,title="bot",fSize=12
@@ -996,8 +1001,8 @@ Function twoP_ImGraphFillcs (cs, curScan, aChan)
 	variable ySize = NumberByKey("PixHeight", ScanInfo, ":", "\r")
 	variable xPixSize =  NumberByKey("xPixSize", ScanInfo, ":", "\r")
 	variable yPixSize =  NumberByKey("yPixSize", ScanInfo, ":", "\r")
-	variable xOffset =  NumberByKey("xPos", ScanInfo, ":", "\r")
-	variable yOffset =  NumberByKey("yPos", ScanInfo, ":", "\r")
+	variable xOffset =  NumberByKey("Xoffset", ScanInfo, ":", "\r")
+	variable yOffset =  NumberByKey("Yoffset", ScanInfo, ":", "\r")
 
 	variable zSize =  NumberByKey("NumFrames", ScanInfo, ":", "\r")
 	variable zOffset =  NumberByKey("ZPos", ScanInfo, ":", "\r")
@@ -1526,7 +1531,7 @@ end
 
   
 
-//******************************************************************************************************	
+//******************************************************************************************************
 // This hook function  for the scangraph window shows the value under the mouse pointer when the shift key is held down and the mouse is moved around.
 // Also makes sure that info about where the graph was is saved when closing the graph.
 // Last modified 2025/08/04 by Jamie Boyd
@@ -1543,9 +1548,9 @@ Function twoP_imGraphHookProc(s)
 			WC_WindowCoordinatesSave(s.WinName)
 			hookResult = 0
 			break
-		case 4: // Mouse Moved 
+		case 4: // Mouse Moved
 			// if shift-click. show value at position under mouse for any scan
-			// if if dynamic ROI is checked, do ROI for area under cursor, for time and z series
+			// if dynamic ROI is checked, do ROI for area under cursor, for time and z series
 			NVAR dodROI = root:packages:twoP:examine:doDROI
 			if (!((dodROI) || (s.eventMod == 2)))
 				return 0
@@ -1592,67 +1597,117 @@ Function twoP_imGraphHookProc(s)
 					endif
 				endfor
 			elseif ((scanMode == kTimeSeries) || (ScanMode == kZseries)) // do dynamic ROI for 3D scans only
-				NVAR doCh1 = root:Packages:twoP:examine:doDROIch1
-				NVAR doCh2 = root:Packages:twoP:examine:doDROIch2
-				NVAR doRatio = root:Packages:twoP:examine:doDROIratio
-				NVAR TopChan = root:packages:twoP:examine:doDROITopChan
-				variable iFrame, nFrames = numberbykey ("numFrames", scanStr, ":", "\r")
-				variable chan1Val, chan2Val
-				if (!(ImChans & 1))
-					doCh1 =0
-				endif
-				if (!(ImChans & 2))
-					doCh2 =0
-				endif
-				if (!((ImChans & 1) && (ImChans & 2)))
-					doRatio = 0
-				endif
-				if ((doCh1) || (doRatio))
-					WAVE theScanwave1 = $"root:twoP_Scans:" + curScan + ":" + curScan + "_Ch1"
-					WAVE droiCh1 =  root:Packages:twoP:examine:Droi_ch1
-				endif
-				if ((doCh2) || (doRatio))
-					WAVE theScanwave2 = $"root:twoP_Scans:" + curScan + ":" + curScan + "_Ch2"
-					WAVE droiCh2 =  root:Packages:twoP:examine:Droi_ch2
-				endif
-				if (doRatio)
-					NVAR TopChan = root:packages:twoP:examine:doDROITopChan
-					WAVE droiRatio =  root:Packages:twoP:examine:Droi_ratio
-					if (TopChan ==1)
-						WAVE topWave = droiCh1
-						WAVE bottomWave = droiCh2
-					else
-						WAVE topWave = droiCh2
-						WAVE bottomWave = droiCh1
+				NVAR doDROI = root:Packages:twoP:examine:doDROI
+				if (doDROI)
+					SVAR seldROIChans=root:Packages:twoP:examine:DROISelChans
+					variable nROIchans=itemsinlist (seldROIChans, ",")
+					variable doRatio
+					string chanList = seldROIChans
+					if (WhichListItem("ratio", chanList, ",") > -1)
+						chanList = RemoveFromList("ratio",chanList, ",")
+						doRatio=1
+						SVAR TopChan = root:packages:twoP:examine:DROITopChan
+						SVAR BottomChan = root:packages:twoP:examine:DROIBottomChan
+						if (WhichListItem(topChan, selImChans , ",") > -1)
+							if (WhichListItem(topChan, chanList , ",") == -1)
+								chanList = AddListItem(topChan, chanList, ",")
+							endif
+							WAVE topWave=$"root:packages:twoP:examine:DROI_" + TopChan
+						else
+							doRatio=0
+						endif
+						if (WhichListItem(bottomChan, selImChans , ",") > -1)
+							if (WhichListItem(bottomChan, chanList , ",") == -1)
+								chanList = AddListItem(bottomChan, chanList, ",")
+							endif
+							WAVE bottomWave=$"root:packages:twoP:examine:DROI_" + bottomChan
+						else
+							doRatio=0
+						endif
+						if (doRatio)
+							WAVE dROIratio = $"root:packages:twoP:examine:DROI_ratio"
+						endif
+					endif
+					nchans=itemsInList(chanList,",")
+					variable iFrame, nFrames=NumberByKey("numFrames", scanStr, ":", "\r")
+					for (iChan=0;iCHan < nCHans; iCHan +=1)
+						aChan=stringFromList (iChan, chanList, ",")
+						WAVE scanWave=$"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
+						WAVE dROIwave=$"root:packages:twoP:examine:DROI_" + aChan
+						if (DROIrad== 0)
+							For (iFrame=0; iFrame < nFrames; iFrame+= 1)
+								dROIwave [iFrame]=scanWave [xPixPos] [yPixPos] [iFrame]
+							endfor
+						else
+							For (iFrame=0; iFrame < nFrames; iFrame+= 1)
+								imagestats/G={xpixpos -DROIrad , xPixpos +  DROIrad, yPixpos -DROIrad, yPixpos +DROIrad}/P=(iFrame)/M=1 scanWave
+								dROIwave [iFrame] =V_Avg
+							endfor
+						endif
+					endfor
+					if (doRatio)
+						dROIratio = topWave/bottomWave
 					endif
 				endif
-				if (DROIrad== 0)
-					For (iFrame=0; iFrame < nFrames; iFrame+= 1)
-						if ((doCh1) || (doRatio))
-							droiCh1 [iFrame] = theScanWave1 [xPixPos] [yPixPos] [iFrame]
-						endif
-						if ((doCh2) || (doRatio))
-							droiCh2 [iFrame] = theScanWave2 [xPixPos] [yPixPos] [iFrame]
-						endif
-						if (doRatio)
-							droiRatio [iFrame] = topWave [iFrame]/bottomWave[iFrame]
-						endif
-					endfor
-				else
-					For (iFrame=0; iFrame < Nframes; iFrame+= 1)
-						if ((doCh1) || (doRatio))
-							imagestats/G={xpixpos -DROIrad , xPixpos +  DROIrad, yPixpos -DROIrad, yPixpos +DROIrad}/P=(iFrame)/M=1 theScanwave1
-							droiCh1 [iFrame] =V_Avg
-						endif
-						if ((doCh2) || (doRatio))
-							imagestats/G={xpixpos -DROIrad , xPixpos +  DROIrad, yPixpos -DROIrad, yPixpos +DROIrad}/P=(iFrame)/M=1 theScanwave2
-							droiCh2 [iFrame] =V_Avg
-						endif
-						if (doRatio)
-							droiRatio [iFrame] = topWave [iFrame]/bottomWave[iFrame]
-						endif
-					endfor
-				endif
+
+
+				//				SVAR TopChan = root:packages:twoP:examine:DROITopChan
+				//				variable iFrame, nFrames = numberbykey ("numFrames", scanStr, ":", "\r")
+				//				variable chan1Val, chan2Val
+				//				if (!(ImChans & 1))
+				//					doCh1 =0
+				//				endif
+				//				if (!(ImChans & 2))
+				//					doCh2 =0
+				//				endif
+				//				if (!((ImChans & 1) && (ImChans & 2)))
+				//					doRatio = 0
+				//				endif
+				//				if ((doCh1) || (doRatio))
+				//					WAVE theScanwave1 = $"root:twoP_Scans:" + curScan + ":" + curScan + "_Ch1"
+				//					WAVE droiCh1 =  root:Packages:twoP:examine:Droi_ch1
+				//				endif
+				//				if ((doCh2) || (doRatio))
+				//					WAVE theScanwave2 = $"root:twoP_Scans:" + curScan + ":" + curScan + "_Ch2"
+				//					WAVE droiCh2 =  root:Packages:twoP:examine:Droi_ch2
+				//				endif
+				//				if (doRatio)
+				//					SVAR TopChan = root:packages:twoP:examine:doDROITopChan
+				//					WAVE droiRatio =  root:Packages:twoP:examine:Droi_ratio
+				//					if (TopChan ==1)
+				//						WAVE topWave = droiCh1
+				//						WAVE bottomWave = droiCh2
+				//					else
+				//						WAVE topWave = droiCh2
+				//						WAVE bottomWave = droiCh1
+				//					endif
+				//				endif
+				//				if (DROIrad== 0)
+				//					For (iFrame=0; iFrame < nFrames; iFrame+= 1)
+				//						if ((doCh1) || (doRatio))
+				//							droiCh1 [iFrame] = theScanWave1 [xPixPos] [yPixPos] [iFrame]
+				//						endif
+				//						if ((doCh2) || (doRatio))
+				//							droiCh2 [iFrame] = theScanWave2 [xPixPos] [yPixPos] [iFrame]
+				//						endif
+				//						if (doRatio)
+				//							droiRatio [iFrame] = topWave [iFrame]/bottomWave[iFrame]
+				//						endif
+				//					endfor
+				//				else
+				//					For (iFrame=0; iFrame < Nframes; iFrame+= 1)
+				//						if ((doCh1) || (doRatio))
+				//							imagestats/G={xpixpos -DROIrad , xPixpos +  DROIrad, yPixpos -DROIrad, yPixpos +DROIrad}/P=(iFrame)/M=1 theScanwave1
+				//							droiCh1 [iFrame] =V_Avg
+				//						endif
+				//						if ((doCh2) || (doRatio))
+				//							imagestats/G={xpixpos -DROIrad , xPixpos +  DROIrad, yPixpos -DROIrad, yPixpos +DROIrad}/P=(iFrame)/M=1 theScanwave2
+				//							droiCh2 [iFrame] =V_Avg
+				//						endif
+				//						if (doRatio)
+				//							droiRatio [iFrame] = topWave [iFrame]/bottomWave[iFrame]
+				//						endif
+				//					endfor
 			endif
 			break
 			hookResult =1
@@ -1669,7 +1724,7 @@ Function twoP_imGraphHookProc(s)
 				ba.eventCode =2
 				NQ_MovieNextPrevious (ba)
 				hookResult =1
-			endif		
+			endif
 			break
 	endswitch
 	return hookResult		// 0 if nothing done, else 1
@@ -2938,7 +2993,7 @@ Function twoP_DROIChansPopMenuProc(pa) : PopupMenuControl
 				selChans = sortList (addlistItem(pa.popStr, selChans, ","), ",") // adding a channel
 				doWindow/F twoP_DroiGraph
 				if (V_Flag) // window was found
-					WAVE dROIWave = $"root:Packages:twoP:examine:Droi_" + pa.popStr
+					WAVE dROIWave = $"root:Packages:twoP:examine:DROI_" + pa.popStr
 					appendtograph/w=twoP_DroiGraph /L= $"L_" + pa.popStr dROIWave
 					ModifyGraph/w=twoP_DroiGraph  freePos($"L_" + pa.popStr)={dimoffset (dROIWave, 0),bottom}
 					label/w=twoP_DroiGraph  $"L_" + pa.popStr "DROI " + pa.popStr
@@ -3000,16 +3055,16 @@ Function twoP_DROICheckProc(cba) : CheckBoxControl
 				variable ROIpnts = numberbykey ("NumFrames", scanStr, ":", "\r")
 				
 				// make waves so they can be appened later, even if not selected now
-				string aChan, imChans = StringByKey("onlyChansImage", scanStr, ":", "\r") + ",ratio"
+				string aChan, imChans = StringByKey("imChanDesc", scanStr, ":", "\r") + ",ratio"
 				variable iChan, nChans = itemsInList(imChans, ",")
 				for (iChan = 0; iChan < nCHans; iChan += 1)
 					aChan = stringFromList(iChan, imChans, ",")
-					WAVE/Z roiWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
+					WAVE/Z roiWave = $"root:packages:twoP:examine:DROI_" + aChan
 					if (waveExists(roiWave))
 						redimension/n= (ROIpnts)roiWave
 					else
-						make/o/n= (ROIpnts) $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
-						WAVE roiWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
+						make/o/n= (ROIpnts)  $"root:packages:twoP:examine:DROI_" + aChan
+						WAVE roiWave =  $"root:packages:twoP:examine:DROI_" + aChan
 					endif
 					SetScale/p x (zStart),(FrameSize),modeUnits, roiWave
 				endfor
