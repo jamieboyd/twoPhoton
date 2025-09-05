@@ -579,7 +579,6 @@ Function/S twoP_ScanListScans (modeList)
 		endif
 	endfor
 
-
 	string outPutList = ""
 	if (WhichListItem("0", modeList, ",") > -1)
 		outPutList += "\\M1(Live;" + LiveModeList + "\\M1(-;"
@@ -826,7 +825,6 @@ end
 
 
 
-
 //******************************************************************************************************
 // Takes the wavenote of the current scan and puts it into the notelist wave, so it will fit nicely in the scrolling textbox on the
 // examine scans panel. The character width is important here depending on your platform. So change it as necessary. Inelegant, but it's the best you get right now
@@ -976,7 +974,7 @@ end
 
 // *************************************************************************
 // Struct for plotting an image channel
-// Wave 0 the image, for a 3D stack a wave made to hold a single frame
+// Wave 0 the image, or for a 3D stack a wave made to hold a single frame
 // variable 0 is for scan Mode
 // variable 1 is for show axes check
 // variable 2-7  variables are for Live ROI
@@ -1324,7 +1322,7 @@ Function twoP_ImGraphNew (curScan)
 	CustomControl LUTslider win=twoPscanGraph#controlPanel,userdata=A"!!<4n!\"&a.z7=Xe,!!`K(5t&Q$!\"&]5z!ET;'7=Xe,!!!!$"
 	CustomControl LUTslider win=twoPscanGraph#controlPanel,userdata(FUNCSTR)="twoP_LUTSliderAction",frame=0,focusRing=0
 	// Set window hook function
-	SetWindow twoPscanGraph hook (infoHook)= twoP_imGraphHookProc, hookevents = 2
+	SetWindow twoPscanGraph hook (infoHook)= twoP_imGraphHookProc, hookevents = 3
 	WC_WindowCoordinatesRestore(us.graphName)
 end
 
@@ -1549,7 +1547,7 @@ Function twoP_imGraphHookProc(s)
 			hookResult = 0
 			break
 		case 4: // Mouse Moved
-			// if shift-click. show value at position under mouse for any scan
+			// if shift. show value at position under mouse for any scan
 			// if dynamic ROI is checked, do ROI for area under cursor, for time and z series
 			NVAR dodROI = root:packages:twoP:examine:doDROI
 			if (!((dodROI) || (s.eventMod == 2)))
@@ -1561,11 +1559,11 @@ Function twoP_imGraphHookProc(s)
 			SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 			variable scanMode = numberbykey ("Mode", scanStr, ":", "\r")
 			variable xPixSIze = numberbykey ("xPixSize", scanStr, ":", "\r")
-			variable xOffset = numberbykey ("xPos", scanStr, ":", "\r")
+			variable xOffset = numberbykey ("XOffset", scanStr, ":", "\r")
 			variable xPixPos = round ((xpos - xOffset)/xPixSIze)
 			variable yPixSize = numberbykey ("yPixSize", scanStr, ":", "\r")
 			variable pixHeight = numberbykey ("PixHeight", scanStr, ":", "\r")
-			variable yOffset = numberbykey ("yPos", scanStr, ":", "\r")
+			variable yOffset = numberbykey ("YOffset", scanStr, ":", "\r")
 			variable yPixPos = round ((yPos - yOffset)/yPixSize)
 			variable pixWidth = numberbykey ("PixWidth", scanStr, ":", "\r")
 			if (!((((yPixPos > 0) && (yPixPos < PixHeight)) && (xPixPos > 0)) && (xPixPos < PixWidth)))
@@ -1649,65 +1647,6 @@ Function twoP_imGraphHookProc(s)
 						dROIratio = topWave/bottomWave
 					endif
 				endif
-
-
-				//				SVAR TopChan = root:packages:twoP:examine:DROITopChan
-				//				variable iFrame, nFrames = numberbykey ("numFrames", scanStr, ":", "\r")
-				//				variable chan1Val, chan2Val
-				//				if (!(ImChans & 1))
-				//					doCh1 =0
-				//				endif
-				//				if (!(ImChans & 2))
-				//					doCh2 =0
-				//				endif
-				//				if (!((ImChans & 1) && (ImChans & 2)))
-				//					doRatio = 0
-				//				endif
-				//				if ((doCh1) || (doRatio))
-				//					WAVE theScanwave1 = $"root:twoP_Scans:" + curScan + ":" + curScan + "_Ch1"
-				//					WAVE droiCh1 =  root:Packages:twoP:examine:Droi_ch1
-				//				endif
-				//				if ((doCh2) || (doRatio))
-				//					WAVE theScanwave2 = $"root:twoP_Scans:" + curScan + ":" + curScan + "_Ch2"
-				//					WAVE droiCh2 =  root:Packages:twoP:examine:Droi_ch2
-				//				endif
-				//				if (doRatio)
-				//					SVAR TopChan = root:packages:twoP:examine:doDROITopChan
-				//					WAVE droiRatio =  root:Packages:twoP:examine:Droi_ratio
-				//					if (TopChan ==1)
-				//						WAVE topWave = droiCh1
-				//						WAVE bottomWave = droiCh2
-				//					else
-				//						WAVE topWave = droiCh2
-				//						WAVE bottomWave = droiCh1
-				//					endif
-				//				endif
-				//				if (DROIrad== 0)
-				//					For (iFrame=0; iFrame < nFrames; iFrame+= 1)
-				//						if ((doCh1) || (doRatio))
-				//							droiCh1 [iFrame] = theScanWave1 [xPixPos] [yPixPos] [iFrame]
-				//						endif
-				//						if ((doCh2) || (doRatio))
-				//							droiCh2 [iFrame] = theScanWave2 [xPixPos] [yPixPos] [iFrame]
-				//						endif
-				//						if (doRatio)
-				//							droiRatio [iFrame] = topWave [iFrame]/bottomWave[iFrame]
-				//						endif
-				//					endfor
-				//				else
-				//					For (iFrame=0; iFrame < Nframes; iFrame+= 1)
-				//						if ((doCh1) || (doRatio))
-				//							imagestats/G={xpixpos -DROIrad , xPixpos +  DROIrad, yPixpos -DROIrad, yPixpos +DROIrad}/P=(iFrame)/M=1 theScanwave1
-				//							droiCh1 [iFrame] =V_Avg
-				//						endif
-				//						if ((doCh2) || (doRatio))
-				//							imagestats/G={xpixpos -DROIrad , xPixpos +  DROIrad, yPixpos -DROIrad, yPixpos +DROIrad}/P=(iFrame)/M=1 theScanwave2
-				//							droiCh2 [iFrame] =V_Avg
-				//						endif
-				//						if (doRatio)
-				//							droiRatio [iFrame] = topWave [iFrame]/bottomWave[iFrame]
-				//						endif
-				//					endfor
 			endif
 			break
 			hookResult =1

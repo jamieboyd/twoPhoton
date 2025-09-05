@@ -1,6 +1,6 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3
-#pragma version = 3  	// Last Modified: 2025/08/15 by Jamie Boyd.
+#pragma version = 3  	// Last Modified: 2025/09/03 by Jamie Boyd.
 #pragma IgorVersion = 9
 
 //******************************************************************************************************
@@ -1256,7 +1256,7 @@ Function NQ_doSquareROIavg (chWave, ROI, ROIavg, darkL, darkR, darkT, darkB)
 	// look at each frame in the scan
 	variable ii, numFrames = dimsize (chWave, 2)
 	FOR (ii=0; ii < NumFrames; ii += 1)
-		imagestats/GS={left, right, top, bottom}/P=(ii) chwave
+		imagestats/GS={left, right, bottom, top}/P=(ii) chwave
 		RoiAvg [ii] = V_avg
 	ENDFOR
 	// calculate dark values ?
@@ -1464,7 +1464,7 @@ Function NQ_RGBSetter (ROINum, red, green, blue)
 end
 
 //******************************************************************************************************
-// Last modified Jul 02 2010 by Jamie Boyd
+// Last modified 2025/09/03 by Jamie Boyd
 Function NQ_DoDeltaFProc (pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 
@@ -1484,8 +1484,8 @@ Function NQ_DoDeltaFProc (pa) : PopupMenuControl
 				bend = ffordeltaf -1
 			endif
 	
-			if ((cmpstr (pa.popStr, "All Roi Avgs"))==0)
-				RoiList = NQ_ListROIAvgs (curScan, 1)
+			if ((cmpstr (pa.popStr, "All ROI Avgs", 0))==0)
+				RoiList = RemoveFromList("All ROI Avgs", NQ_ListROIAvgs (curScan, 1))
 			else
 				RoiList = pa.popStr
 			endif
@@ -1537,7 +1537,7 @@ end
 
 //******************************************************************************************************
 // Undo the delta F /F transformation,using the baseline value stored in the ROI's wavenote. Also take ROI off of right axis on traces graph and put it on left axis
-// Last modified Jul 14 2010 by Jamie Boyd
+// Last modified 2025/09/03 by Jamie Boyd
 Function NQ_UnDoDeltaFProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 
@@ -1548,8 +1548,8 @@ Function NQ_UnDoDeltaFProc(pa) : PopupMenuControl
 			SVAR curscan = root:Packages:twoP:examine:curscan
 			variable  baseline
 		
-			if ((cmpstr (pa.popStr, "All Roi Avgs"))==0)
-				RoiList = NQ_ListROIAvgs (curScan, 2)
+			if ((cmpstr (pa.popStr, "All ROI Avgs", 0))==0)
+				RoiList = RemoveFromList("All ROI Avgs", NQ_ListROIAvgs (curScan, 2))
 			else
 				RoiList = pa.popStr
 			endif
@@ -1682,18 +1682,20 @@ Function NQ_DeleteRoiProc(pa) : PopupMenuControl
 					GUIPKillDisplayedWave (roiAvgwave)
 					// Delete ROI if requested by user
 					if (DelRoi)
-						WAVE ROIYWave = $"root:twoP_ROIs:" + ROIBase + "_y"
-						WAVE ROIXWave = $"root:twoP_ROIs:" + ROIBase + "_x"
-						RemoveFromGraph /W=twoPScanGraph /Z $nameofwave (ROIYWave)
-						GUIPKillDisplayedWave (ROIYWave)
-						GUIPKillDisplayedWave (ROIXWave)
-						// remove ROI from list
-						for (foundROI =0, iR =0; iR < nR && foundROI ==0; iR += 1)
-							if (cmpStr (ROIBase,  RoiListWave [iR]) == 0)
-								deletepoints (iR), 1, RoiListWave, RoiListSelWave
-								foundROI =1
-							endif
-						endfor
+						WAVE/z ROIYWave = $"root:twoP_ROIs:" + ROIBase + "_y"
+						WAVE/z ROIXWave = $"root:twoP_ROIs:" + ROIBase + "_x"
+						if (waveExists(ROIYWave) && WaveExists (ROIXWave))
+							RemoveFromGraph /W=twoPScanGraph /Z $nameofwave (ROIYWave)
+							GUIPKillDisplayedWave (ROIYWave)
+							GUIPKillDisplayedWave (ROIXWave)
+							// remove ROI from list
+							for (foundROI =0, iR =0; iR < nR && foundROI ==0; iR += 1)
+								if (cmpStr (ROIBase,  RoiListWave [iR]) == 0)
+									deletepoints (iR), 1, RoiListWave, RoiListSelWave
+									foundROI =1
+								endif
+							endfor
+						endif
 					endif
 				endif
 			endfor
@@ -1724,33 +1726,6 @@ Function NQ_cursorCheckProc(cba) : CheckBoxControl
 	endSwitch
 End
 
-
-//******************************************************************************************************
-// needed to get the subwindow a marquee is drawn on, as the host window is returned in Igor 5 in S_marqueeWin while the
-// full host#subwindow name is given in Igor 6
-// last modified Jul 14 2010 by Jamie Boyd
-Function/S  NQ_GetMarqueeSubWinFor5 (graphName, V_left, V_bottom)
-	string graphName
-	variable V_left, V_Bottom
-	
-	string subWins = childwindowlist ("twoPScanGraph")
-	variable iw, nW = itemsinlist (subWins, ";")
-	variable leftAxVal, bottomAxVal
-	string subGraph 
-	for (iw=0; iw< nW; iw += 1)
-		subGraph =  stringFromList (iw, subWins,";")
-		leftAxVal = AxisValFromPixel(graphName + "#" + subGraph  , "bottom", V_left)
-		GetAxis/Q/w = $(graphName + "#" + subGraph)  bottom
-		if ((V_min < leftAxVal) && (V_max > leftAxVal))
-			bottomAxVal =  AxisValFromPixel(graphName + "#" + subGraph  , "left", V_bottom)
-			GetAxis/Q/w = $(graphName + "#" + subgraph) left
-			if ((V_min < bottomAxVal) && (V_max > bottomAxVal))
-				return subGraph
-			endif
-		endif
-	endfor
-	return ""
-end	
 
 
 Function ROI_Ratio_Multi (): GraphMarquee

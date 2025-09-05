@@ -10,12 +10,16 @@
 #include "Stages"
 
 
+#undef OLD_SCAN_INIT
+
+
 // Constants that are not (yet) set from peferences
 // Size of counters on NI boards. These limit size that can be aquired at one shot. Older boards are 24, mewer boards might be 32
 CONSTANT kNQImageCounterSize = 24
 CONSTANT kNQePhysCounterSize = 24
 // when desired acquisition size is larger than counter size, we use
 // continuous acquisition into a buffer and copy the buffer into the scan waves
+// the multiplier multplies minimum frame time to set buffer size
 STATIC CONSTANT kNQtBufferMult =1
 
 //Defined constants for multiacquisition mode
@@ -59,7 +63,7 @@ End
 //******************************************************************************************************
 // Sets the output voltage on the galvos to 0, used for beam alignment 
 function twoP_ZeroGalvos()
-	SVAR imageboard = root:Packages:twoPhoton:acquire:imageBoard
+	SVAR imageboard = root:Packages:twoP:acquire:imageBoard
 	fDAQmx_WriteChan(imageBoard, 0, 0, -10, 10)
 	fDAQmx_WriteChan(imageBoard, 1, 0, -10, 10)
 end
@@ -396,14 +400,16 @@ Function twoP_AcquireAddControls ()
 	PopupMenu AqExportAtScanEndPop,pos={7.00,667},size={150.00,19.00},proc=NQ_ExportAfterScanPopProc
 	PopupMenu AqExportAtScanEndPop,title="At Scan end"
 	PopupMenu AqExportAtScanEndPop,mode=1,popvalue="Do Nothing",value=#"\"Do Nothing;Save Experiment;Export Scan;Export and Delete Scan;Export and Delete Last Scan;\""
+	
 	ValDisplay AqPercentCompleteDisplay,pos={3.00,690.00},size={226.00,17.00}
 	ValDisplay AqPercentCompleteDisplay,fSize=12
 	ValDisplay AqPercentCompleteDisplay,limits={0,100,0},barmisc={0,0},mode=3
 	ValDisplay AqPercentCompleteDisplay,value=#"root:packages:twoP:Acquire:PercentComplete"
+	
 	Button AqStartButton,pos={236.00,677.00},size={52.00,29.00},proc=NQ_StartScan
 	Button AqStartButton,title="Start ",help={"Starts or Aborts a Scan."}
 	Button AqStartButton,userdata="START",fSize=16,fStyle=1
-	Button AqStartButton,fColor=(0,65535,0)
+	Button AqStartButton,fColor=(0,65280,0)
 	CheckBox AqInPutTrigCheck,pos={290.00,677.00},size={51.00,30.00}
 	CheckBox AqInPutTrigCheck,title="On\rtrigger"
 	CheckBox AqInPutTrigCheck,variable=root:Packages:twoP:Acquire:inputTriggerCheck
@@ -441,7 +447,8 @@ Function twoP_AcquireAddControls ()
 	// triggers - TSer;Lines;ePhys
 	NVAR frameTime = root:packages:twoP:acquire:frameTime
 	// trigger 1
-	CheckBox Trig1Check,pos={9.00,335.00},size={44.00,15.00},title="Trig 1",fSize=12,value=0
+	CheckBox Trig1Check,pos={9.00,335.00},size={44.00,15.00},title="Trig 1"
+	CheckBox Trig1Check,fSize=12,variable=root:Packages:twoP:acquire:trig1Check
 	CheckBox Trig1Check,disable=1
 	SetVariable Trig1SecsSetvar,pos={194.00,333.00},size={82.00,18.00},title=" "
 	SetVariable Trig1SecsSetvar,value=root:Packages:twoP:Acquire:DelaySecs1
@@ -449,7 +456,7 @@ Function twoP_AcquireAddControls ()
 	SetVariable Trig1SecsSetvar disable=1
 	// trigger 2
 	CheckBox Trig2Check,pos={9.00,355.00},size={44.00,15.00},title="Trig 2"
-	CheckBox Trig2Check,fSize=12,value=1
+	CheckBox Trig2Check,fSize=12,variable=root:Packages:twoP:acquire:trig2Check
 	CheckBox Trig2Check, disable=1
 	SetVariable Trig2SecsSetvar,pos={194.00,353.00},size={82.00,18.00},title=" ",fSize=12
 	SetVariable Trig2SecsSetvar,value=root:Packages:twoP:Acquire:DelaySecs2
@@ -702,7 +709,7 @@ Function twoP_AcquireAddControls ()
 	TitleBox MultiAqTimeToNextTitle,variable=root:Packages:twoP:Acquire:multiAqTimeToNextStr
 	ValDisplay multiAqProgressDisplay, disable =1,pos={11.00,382.00},size={321.00,43.00}
 	ValDisplay multiAqProgressDisplay,frame=0
-	ValDisplay multiAqProgressDisplay,limits={0,10,0},barmisc={10,30},highColor=(0,65535,0),lowColor=(65535,0,0)
+	ValDisplay multiAqProgressDisplay,limits={0,10,0},barmisc={10,30},highColor=(0,65280,0),lowColor=(65280,0,0)
 	ValDisplay multiAqProgressDisplay,value=#"root:packages:twoP:acquire:multiAqiAq"
 	// start
 	Button MultiPreMakeButton, disable =1,pos={22.00,438.00},size={99.00,20.00},proc=NQ_MultiPreMakeProc
@@ -2360,9 +2367,9 @@ Function NQ_LoadScanStruct (s)
 	SVAR StageProc = root:Packages:twoP:Acquire:StageProc
 	s.StageProc = StageProc
 	// settings for image scan, live mode or otherwise
+	SVAR imageBoard = root:packages:twoP:acquire:imageBoard
+	s.imageBoard = imageBoard
 	if (scanMode != kEPhysOnly)
-		SVAR imageBoard = root:packages:twoP:acquire:imageBoard
-		s.imageBoard = imageBoard
 		SVAR selImageChanList = root:packages:twoP:acquire:selImageChanList
 		s.selImageChanList = SelImageChanList
 		variable iChan,nChans= itemsInlist (s.selImageChanList, ";")
@@ -2470,6 +2477,12 @@ Function NQ_LoadScanStruct (s)
 		s.ePhysBoard = ephysBoard
 		SVAR selePhysChanList = root:packages:twoP:acquire:selePhysChanList
 		s.selePhysChanList = selePhysChanList
+		nChans= itemsInlist (s.selePhysChanList, ";")
+		s.onlyChansePhys = ""
+		for (iChan=nChans-1; iChan >= 0; iChan -=1)
+			aChan = stringFromList (0, stringFromList (iChan, s.selePhysChanList, ";"), ":")
+			s.onlyChansEphys = AddListItem(aChan, s.onlyChansEphys, ",")
+		endfor
 		NVAR ePhysFreq = root:Packages:twoP:acquire:ePhysSampFreq
 		s.ePhysFreq = ePhysFreq
 		// triggers
@@ -2625,24 +2638,25 @@ Function NQ_ScanNoter (s)
 	// Time, in Igor Format, when the scan was started, i.e., now
 	sprintf tempStr, "ExpTime:%.0f\r",  datetime	// use sprintf to keep enough precision
 	NoteStr +=  tempStr
+	
 	// image specific stuff
 	// image channels, bitwise, 1 for ch1, 2 for ch2, 3 for both channels
 	variable imChans=0
-	if (WhichListItem ("ch1", s.OnlyChansImage,";", 0,0) > -1)
-		imChans += 1
-	endif
-	if (WhichListItem ("ch2", s.OnlyChansImage,";", 0,0) > -1)
-		imChans += 2
-	endif
-	NoteStr += "ImChans:" + num2str (imChans) + "\r"
-	// channel descriptions, for forwards compatibility
-	NoteStr += "imChanDesc:" + s.OnlyChansImage + "\r"
-	// stage positions
-	noteStr += "Xpos:" + num2str (s.xPos) + "\r"
-	noteStr += "Ypos:" + num2str (s.yPos) + "\r"
-	noteStr += "Zpos:" + num2str (s.zPos) + "\r"
-	// image channel descriptions
-	if (scanMode != kePhysOnly)
+	if (scanMode == kEphysOnly)
+		NoteStr += "ImChans:0\r"
+		// channel descriptions, for forwards compatibility
+		NoteStr += "imChanDesc:\r"
+	else
+		if (WhichListItem ("ch1", s.OnlyChansImage,";", 0,0) > -1)
+			imChans += 1
+		endif
+		if (WhichListItem ("ch2", s.OnlyChansImage,";", 0,0) > -1)
+			imChans += 2
+		endif
+		NoteStr += "ImChans:" + num2str (imChans) + "\r"
+		// channel descriptions, for forwards compatibility
+		NoteStr += "imChanDesc:" + s.OnlyChansImage + "\r"
+		// image channel descriptions
 		// Image size and Pixel scaling
 		sprintf tempStr, "Xoffset:%.8f\r", s.xScalStart 
 		noteStr += tempStr
@@ -2693,6 +2707,10 @@ Function NQ_ScanNoter (s)
 			noteStr += tempStr
 		endif
 	endif
+	// stage position
+	noteStr += "Xpos:" + num2str (s.xPos) + "\r"
+	noteStr += "Ypos:" + num2str (s.yPos) + "\r"
+	noteStr += "Zpos:" + num2str (s.zPos) + "\r"
 	// was ePhys also collected?
 	variable ePhysChans=0
 	if (WhichListItem ("ch1", s.selEphysChanList,";", 0,0) > -1)
@@ -2705,6 +2723,209 @@ Function NQ_ScanNoter (s)
 	NoteStr += "ePhysChanDesc:" + s.selEphysChanList + "\r"
 	// Need to add extra info for ePhys?
 	return 0
+end
+
+
+
+//******************************************************************************************************
+// Fitting function used to make the horizontal scanwave out of a series of cosine components, with phase offset
+// Last Modified 2025/08/19 by Jamie Boyd
+Function CosExpansionPh(w,x) : FitFunc
+	Wave w
+	Variable x
+
+	//CurveFitDialog/ These comments were created by the Curve Fitting dialog. Altering them will
+	//CurveFitDialog/ make the function less convenient to work with in the Curve Fitting dialog.
+	//CurveFitDialog/ Equation:
+	//CurveFitDialog/ f(x) = H1 * (cos (x+ph)) + H3 * (cos (3 * (x+ph))) + H5 * (cos (5 * (x+ph))) + offset
+	//CurveFitDialog/ End of Equation
+	//CurveFitDialog/ Independent Variables 1
+	//CurveFitDialog/ x
+	//CurveFitDialog/ Coefficients 5
+	//CurveFitDialog/ w[0] = H1
+	//CurveFitDialog/ w[1] = H3
+	//CurveFitDialog/ w[2] = H5
+	//CurveFitDialog/ w[3] = offset
+	//CurveFitDialog/ w[4] = phase rotation, in radians
+	return w[0] * (cos (x+w[4])) + w[1] * (cos (3 *( x + w[4]))) + w[2] * (cos (5 * (x+w[4]))) + w[3]
+End
+
+
+//******************************************************************************************************
+// Makes the X and Y scan waves output to the Galvos by the Analog out channels on the image board for the various scan types
+//  returns 1 if an error ocurred, else 0
+// Last Modified 2025/08/25 by Jamie Boyd
+Function NQ_MakeGalvoScanWaves (s)
+	STRUCT NQ_ScanStruct &s
+
+	variable anError
+	try
+		// Check input for errors
+		// scan mode can not be ePhysOnly - not an error, just exit
+		if (s.ScanMode == kEphysOnly)
+			return 0
+		endif
+		// PixWidth needs to greater than 2
+		anError = (s.pixWidth < 2)
+		AbortOnValue anError, 2
+		//PixHeight needs to be 2 or more, but is not used for linescan
+		if (s.scanMode == kLineScan)
+			anError = (s.pixHeight < 2)
+			AbortOnValue anError, 3
+		endif
+		//PixHeight needs to be even for turbo mode
+		if (s.flybackMode == 1)
+			anError = (mod (s.PixHeight, 2) != 0)
+			AbortOnValue anError, 4
+		endif
+		//dutyCycle needs to be between 0 and 1
+		anError = ((s.dutyCycle < 0) || (s.dutyCycle > 1))
+		AbortOnValue anError, 5
+		//Pixel Time needs to be greater than 1/analog out max frequency (2.5 MHz for S-series boards) , probably a generous maximum is .01 sec
+		anError = ((s.pixTime < 0.4e-06) || (s.pixTime > 0.1))
+		AbortOnValue anError, 7
+		// Make Horizontal wave by fitting a cosine function to data collection region and 1/2 the turnaround
+		// values for fitting curve
+		variable scanpnts = round (s.Pixwidth/s.DutyCycle)						// the collecting data direction of laser wave, with turnaraound
+		variable turnAroundPts = scanpnts-s.Pixwidth							// when the laser is reversing directtion, not collecting data
+		variable FBpnts =  round (s.Pixwidth*s.FlyBackProp/s.DutyCycle)			// for not-bidirectional,the non-collecting data direction of laser wave, with turnarond
+		// fit a cosine function for turnaround and data collection region
+		// cosine function goes from 0 to 1 to 0 over the range -pi/2 to pi/2
+		// for biderectional scanning, both sides will be linearized, starting from 0 on the left side, ending at 0 on the right side
+		// make a straight line to constrain cosine fit to be linear over the scanning region where we collect data
+		// straight line segment x range is based on duty cycle, y range is based on start and end voltages for linear range of scanning
+		variable line_x1= (pi/2) - (pi* s.DutyCycle)/2
+		variable line_x2 = (pi/2) + (pi* s.DutyCycle)/2
+		// formula for line, in voltage versus radians
+		variable slope = (s.xev-s.xsv)/(line_x2-line_x1)
+		variable intercept = s.xsv - slope * line_x1
+		make/o/n = (s.PixWidth) root:Packages:twoP:acquire:StraightLine
+		WAVE StraightLine =  root:Packages:twoP:acquire:StraightLine
+		SetScale /I x (line_x1), (line_x2),"", StraightLine
+		StraightLine =  slope * x + intercept
+		
+		
+		WAVE Scan_coefs =  root:packages:twoP:acquire:Scan_Coefs 	//Coeficient wave for Sine curve fitting will hold the fitted values
+		variable cyclePnts											// points in a full cycle of X galvo movement
+		variable ScanPnts_total										// total number of points in X-galvo and Y-galvo waves, for a whole frame
+		variable cos_start											// starting position, in radians, of cosine segment
+		variable cos_End											// ending  position, in radians, of cosine segment
+		variable verTurnAroundPts									// points for vertical turnaround
+		if (s.flybackMode)
+			// if bi-directional, both sides of the cosine segment are linearized
+			cyclePnts = 2*scanPnts
+			ScanPnts_total = scanPnts * s.PixHeight
+			make/o/n= (cyclePnts) root:packages:twoP:acquire:tempCos	// scanPnts includes turnaround points plus linearized points
+			WAVE tempCos = root:packages:twoP:acquire:tempCos			
+			cos_start = (- pi* ((1-s.dutyCycle)/2))						// starts the cosine section at start of turnaround
+			setscale/p x cos_start, (pi/scanPnts), "rad", tempCos
+			// translate scan head delay in seconds into radians
+			variable galvoRadians = ((pi/((s.pixWidth*s.pixTime)/s.dutyCycle)) * s.ScanHeadDelay)
+			Scan_coefs [0] = -(s.XEV - s.XSV)/2		// starting amplitude of H1. Setting it will make curve fitting faster
+			Scan_coefs [3] = (s.XEV + s.XSV)/2		// offset. Setting it will make curve fitting faster
+			Scan_Coefs [4] =0						// fit with phase held to 0, then add phase 
+			FuncFit/Q/H="00001"/w=2 CosExpansionPh Scan_coefs StraightLine
+			Scan_Coefs [4] = GalvoRadians			// add the phase for galvo rotation to fitting coeficients
+			tempCos = CosExpansionPh (Scan_coefs,x)
+		else
+			// not bi-directional, just one side is linearized, other side may have a steeper slope
+			// Our cosine section is not symetrical around 0, we do each side separately
+			cyclePnts = scanpnts + FBpnts
+			ScanPnts_total = cyclePnts * s.PixHeight
+			make/o/n= (cyclePnts) root:packages:twoP:acquire:tempCos
+			WAVE tempCos = root:packages:twoP:acquire:tempCos
+			// we want to end at pi to fit the linear stage 
+			cos_End = pi
+			cos_Start = pi- (scanpnts + FBpnts)*(pi/scanpnts)
+			setscale x cos_Start, cos_End, "rad", tempCos
+			Scan_coefs [0] = -(s.XEV - s.XSV)/2		// starting amplitude of H1. Setting it will make curve fitting faster
+			Scan_coefs [3] = (s.XEV + s.XSV)/2		// offset. Setting it will make curve fitting faster
+			Scan_Coefs [4] =0						// fit with phase held to 0, we add phase with rotation
+			FuncFit/Q/H="00001"/w=2 CosExpansionPh Scan_coefs StraightLine
+			tempCos = CosExpansionPh (Scan_coefs,x)
+			// now the un-linearized flyback side - get min from tempCos (0) and max from tempCos (pi)
+			variable gMin = tempCos [scanpnts + FBpnts -1]		// point position of 0
+			variable gMax= tempCos [FBpnts]					// point position of pi
+			variable scal = (gMax-gMin)/2
+			variable offset = (gMax + gMin)/2
+			tempCos[0, FBpnts-1] = cos (x/s.flybackProp) *scal + offset
+			rotate round((turnAroundPts/2) - (s.ScanHeadDelay/s.pixTime)),tempCos // translate scan head delay in seconds into pixels and include
+		endif
+		// copy cosine segment into horizontal wave as many times as is needed
+		if (s.scanMode == kLineScan)	// Line Scan,onlyone copy needed
+			make/o/n= (cyclePnts) root:packages:twoP:acquire:HorWave
+			WAVE HorWave = root:packages:twoP:acquire:HorWave
+			horwave = tempCos
+		else //Image
+			make/o/n= (Scanpnts_total) root:packages:twoP:acquire:HorWave
+			WAVE HorWave = root:packages:twoP:acquire:HorWave
+			HorWave = tempCos [mod (p,(cyclePnts))]
+		endif
+		SetScale/p x 0, (s.pixtime) ,"", HorWave		// pix time sets analog out clock, which controls ai and line gate clock
+		// Vertical wave not neded for line scan
+		if (s.scanMode != kLineScan)
+			// Make vertical wave, it starts with vertical flyback
+			make/o/n = (Scanpnts_total) root:packages:twoP:acquire:VerWave
+			WAVE VerWave = root:packages:twoP:acquire:VerWave
+			SetScale/p x 0, (s.pixtime) ,"", verWave
+			// do the vertical flyback in one horizontal flyback and turnaround (uni-directional) or one turnaround (bi-directional)
+			if (s.flybackMode)
+				verTurnAroundPts = turnAroundPts
+				cyclePnts = scanPnts
+			else
+				verTurnAroundPts = fbPnts + turnAroundPts
+				cyclePnts = scanPnts + fbPnts
+			endif
+			variable voltOut, voltDiv = (s.YEV - s.YSV)/(s.PixHeight-1)
+			variable iPnt
+			scal = -(s.yev - s.ysv)/2
+			offset = (s.yev + s.ysv)/2
+			VerWave=NaN
+			// re-use tempcos for vertical flyback
+			redimension/n=(verTurnAroundPts) tempCos
+			setscale/I x -pi, 0, "rad", tempCos
+			tempCos = cos (x)*scal + offset
+			// copy tempCos to first points of verWave
+			VerWave[0, verTurnAroundPts-1]=tempCos
+			// finish first cycle with pixWidth, then  do cycle at a time
+			VerWave[verTurnAroundPts,verTurnAroundPts + s.pixWidth-1]=s.YSV
+			for (iPnt = verTurnAroundPts + s.pixWidth, voltOut = s.YSV + voltDiv ; iPnt < Scanpnts_total-verTurnAroundPts ; iPnt += cyclePnts,voltOut += voltDiv)
+				VerWave [iPnt, iPnt + cyclePnts -1]=voltOut
+			endfor
+			SetScale/p x 0, (s.pixtime) ,"", verWave
+		endif
+		return 0  //successs
+	catch
+		switch (V_abortCode)
+			case 1:
+				print "NQ_MakeGalvoScanWaves Error: electrophysiology-only scan."
+				break
+			case 2:
+				print "NQ_MakeGalvoScanWaves Error: PixWidth needs to be 2 or greater."
+				break
+			case 3:
+				print "NQ_MakeGalvoScanWaves Error: PixHeight needs to be 2 or greater."
+				break
+			case 4:
+				print "NQ_MakeGalvoScanWaves Error: PixHeight needs to be even for turbo mode."
+				break
+			case 5:
+				print "NQ_MakeGalvoScanWaves Error: DutyCycle needs to be between 0 and 1."
+				break
+			case 7:
+				print "NQ_MakeGalvoScanWaves Error: PixTime needs to be between 1 microsecond and 100 milliseconds."
+				break
+			case 9:
+				print "NQ_MakeGalvoScanWaves Error: Curve fitting for the sine expansion did not converge properly."
+				make/o/D root:packages:twoP:acquire:Scan_Coefs = {-7.4, -0.65, -0.13, -0.015}
+				break
+			case 8:
+				print "NQ_MakeGalvoScanWaves Error: Curve fitting for the sine expansion for bi-directional scanning did not converge properly."
+				make/o/D root:packages:twoP:acquire:Scan_Coefs_Sym = {-7.4, -0.65, -0.13, 0.08, 0.17}
+				break
+		endswitch
+		return 1 //failure
+	endtry
 end
 
 //******************************************************************************************************
@@ -3418,78 +3639,40 @@ end
 
 //******************************************************************************************************
 // makes waves for ePhys
-// Last Modified 2025/08/08 by Jamie Boyd 
+// Last Modified 2025/09/04 by Jamie Boyd 
 Function NQ_MakeEphysWaves (s) 
 	STRUCT NQ_ScanStruct &s
 	
-	string eDataWave_Path = ""
-	variable theChannel, bufferSize, err
-	string theWaveName, tempWaveName
-	if (s.ScanMode ==kEphysOnly)
-		string dontKill = ""
-	endif
-	try
-		variable ePnts = (s.Runtime * s.EphysFreq) 
-		
-			For (theChannel = 1; theChannel < 3; theChannel +=1)
-				if (1)	// Then the current channel is selected
-					//Make WaveName
-					theWaveName ="root:twoP_Scans:" + s.NewScanName + ":" + s.NewScanName + "_ep" + num2str (theChannel)
-					if (s.ScanMode ==kEphysOnly)
-						dontKill += s.NewScanName + "_ep" + num2str (theChannel) + ";"
-					endif
-					// Make the wave
-					wave/Z theWave = $theWaveName
-					if (!((WaveExists (theWave)) && (numPnts (theWave) == ePnts)))
-						make/o/n= (ePnts) $theWaveName
-						// check that the wave was made
-						err = GetRTError(0)
-						abortOnValue err, 1
-					endif
-					// Set scaling
-					WAVE DataWave = $theWaveName
-					SetScale/P x 0,(1/s.EphysFreq),"s",  Datawave
-					SetScale d, 0, 0, "V", DataWave
-					// 0 the wave
-					fastop DataWave = 0
+	variable ePnts = ceil(s.Runtime * s.EphysFreq) 
+	string baseName = "root:twoP_Scans:" + s.newScanName +":" +  s.newScanName + "_"
+	s.ePhysPath = ""
+	WAVE/T chanList = root:packages:twoP:acquire:ePhysChanList
+	string ai_chanName, ai,chanName, type, range, scaling, offset
+	variable iChan, nChans = itemsInList(s.selePhysChanList)
 
-				endif
-			endfor
-	catch
-		doAlert 0, " Could not make the ePhys Wave: " + GetRTErrMessage()
-		err = GetRTError(1)						// Clear error state
-		return 1
-	endTry
-	s.ePhysPath = eDataWave_Path
-	if (s.ScanMode ==kEphysOnly)
-		NQ_KillNotInList (s, dontKill)
-		NVAR expSize = root:packages:twoP:acquire:expSize
-		expSize = NQ_GetExpSize ()
-		newDataFolder/O $"root:twoP_Scans:" + s.newScanName
-		//string/G $"root:twoP_Scans:" + s.newScanName + ":" +  s.newScanName + "_info"
-	endif
-	doupdate
-	return 0
-end
-
-//******************************************************************************************************
-// Kills waves in new scan folder, except those in the dontKill list
-// Last Modified May 11 2012 by Jamie Boyd 
-Function NQ_KillNotInList (s, dontKill)
-	STRUCT NQ_ScanStruct &s
-	string dontKill
-	
-	string aWaveName
-	string folder = "root:twoP_Scans:" +  s.NewScanName + ":"
-	variable iWave, nWaves = CountObjects(folder, 1)
-	// count backwards from nWaves-1 to 0, so deleted waves don't mess up the count
-	for (iWave =nWaves-1; iWave >-1 ; iWave -=1)
-		aWaveName = GetIndexedObjName(folder, 1, iWave)
-		if (WhichListItem(aWaveName, dontKill, ";") == -1)
-			GUIPKillDisplayedWave ($folder  + aWaveName)
+	// fillout NI-DAQ info for scan command, and make the ephys waves
+	for (iChan=0; iChan < nChans; iChan +=1)
+		ai_chanName = stringFromList(iChan, s.selePhysChanList,";")
+		ai = stringFromList (1, ai_chanName, ":")
+		chanName = stringFromList (0, ai_chanName, ":")
+		type = chanList [str2num(ai)] [2]
+		range =  chanList [str2num(ai)] [3]
+		Scaling = chanList [str2num(ai)] [4]
+		Offset = chanList [str2num(ai)] [5]
+		s.ePhysPath += baseName + chanName + ", " + ai + "/" + type + ", -" +  range + ", " + range + ", " + scaling + ", " + offset + ";"
+		WAVE/Z scanWave= $baseName + chanName
+		if (waveExists (scanWave))
+			redimension/s/n = (ePnts) scanWave
+		else
+			make/s/n = (ePnts) $baseName + chanName
+			WAVE scanWave= $baseName + chanName
 		endif
+		SetScale/P x 0, (1/s.EphysFreq), "s", scanWave
+		SetScale d, 0, 0, "V", scanWave
+		fastop scanWave =0
 	endfor
-end
+end	
+
 
 //******************************************************************************************************
 // Sets up triggers, using the ephys board.  returns 1 if an error occurs, else 0
@@ -3503,9 +3686,9 @@ Function twoP_doTriggers (s)
 	NVAR Trig2Duration =root:packages:twoP:acquire:Trig2Duration
 	
 	try
-		if (s.scanmode != kLiveMode)
+		if (!(s.scanmode == kLiveMode || s.scanmode == kZseries))
 			if (s.trigChans & 1)
-				DAQmx_CTR_OutputPulse /DEV=s.ePhysBoard/SEC={Trig1Duration, Trig1Duration} /IDLE=(Trig1Polarity)/DELY=(s.trig1Secs)/NPLS=1/STRT=1/TRIG="/" + s.imageBoard + "/ai/StartTrigger"/MC={"/" + s.imageBoard + "/20MHzTimebase", 20e06} 0 ; AbortOnRTE
+				DAQmx_CTR_OutputPulse /DEV=s.ePhysBoard/SEC={Trig1Duration, Trig1Duration} /IDLE=(Trig1Polarity)/DELY=(s.trig1Secs)/NPLS=1/STRT=1/TRIG="/" + s.ephysBoard + "/ai/SampleClock"/MC={"/" + s.imageBoard + "/20MHzTimebase", 20e06} 0 ; AbortOnRTE
 			endif
 			if (s.trigChans & 2)
 				DAQmx_CTR_OutputPulse /DEV=s.ePhysBoard/SEC={Trig2Duration, Trig2Duration} /IDLE=(Trig2Polarity)/DELY=(s.trig2Secs)/NPLS=1/STRT=1/TRIG="/" + s.imageBoard + "/ai/StartTrigger" /MC={"/" + s.imageBoard + "/20MHzTimebase", 20e06} 1; AbortOnRTE
@@ -3560,7 +3743,6 @@ Function NQ_doEphysInit (s)
 	string errFuncStr
 	//sprintf errFuncStr, "NQ_ScanEnd(3, %s)",  s.ScanMode
 	//sprintf endFuncStr, "NQ_ScanEnd(0, %s)",  s.ScanMode
-	abortonRTE
 	print s.ePhysPath
 	try
 		if (s.ScanMode == kePhysOnly)
@@ -3570,10 +3752,10 @@ Function NQ_doEphysInit (s)
 				DAQmx_Scan /DEV= s.ePhysBoard/STRT=1/BKG=1 WAVES= s.ePhysPath;abortonRTE
 			endif
 		else
-			DAQmx_Scan /DEV= s.ePhysBoard/STRT=1/TRIG= {"/" + s.imageBoard + "/ao/StartTrigger",1,0,0,0}/BKG=1 WAVES= s.ePhysPath;abortonRTE
+			DAQmx_Scan /DEV= s.ePhysBoard/STRT=1/TRIG= {"/" + s.imageBoard + "/ai/StartTrigger",1,0,0,0}/BKG=1 WAVES= s.ePhysPath;abortonRTE
 		endif
 	catch
-		printf  "The \"NQ_doEphysInit\" function failed at position %d. The Error message was:\r%s\r", V_AbortCode, fdaqmx_errorString ()
+		printf  "The \"NQ_doEphysInit\" function failed with %d. The Error message was:\r%s\r", V_AbortCode, fdaqmx_errorString ()
 		return 1
 	endtry
 
@@ -3615,213 +3797,10 @@ Function NQ_DoVoltagePulseWaves (s)
 end
 
 
-//******************************************************************************************************
-// Fitting function used to make the horizontal scanwave out of a series of cosine components, with phase offset
-// Last Modified 2025/08/19 by Jamie Boyd
-Function CosExpansionPh(w,x) : FitFunc
-	Wave w
-	Variable x
-
-	//CurveFitDialog/ These comments were created by the Curve Fitting dialog. Altering them will
-	//CurveFitDialog/ make the function less convenient to work with in the Curve Fitting dialog.
-	//CurveFitDialog/ Equation:
-	//CurveFitDialog/ f(x) = H1 * (cos (x+ph)) + H3 * (cos (3 * (x+ph))) + H5 * (cos (5 * (x+ph))) + offset
-	//CurveFitDialog/ End of Equation
-	//CurveFitDialog/ Independent Variables 1
-	//CurveFitDialog/ x
-	//CurveFitDialog/ Coefficients 5
-	//CurveFitDialog/ w[0] = H1
-	//CurveFitDialog/ w[1] = H3
-	//CurveFitDialog/ w[2] = H5
-	//CurveFitDialog/ w[3] = offset
-	//CurveFitDialog/ w[4] = phase rotation, in radians
-	return w[0] * (cos (x+w[4])) + w[1] * (cos (3 *( x + w[4]))) + w[2] * (cos (5 * (x+w[4]))) + w[3]
-End
-
-
-//******************************************************************************************************
-// Makes the X and Y scan waves output to the Galvos by the Analog out channels on the image board for the various scan types
-//  returns 1 if an error ocurred, else 0
-// Last Modified 2025/08/25 by Jamie Boyd
-Function twoP_MakeGalvoScanWaves (s)
-	STRUCT NQ_ScanStruct &s
-
-	variable anError
-	try
-		// Check input for errors
-		// scan mode can not be ePhysOnly - not an error, just exit
-		if (s.ScanMode == kEphysOnly)
-			return 0
-		endif
-		// PixWidth needs to greater than 2
-		anError = (s.pixWidth < 2)
-		AbortOnValue anError, 2
-		//PixHeight needs to be 2 or more, but is not used for linescan
-		if (s.scanMode == kLineScan)
-			anError = (s.pixHeight < 2)
-			AbortOnValue anError, 3
-		endif
-		//PixHeight needs to be even for turbo mode
-		if (s.flybackMode == 1)
-			anError = (mod (s.PixHeight, 2) != 0)
-			AbortOnValue anError, 4
-		endif
-		//dutyCycle needs to be between 0 and 1
-		anError = ((s.dutyCycle < 0) || (s.dutyCycle > 1))
-		AbortOnValue anError, 5
-		//Pixel Time needs to be greater than 1/analog out max frequency (2.5 MHz for S-series boards) , probably a generous maximum is .01 sec
-		anError = ((s.pixTime < 0.4e-06) || (s.pixTime > 0.1))
-		AbortOnValue anError, 7
-		// Make Horizontal wave by fitting a cosine function to data collection region and 1/2 the turnaround
-		// values for fitting curve
-		variable scanpnts = round (s.Pixwidth/s.DutyCycle)						// the collecting data direction of laser wave, with turnaraound
-		variable turnAroundPts = scanpnts-s.Pixwidth							// when the laser is reversing directtion, not collecting data
-		variable FBpnts =  round (s.Pixwidth*s.FlyBackProp/s.DutyCycle)			// for not-bidirectional,the non-collecting data direction of laser wave, with turnarond
-		// fit a cosine function for turnaround and data collection region
-		// cosine function goes from 0 to 1 to 0 over the range -pi/2 to pi/2
-		// for biderectional scanning, both sides will be linearized, starting from 0 on the left side, ending at 0 on the right side
-		// make a straight line to constrain cosine fit to be linear over the scanning region where we collect data
-		// straight line segment x range is based on duty cycle, y range is based on start and end voltages for linear range of scanning
-		variable line_x1= (pi/2) - (pi* s.DutyCycle)/2
-		variable line_x2 = (pi/2) + (pi* s.DutyCycle)/2
-		// formula for line, in voltage versus radians
-		variable slope = (s.xev-s.xsv)/(line_x2-line_x1)
-		variable intercept = s.xsv - slope * line_x1
-		make/o/n = (s.PixWidth) root:Packages:twoP:acquire:StraightLine
-		WAVE StraightLine =  root:Packages:twoP:acquire:StraightLine
-		SetScale /I x (line_x1), (line_x2),"", StraightLine
-		StraightLine =  slope * x + intercept
-		
-		
-		WAVE Scan_coefs =  root:packages:twoP:acquire:Scan_Coefs 	//Coeficient wave for Sine curve fitting will hold the fitted values
-		variable cyclePnts											// points in a full cycle of X galvo movement
-		variable ScanPnts_total										// total number of points in X-galvo and Y-galvo waves, for a whole frame
-		variable cos_start											// starting position, in radians, of cosine segment
-		variable cos_End											// ending  position, in radians, of cosine segment
-		variable verTurnAroundPts									// points for vertical turnaround
-		if (s.flybackMode)
-			// if bi-directional, both sides of the cosine segment are linearized
-			cyclePnts = 2*scanPnts
-			ScanPnts_total = scanPnts * s.PixHeight
-			make/o/n= (cyclePnts) root:packages:twoP:acquire:tempCos	// scanPnts includes turnaround points plus linearized points
-			WAVE tempCos = root:packages:twoP:acquire:tempCos			
-			cos_start = (- pi* ((1-s.dutyCycle)/2))						// starts the cosine section at start of turnaround
-			setscale/p x cos_start, (pi/scanPnts), "rad", tempCos
-			// translate scan head delay in seconds into radians
-			variable galvoRadians = ((pi/((s.pixWidth*s.pixTime)/s.dutyCycle)) * s.ScanHeadDelay)
-			Scan_coefs [0] = -(s.XEV - s.XSV)/2		// starting amplitude of H1. Setting it will make curve fitting faster
-			Scan_coefs [3] = (s.XEV + s.XSV)/2		// offset. Setting it will make curve fitting faster
-			Scan_Coefs [4] =0						// fit with phase held to 0, then add phase 
-			FuncFit/Q/H="00001"/w=2 CosExpansionPh Scan_coefs StraightLine
-			Scan_Coefs [4] = GalvoRadians			// add the phase for galvo rotation to fitting coeficients
-			tempCos = CosExpansionPh (Scan_coefs,x)
-		else
-			// not bi-directional, just one side is linearized, other side may have a steeper slope
-			// Our cosine section is not symetrical around 0, we do each side separately
-			cyclePnts = scanpnts + FBpnts
-			ScanPnts_total = cyclePnts * s.PixHeight
-			make/o/n= (cyclePnts) root:packages:twoP:acquire:tempCos
-			WAVE tempCos = root:packages:twoP:acquire:tempCos
-			// we want to end at pi to fit the linear stage 
-			cos_End = pi
-			cos_Start = pi- (scanpnts + FBpnts)*(pi/scanpnts)
-			setscale x cos_Start, cos_End, "rad", tempCos
-			Scan_coefs [0] = -(s.XEV - s.XSV)/2		// starting amplitude of H1. Setting it will make curve fitting faster
-			Scan_coefs [3] = (s.XEV + s.XSV)/2		// offset. Setting it will make curve fitting faster
-			Scan_Coefs [4] =0						// fit with phase held to 0, we add phase with rotation
-			FuncFit/Q/H="00001"/w=2 CosExpansionPh Scan_coefs StraightLine
-			tempCos = CosExpansionPh (Scan_coefs,x)
-			// now the un-linearized flyback side - get min from tempCos (0) and max from tempCos (pi)
-			variable gMin = tempCos [scanpnts + FBpnts -1]		// point position of 0
-			variable gMax= tempCos [FBpnts]					// point position of pi
-			variable scal = (gMax-gMin)/2
-			variable offset = (gMax + gMin)/2
-			tempCos[0, FBpnts-1] = cos (x/s.flybackProp) *scal + offset
-			rotate round((turnAroundPts/2) - (s.ScanHeadDelay/s.pixTime)),tempCos // translate scan head delay in seconds into pixels and include
-		endif
-		// copy cosine segment into horizontal wave as many times as is needed
-		if (s.scanMode == kLineScan)	// Line Scan,onlyone copy needed
-			make/o/n= (cyclePnts) root:packages:twoP:acquire:HorWave
-			WAVE HorWave = root:packages:twoP:acquire:HorWave
-			horwave = tempCos
-		else //Image
-			make/o/n= (Scanpnts_total) root:packages:twoP:acquire:HorWave
-			WAVE HorWave = root:packages:twoP:acquire:HorWave
-			HorWave = tempCos [mod (p,(cyclePnts))]
-		endif
-		SetScale/p x 0, (s.pixtime) ,"", HorWave		// pix time sets analog out clock, which controls ai and line gate clock
-		// Vertical wave not neded for line scan
-		if (s.scanMode != kLineScan)
-			// Make vertical wave, it starts with vertical flyback
-			make/o/n = (Scanpnts_total) root:packages:twoP:acquire:VerWave
-			WAVE VerWave = root:packages:twoP:acquire:VerWave
-			SetScale/p x 0, (s.pixtime) ,"", verWave
-			// do the vertical flyback in one horizontal flyback and turnaround (uni-directional) or one turnaround (bi-directional)
-			if (s.flybackMode)
-				verTurnAroundPts = turnAroundPts
-				cyclePnts = scanPnts
-			else
-				verTurnAroundPts = fbPnts + turnAroundPts
-				cyclePnts = scanPnts + fbPnts
-			endif
-			variable voltOut, voltDiv = (s.YEV - s.YSV)/(s.PixHeight-1)
-			variable iPnt
-			scal = -(s.yev - s.ysv)/2
-			offset = (s.yev + s.ysv)/2
-			VerWave=NaN
-			// re-use tempcos for vertical flyback
-			redimension/n=(verTurnAroundPts) tempCos
-			setscale/I x -pi, 0, "rad", tempCos
-			tempCos = cos (x)*scal + offset
-			// copy tempCos to first points of verWave
-			VerWave[0, verTurnAroundPts-1]=tempCos
-			// finish first cycle with pixWidth, then  do cycle at a time
-			VerWave[verTurnAroundPts,verTurnAroundPts + s.pixWidth-1]=s.YSV
-			for (iPnt = verTurnAroundPts + s.pixWidth, voltOut = s.YSV + voltDiv ; iPnt < Scanpnts_total-verTurnAroundPts ; iPnt += cyclePnts,voltOut += voltDiv)
-				VerWave [iPnt, iPnt + cyclePnts -1]=voltOut
-			endfor
-			SetScale/p x 0, (s.pixtime) ,"", verWave
-		endif
-		return 0  //successs
-	catch
-		switch (V_abortCode)
-			case 1:
-				print "twoP_MakeGalvoScanWaves Error: electrophysiology-only scan."
-				break
-			case 2:
-				print "twoP_MakeGalvoScanWaves Error: PixWidth needs to be 2 or greater."
-				break
-			case 3:
-				print "twoP_MakeGalvoScanWaves Error: PixHeight needs to be 2 or greater."
-				break
-			case 4:
-				print "twoP_MakeGalvoScanWaves Error: PixHeight needs to be even for turbo mode."
-				break
-			case 5:
-				print "twoP_MakeGalvoScanWaves Error: DutyCycle needs to be between 0 and 1."
-				break
-			case 7:
-				print "twoP_MakeGalvoScanWaves Error: PixTime needs to be between 1 microsecond and 100 milliseconds."
-				break
-			case 9:
-				print "twoP_MakeGalvoScanWaves Error: Curve fitting for the sine expansion did not converge properly."
-				make/o/D root:packages:twoP:acquire:Scan_Coefs = {-7.4, -0.65, -0.13, -0.015}
-				break
-			case 8:
-				print "twoP_MakeGalvoScanWaves Error: Curve fitting for the sine expansion for bi-directional scanning did not converge properly."
-				make/o/D root:packages:twoP:acquire:Scan_Coefs_Sym = {-7.4, -0.65, -0.13, 0.08, 0.17}
-				break
-		endswitch
-		return 1 //failure
-	endtry
-end
-
-
-
 
 //******************************************************************************************************
 // Function called by the "Start Scan" Button.
-// Last Modified: 2025/09/01 by Jamie Boyd
+// Last Modified: 2025/09/03 by Jamie Boyd
 Function  NQ_StartScan (ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 	
@@ -3894,7 +3873,7 @@ Function  NQ_StartScan (ba) : ButtonControl
 		// make waves for imaging - laser scan waves and imaging data
 		if (s.scanMode != kePhysOnly)
 			if (!(s.isMulti && (s.multiAqiAq > 0)))	// only need to make galvo waves once for multiaq
-				twoP_MakeGalvoScanWaves (s)
+				NQ_MakeGalvoScanWaves (s)
 			endif
 			// set galvos to start of X and Y galvo waves
 			WAVE HorWave=root:Packages:twoP:acquire:HorWave
@@ -3917,8 +3896,10 @@ Function  NQ_StartScan (ba) : ButtonControl
 		endif
 
 		// Select our new scan as current scan, with selected channels on scanGraph to match channels being acquired
-		SVAR selChans = root:packages:twoP:examine:scanGraphSelChans
-		selChans=s.onlyChansImage
+		if (s.scanMode != kephysOnly)
+			SVAR selChans = root:packages:twoP:examine:scanGraphSelChans
+			selChans=s.onlyChansImage
+		endif
 		STRUCT WMPopupAction pa
 		pa.eventCode = 2
 		pa.popStr =  s.NewScanName
@@ -3928,14 +3909,15 @@ Function  NQ_StartScan (ba) : ButtonControl
 		StopOrAbort = 0
 		Button AqStartButton, win = twoP_Controls, proc= twoP_StopOrAbort
 		if (s.scanMode== kLiveMode)
-			Button AqStartButton, win = twoP_Controls, fColor=(65535,0,0), title = "Stop"
+			Button AqStartButton, win = twoP_Controls, fColor=(65280,0,0), title = "Stop"
 		else
 			if (s.inPutTrigger)
 				Button AqStartButton, win = twoP_Controls, fColor=(65280,65280,0), title = "Wait"
 			else
-				Button AqStartButton, win = twoP_Controls, fColor=(65535,0,0), title = "Abort"
+				Button AqStartButton, win = twoP_Controls, fColor=(65280,0,0), title = "Abort"
 			endif
 		endif
+		DoUpdate /W=twoP_Controls /E=1	// mark control panel as a progress window
 		// do things specific to scan mode
 		switch (ScanStartMode)
 			case kLiveMode:
@@ -3963,7 +3945,6 @@ Function  NQ_StartScan (ba) : ButtonControl
 					twoP_MakeLROIGraph (s)
 				endif
 				break
-				
 			case kSingleImage:
 			
 				break
@@ -3983,25 +3964,31 @@ Function  NQ_StartScan (ba) : ButtonControl
 			twoP_AcquireStartThreads(s)
 		endif
 		
-		
+
 		// Init NI-DAQ for ePhys. If ePhys only and triggered, waits for trigger
 		if (itemsinlist (s.selEphysChanList, ";") > 0)
 			NQ_doEphysInit (s)
 		endif
-		
+
 		// inits image scan and waits for trigger, if triggered
 		if (s.scanmode != kephysOnly)
 			if (NQ_ScanInit (s))
+				print fdaqmx_errorString()
 				twoP_reSetBoards ()
 				NVAR gThreadGroupID = root:packages:twoP:Acquire:gThreadGroupID
 				variable released = threadgroupRelease(gThreadGroupID)
-				Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65535, 0), proc= NQ_StartScan
+				Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65280, 0), proc= NQ_StartScan
 			endif
 		endif
-		
 		break
-	endswitch
+endswitch
 end
+
+
+
+
+
+
 
 
 // waveform generator clock is set by scaling of galvo waves to be pixelTime
@@ -4014,6 +4001,7 @@ end
 // Starts the image board scanning, or waiting for input trigger
 //  returns 1 if an error ocurred, else 0
 // Last Modified:
+// 20235/09/04 by Jamie Boyd
 // 2025/08/26 by Jamie Boyd - two counters, with trigger
 // 2017/08/21 by Jamie Boyd - adding support for input trigger
 // 2016/11/15 by Jamie Boyd - adding support for background task per channel
@@ -4036,7 +4024,7 @@ Function NQ_ScanInit (s)
 	try
 		// ouput scan clock and input sample clock for use with chunkulator, e.g.
 		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ao/SampleClock", "/" + s.ImageBoard + "/PFI5", 0), 1	// rests high, brief high-to-low low pulses, leads
-		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ai/SampleClock", "/" + s.ImageBoard + "/PFI7", 0), 2   // rests low, brif high pulse on low-to-high of ao sample clock
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ai/SampleClock", "/" + s.ImageBoard + "/PFI7", 0), 2   // rests low, brief high pulse on low-to-high of ao sample clock
 		// start analog input 
 		Switch (s.ScanMode)
 			case kLiveMode:		// scan repeats till stopped
@@ -4046,7 +4034,7 @@ Function NQ_ScanInit (s)
 			case kTimeSeries:
 				if (s.ScanIsCyclic)	
 					sprintf RPTChook, "twoP_timeCyclicHook (\"%s\", %d, %d, %d, %d, %d, %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ","), s.nCycFrames, s.PixWidth, s.PixHeight, s.numFrames, s.flyBackMode
-					//RPTChook = "twoP_timeCyclicHook()" // scan repeats till scan Wave is full
+					// scan repeats till scan Wave is full
 					variable/G root:packages:twoP:acquire:tSeriesFrame =0	//to track how many frames have been done
 					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/ctr0InternalOutput", 0}/TRIG={"/" + s.imageBoard + "/ctr0Gate", 1, 1} /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 				else
@@ -4054,7 +4042,8 @@ Function NQ_ScanInit (s)
 					// no repeats, scan at once, with background task to update display and end of task hook to redimension and clean up
 					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/ctr0InternalOutput", 0}/TRIG={"/" + s.imageBoard + "/ctr0Gate", 1, 1}/EOSH=EOShook /ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 					variable/G root:packages:twoP:acquire:nBKGFrames=s.nCycFrames
-					CtrlNamedBackground tSeriesTask, period = round (s.nCycFrames * s.frameTime * 60), burst =0, proc= twoP_tSeriesBkg, start
+					variable taskPeriod=ceil(s.nCycFrames * s.frameTime * 60)
+					CtrlNamedBackground tSeriesTask, period =  taskPeriod, burst =0, proc= twoP_tSeriesBkg, start=(ticks + taskPeriod)
 				endif
 				break
 		endSwitch
@@ -4076,28 +4065,11 @@ Function NQ_ScanInit (s)
 		NVAR triggerTaskNum = root:packages:twoP:Acquire:triggerTaskNum
 		NVAR shutterOpen = root:Packages:twoP:acquire:shutterOpenLevel
 		NVAR shutterDelay = root:Packages:twoP:acquire:shutterDelay
-		NVAR liveStop = root:Packages:twoP:Acquire:ScanStopOrAbort
 		if (s.inPutTrigger)
-			//CtrlNamedBackground shutterTask, period = 1, burst =0, start =0, proc= twoP_WaitForShutter
 			// lineGate on ctr 1 WITH TRIGGER
-			DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={pixOn, pixOff} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/20MhzTimeBase" /Rate=(20e06)/PAUS={"/" + s.imageBoard + "/ctr1InternalOutput", 1, 1}  0; ABORTONRTE
-			DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth)*pixTix, s.PixWidth*pixTix} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/20MhzTimeBase" /Rate=(20e06)/TRIG={"/" + s.imageBoard + "/PFI6", 1, 0} 1; ABORTONRTE
-			for (;;)
-				if ((fDAQmx_DIO_Read(s.imageBoard, triggerTaskNum)) ||(fDAQmx_ScanGetNextIndex(s.imageBoard) > 0))
-					fDAQmx_DIO_Write(s.imageBoard, triggerTaskNum, shutterOpen)
-					print "Shutter opened"
-					break
-				endif
-				if (liveStop)
-					break
-				endif
-				sleep/c=-1/s 1e-03
-			endfor
-			if (liveStop)		// cancelled wile waiting for input trigger
-				twoP_scanStop()
-				return 0
-			endif
-			Button AqStartButton, win = twoP_Controls, fColor=(65535,0,0), title = "Abort"
+			DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={pixOn, pixOff}/STRT=1 /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/20MhzTimeBase" /Rate=(20e06)/PAUS={"/" + s.imageBoard + "/ctr1InternalOutput", 1, 1}  0; ABORTONRTE
+			DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth)*pixTix, s.PixWidth*pixTix}/STRT=1 /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/20MhzTimeBase" /Rate=(20e06)/TRIG={"/" + s.imageBoard + "/PFI6", 1,0} 1; ABORTONRTE
+			CtrlNamedBackground shutterTask, period = 1, burst =0, proc= twoP_WaitForShutter, start
 		else // if not triggered, open shutter and wait shutter open time
 			// Open up the shutter. Pugged into digital line 0 on the Image Board
 			abortonvalue fDAQmx_DIO_Write (s.ImageBoard, shutterTaskNum, (shutterOpen)), 0
@@ -4118,22 +4090,51 @@ Function NQ_ScanInit (s)
 end
 		
 
-// might just do this function in a loop
-//Function twoP_WaitForShutter (s)
-//	STRUCT WMBackgroundStruct &s 
-//	
-//	NVAR shutterTaskNum = root:packages:twoP:Acquire:shutterTaskNum
-//	NVAR shutterOpen = root:Packages:twoP:acquire:shutterOpenLevel
-//	NVAR triggerTaskNum =  root:packages:twoP:Acquire:triggerTaskNum
-//	SVAR imageBoard =  root:packages:twoP:Acquire:ImageBoard
-//	
-//	if ((fDAQmx_DIO_Read(imageBoard, triggerTaskNum)) ||(fDAQmx_ScanGetNextIndex(imageBoard) > 0))
-//		fDAQmx_DIO_Write(imageBoard, triggerTaskNum, shutterOpen)
-//		return 1
-//	else
-//		return 0
-//	endif
-//end
+//*****************************************************************************************************************************
+// structure for background function for shutter/trigger
+// Last modified 2025/09/03 by Jamie Boyd
+STRUCTURE shutterBkgStruct
+	STRUCT WMBackgroundStruct WMS
+	uint32 shutterIsOpen
+	uint32 shutterTaskNum
+	uint32 triggerTaskNum
+	uint32 shutterOpenLevel
+EndStructure
+
+
+//*****************************************************************************************************************************
+// background function for shutter/trigger-opens the shutter when trigger line goes high. Scan starts on high-to-low, 
+// so width of pulse determines how long we wait for shutter to open, give or take the 16.7 ms period of the bkg task.
+// Last modified 2025/09/03 by Jamie Boyd
+Function twoP_WaitForShutter (s)
+	STRUCT shutterBkgStruct &s 
+	
+	if (s.WMS.started)
+		s.WMS.started = 0
+		NVAR shutterTaskNum = root:packages:twoP:Acquire:shutterTaskNum
+		NVAR shutterOpenLevel = root:Packages:twoP:acquire:shutterOpenLevel
+		NVAR triggerTaskNum =  root:packages:twoP:Acquire:triggerTaskNum
+		s.shutterTaskNum =shutterTaskNum
+		s.triggerTaskNum = triggerTaskNum
+		s.shutterOpenLevel = shutterOpenLevel
+		s.shutterIsOpen =0
+	else
+		SVAR imageBoard =  root:packages:twoP:Acquire:ImageBoard
+		if (!(s.shutterIsOpen))
+			if ((fDAQmx_DIO_Read(imageBoard, s.triggerTaskNum)) ||(fDAQmx_ScanGetNextIndex(imageBoard) > 0))
+				fDAQmx_DIO_Write(imageBoard, s.shutterTaskNum, s.shutterOpenLevel)
+				s.shutterIsOpen = 1
+				print "Shutter open"
+			endif	
+		else
+			if (fDAQmx_ScanGetNextIndex(imageBoard) > 0)
+				Button AqStartButton  win = twoP_Controls,title="Abort", fColor=(65280,0,0)
+				return 1
+			endif
+		endif
+	endif
+	return 0
+end
 
 // **************************************************************************************************
 // Generic stuff done whenever a live scan is stopped, or a scan finishes, or is aborted
@@ -4157,8 +4158,9 @@ Function twoP_scanStop()
 	fDAQmx_CTR_Finished(imageBoard, 0)
 	// stop background tasks - no error stopping a task that is not currently running
 	CtrlNamedBackground tSeriesTask stop
+	CtrlNamedBackground shutterTask stop 
 	// reset start button and percent complete display
-	Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65535, 0), proc= NQ_StartScan
+	Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65280, 0), proc= NQ_StartScan
 	ValDisplay AqPercentCompleteDisplay win= twoP_Controls, mode=3
 	NVAR percentComplete=root:packages:twoP:Acquire:PercentComplete
 	percentComplete = 0
@@ -4175,13 +4177,14 @@ function twoP_StopOrAbort  (ba) : ButtonControl
 	switch( ba.eventCode )
 		case 2: // mouse up
 		NVAR liveStop = root:Packages:twoP:Acquire:ScanStopOrAbort
-		liveStop = 1
 		if (ba.eventMod & 2)
-			 twoP_scanStop()
+			twoP_scanStop()
+			liveStop=0
+		else
+			liveStop = 1
 		endif
 		break
 	endswitch
-	
 end
 
 
@@ -4264,6 +4267,7 @@ Function twoP_LiveHook(selImageChanList, numChans)
 	if (liveStop)
 		sleep /S 10e-03		// gives some time for threads to grab the last frame of data and display it
 		twoP_scanStop()
+		liveStop=0
 	endif
 end
 
@@ -4343,7 +4347,7 @@ end
 
 //**************************************************************************************************
 // Hook for time series cyclic mode
-// Last modified 2025/08/26 by Jamie Boyd
+// Last modified 2025/09/03 by Jamie Boyd
 Function twoP_timeCyclicHook(imageChans, numChans, nCycleFrames, pixWidth, pixHeight, numFrames, flybackMode)
 	string imageChans
 	variable numChans
@@ -4352,8 +4356,6 @@ Function twoP_timeCyclicHook(imageChans, numChans, nCycleFrames, pixWidth, pixHe
 	
 	String aChan
 	variable iChan
-	
-	
 	
 	NVAR gThreadGroupID =  root:Packages:twoP:Acquire:gThreadGroupID
 	NVAR tSeriesFrame = root:packages:twoP:acquire:tSeriesFrame
@@ -4394,14 +4396,30 @@ Function twoP_timeCyclicHook(imageChans, numChans, nCycleFrames, pixWidth, pixHe
 			setscale/p y yOffset, yScal, "m", scanWave
 			setscale/p z 0, zScal, "s", scanWave
 		endfor
+			
 		if (liveStop)
 			infoStr= ReplaceNumberByKey("numFrames", infoStr, tSeriesFrame, ":", "\r")
-			liveStop =0
+			liveStop  =0
+			// even though it was cut short, it is still a scan
+			// Make sure controls will be set properly when user switches to examine side of things
+			GUIPTabClick ("twoP_Controls", "AcquireExamineTab", "Examine")
+			SVAR NewScanName =  root:packages:twoP:Acquire:NewScanName
+			twoP_ScanAdjustExamineControls (NewScanName)
+			NVAR autincCheck = root:packages:twoP:Acquire:autIncCheck
+			if (autIncCheck)
+				NewScanName = twoP_autinc (NewScanName, 1)
+			endif
+			NVAR toDo=root:packages:twoP:acquire:exportAfterScan
+			if (toDo)
+				NQ_ExportAfterScan(toDo)
+			endif
 		endif
 	endif
 end
 
-
+//**************************************************************************************************
+// Thread function fortime series cyclic mode
+// Last modified 2025/09/03 by Jamie Boyd
 ThreadSafe Function twoP_timeCyclicThread(threadfWaves, nChans, threadGroupID, nCycFrames, pixWidth, pixHeight, flybackMode, LiveROI, LROIleft, LROItop, LROIright, LROIbottom, liveRatio, topChan, bottomChan)
 	WAVE/WAVE threadfWaves
 	variable nChans
@@ -4461,87 +4479,128 @@ end
 
 
 
+
+//*****************************************************************************************************************************
+// structure for background function for time series non-cyclic mode
+// Last modified 2025/09/03 by Jamie Boyd
 STRUCTURE tSeriesBkgStruct
 	STRUCT WMBackgroundStruct WMS
-	uint32 startTicks
-	uint32 lastFrame
 	uint32 pixWidth
 	uint32 pixHeight
 	uint32 numFrames
+	uint32 frameSize
 	float frameTime
-	uint32 nBKGFrames
 	uint32 nChans
+	uint32 flybackMode
+	uint32 nBKGFrames
+	uint32 chunkSize
+	uint32 taskTicks
+	int32 lastChunk
 EndStructure
 
 
 //*****************************************************************************************************************************
 // background function for time series - non cyclical- displays a frame and does live ROI
+// Last modified 2025/09/03 by Jamie Boyd
 Function twoP_tSeriesBkg  (s)
 	STRUCT tSeriesBkgStruct &s
 	
 	if (s.WMS.started)
 		s.WMS.started = 0
-		s.startTicks=ticks
-		s.lastFrame = 0
+		s.lastChunk = -1
 		NVAR PixWidth= root:Packages:twoP:acquire:PixWidth
 		NVAR PixHeight=root:Packages:twoP:acquire:PixHeight
 		NVAR numFrames= root:Packages:twoP:acquire:TSeriesFrames
 		NVAR FrameTime = root:Packages:twoP:acquire:FrameTime
 		NVAR nBKGFrames = root:packages:twoP:acquire:nBKGFrames
+		NVAR flybackMode=root:Packages:twoP:acquire:FlyBackMode
 		SVAR chanList=root:Packages:twoP:acquire:selImageChanList
 		s.PixWidth= PixWidth
 		s.PixHeight=PixHeight
 		s.numFrames = numFrames
+		s.frameSize=PixWidth*PixHeight
 		s.frameTime=FrameTime
 		s.nBKGFrames = nBKGFrames
 		s.nChans=itemsInList (chanList, ";")
+		s.flybackMode = flybackMode
+		s.taskTicks =ceil (60*FrameTime * nBKGFrames)
+		s.chunkSize=s.frameSize*s.nBKGFrames
 	endif
 	
 	SVAR chanList=root:Packages:twoP:acquire:selImageChanList
-	NVAR flybackMode=root:Packages:twoP:acquire:FlyBackMode
 	variable iChan
 	string aChan
-	NVAR liveStop = root:Packages:twoP:Acquire:ScanStopOrAbort
-	if (liveStop)
-		twoP_scanStop()
-		SVAR scanName = root:packages:twoP:acquire:newScanName
-		for (ichan =0; iChan < s.nChans; iChan +=1)
-			aChan = stringFromList(0, stringFromList (iChan, chanList, ";"), ":")
-			WAVE chanWave = $"root:twoP_Scans:" + scanName + ":" + scanName + "_" + aChan
-			redimension/w/u/n=(s.pixWidth, s.pixHeight, s.numFrames) chanWave
-			chanWave = chanWave > 32767 ? 0: chanWave
-			if (flybackMode)
-				SwapEven (chanWave)
-			endif
-		endfor
-		return 1
-	endif
-	
 	SVAR imageBoard =  root:packages:twoP:Acquire:ImageBoard
 	variable nextPt = fDAQmx_ScanGetNextIndex(imageBoard)
-	if (nextPt > ((s.lastFrame + s.nBKGFrames) * (s.pixWidth * s.pixHeight)))
-		s.lastFrame = floor (nextPt/(s.pixWidth * s.pixHeight))
+	variable readyFrame
+	variable readyChunk = floor (nextPt/(s.chunkSize)) - 1
+	variable ticksTilNext
+	//printf "Next point=%d,readyChunk=%d\r", nextPt, readyChunk
+	if (readyChunk > s.lastChunk)
+		s.lastChunk = readyChunk
+		readyFrame = readyChunk * s.nBKGFrames
+		//printf "Displaying frame %d\r", readyFrame
 		NVAR gThreadGroupID =  root:Packages:twoP:Acquire:gThreadGroupID
 		for (ichan =0; iChan < s.nChans; iChan +=1)
 			newdatafolder/s :tdata
-			variable/G iFrameG =s.lastFrame
+			variable/G iFrameG = readyFrame
 			variable/G iChanG = iChan
 			string/G aChanG = stringFromList (0, stringFromList(iChan, chanList,";"),":")
 			ThreadGroupPutDF gThreadGroupID, :
 		endfor
 	else
-		s.WMS.nextRunTicks = s.startTicks + 10 + floor(60 * (s.frameTime * (s.lastFrame + s.nBKGFrames)))
+		ticksTilNext = ((s.chunkSize - mod (nextPt, s.chunkSize)) / s.chunkSize)* s.taskTicks
+		//printf "added ticks = %d\r", ticksTilNext
+		s.WMS.nextRunTicks = ticks + ticksTilNext
+		return 0
 	endif
 	
-	NVAR PercentComplete=root:packages:twoP:Acquire:PercentComplete
-	PercentComplete = 100*(s.lastFrame/s.numFrames)
-	return 0
-	
-	
-	
+	NVAR liveStop = root:Packages:twoP:Acquire:ScanStopOrAbort
+	if (liveStop)
+		sleep /S 10e-03		// gives some time for threads to grab the last frame of data and display it
+		twoP_scanStop()
+		liveStop =0
+		SVAR scanName = root:Packages:twoP:acquire:NewScanName
+		SVAR infoStr= $"root:twoP_Scans:" + scanName +  ":" + scanName + "_info"
+		variable xOffset = NumberByKey("Xoffset", infoStr, ":", "\r")
+		variable yOffset = NumberByKey("Yoffset", infoStr, ":", "\r")
+		variable xScal= NumberByKey("XPixSize", infoStr, ":", "\r")
+		variable yScal= NumberByKey("YPixSize", infoStr, ":", "\r")
+		variable zScal= NumberByKey("FrameTime", infoStr, ":", "\r")
+		for (ichan =0; iChan < s.nChans; iChan +=1)
+			WAVE scanWave= $"root:twoP_Scans:" + scanName +  ":" + scanName + "_" +  stringFromList (0, stringFromList(iChan, chanList, ";"), ":")
+			redimension/w/u/n=(s.pixWidth, s.pixHeight, readyFrame) scanWave
+			if (s.flybackMode)
+				SwapEven (scanWave)
+			endif
+			setscale/p x xOffset, xScal, "m", scanWave
+			setscale/p y yOffset, yScal, "m", scanWave
+			setscale/p z 0, zScal, "s", scanWave
+		endfor
+		// even though it was cut short, it is still a scan
+		// Make sure controls will be set properly when user switches to examine side of things
+		GUIPTabClick ("twoP_Controls", "AcquireExamineTab", "Examine")
+		SVAR NewScanName =  root:packages:twoP:Acquire:NewScanName
+		twoP_ScanAdjustExamineControls (NewScanName)
+		NVAR autincCheck = root:packages:twoP:Acquire:autIncCheck
+		if (autIncCheck)
+			NewScanName = twoP_autinc (NewScanName, 1)
+		endif
+		NVAR toDo =root:packages:twoP:acquire:exportAfterScan
+		if (toDo)
+			NQ_ExportAfterScan(toDo)
+		endif
+		return 1
+	else
+		NVAR PercentComplete=root:packages:twoP:Acquire:PercentComplete
+		PercentComplete = 100*(readyFrame/s.numFrames)
+		return 0
+	endif
 end
 
-
+//**************************************************************************************************
+// Thread function fortime series non-cyclic mode - is calledby background function
+// Last modified 2025/09/03 by Jamie Boyd
 ThreadSafe Function twoP_timeSeriesThread(threadfWaves, nChans, threadGroupID, pixWidth, pixHeight, flybackMode, LiveROI, LROIleft, LROItop, LROIright, LROIbottom, liveRatio, TopChan, BottomChan)
 	WAVE/WAVE threadfWaves
 	variable nChans
@@ -4553,7 +4612,7 @@ ThreadSafe Function twoP_timeSeriesThread(threadfWaves, nChans, threadGroupID, p
 	variable LROIleft
 	variable LROItop
 	variable LROIright
-	variable LROIbottom
+	variable LROIbottom  
 	variable liveRatio
 	variable topChan
 	variable bottomChan
@@ -4573,7 +4632,7 @@ ThreadSafe Function twoP_timeSeriesThread(threadfWaves, nChans, threadGroupID, p
 		NVAR iFrame= dfr:iFrameG
 		WAVE ScanWave = threadfWaves [iChan *4]
 		WAVE acq2D = threadfWaves [iChan * 4 + 2]
-		acq2D = ScanWave [p + (iFrame-1) * frameSize]
+		acq2D = ScanWave [q*pixWidth + p + (iFrame * frameSize)]
 		acq2D =acq2D > 32767 ? 0 : acq2D
 		if (flybackMode)
 			SwapEven (acq2D)
@@ -4605,10 +4664,18 @@ function twoP_timeSeriesEndHook(scanName, chanList, pixWidth, pixHeight, numFram
 	variable pixHeight
 	variable numFrames
 	variable flybackMode
-	
+
 	twoP_scanStop()
+	NVAR liveStop = root:packages:twoP:acquire:scanStopOrAbort
+	liveStop = 1
 	CtrlNamedBackground tSeriesTask stop
 	//redimension the waves
+	SVAR infoStr= $"root:twoP_Scans:" + scanName +  ":" + scanName + "_info"
+	variable xOffset = NumberByKey("Xoffset", infoStr, ":", "\r")
+	variable yOffset = NumberByKey("Yoffset", infoStr, ":", "\r")
+	variable xScal= NumberByKey("XPixSize", infoStr, ":", "\r")
+	variable yScal= NumberByKey("YPixSize", infoStr, ":", "\r")
+	variable zScal= NumberByKey("FrameTime", infoStr, ":", "\r")
 	variable nChans = itemsInlist (chanList, ",")
 	String aChan
 	variable iChan
@@ -4620,9 +4687,23 @@ function twoP_timeSeriesEndHook(scanName, chanList, pixWidth, pixHeight, numFram
 		if (flybackMode)
 			SwapEven (chanWave)
 		endif
+		setscale/p x xOffset, xScal, "m", chanWave
+		setscale/p y yOffset, yScal, "m", chanWave
+		setscale/p z 0, zScal, "s", chanWave
 	endfor
+	// Make sure controls will be set properly when user switches to examine side of things
+	GUIPTabClick ("twoP_Controls", "AcquireExamineTab", "Examine")
+	SVAR NewScanName =  root:packages:twoP:Acquire:NewScanName
+	twoP_ScanAdjustExamineControls (NewScanName)
+	NVAR autincCheck = root:packages:twoP:Acquire:autIncCheck
+	if (autIncCheck)
+		NewScanName = twoP_autinc (NewScanName, 1)
+	endif
+	NVAR toDo =root:packages:twoP:acquire:exportAfterScan
+	if (toDo)
+		NQ_ExportAfterScan(toDo)
+	endif
 end
-
 
 
 	switch( ba.eventCode )
@@ -4716,7 +4797,7 @@ end
 							if (((s.isMulti) && (iAq ==0)) || (!(s.isMulti)))
 								// Make the X and Y Galvo  waves
 								errPos=3
-								err = twoP_MakeGalvoScanWaves (s);AbortOnValue (err), errPos 
+								err = NQ_MakeGalvoScanWaves (s);AbortOnValue (err), errPos 
 							endif
 						endif
 						// Start some threads
@@ -5193,10 +5274,10 @@ end
 		wave scanGraphMrg =  root:packages:twoP:examine:scanGraph_mrg
 		// red plane ch1
 		variable rangevar = 65536/(last1 - first1)
-		scanGraphMrg [] [] [0] =  min (65535, max (0,(scangraph_ch1 [p] [q] - first1)) * rangevar)
+		scanGraphMrg [] [] [0] =  min (65280, max (0,(scangraph_ch1 [p] [q] - first1)) * rangevar)
 		// green is channel 2
 		rangevar = 65536/(last2 - first2)
-		scanGraphMrg [] [] [1] =   min (65535, max (0,(scangraph_ch2 [p] [q] - first2)) * rangevar)
+		scanGraphMrg [] [] [1] =   min (65280, max (0,(scangraph_ch2 [p] [q] - first2)) * rangevar)
 	endif
 	// do live hist - this is done on data AFTER averaging
 	if (livehistCheck)
@@ -5295,10 +5376,14 @@ Function twoP_MakeLROIGraph (s)
 	variable iChan, nChans= itemsInList (s.onlyChansImage, ",")
 	string aChan
 	string axisStr = ""
-	
-	
-	
-	variable lroiPoints = round(s.liveROISecs/s.FrameTime)
+	variable lroiPoints, ptScale
+	if (s.scanMode == kTimeSeries)
+		lroiPoints = round(s.liveROISecs/(s.FrameTime * s.nCycFrames))
+		ptScale = (-s.FrameTime*s.nCycFrames)
+	elseif (s.scanMode == kLiveMode)
+		lroiPoints = round(s.liveROISecs/s.FrameTime)
+		ptScale = (-s.FrameTime)
+	endif
 	for (ichan= 0; iChan < nChans; iChan +=1)
 		aChan = stringFromList(iChan, s.onlyChansImage, ",")
 		WAVE/Z LROIWave = $"root:Packages:twoP:acquire:LroiWave_" +aChan
@@ -5309,7 +5394,7 @@ Function twoP_MakeLROIGraph (s)
 			redimension/n= (lroiPoints) LROIWave
 		endif
 		LROIWave = NaN
-		SetScale /p x, 0, (-s.FrameTime),  "s",  LROIWave
+		SetScale /p x, 0, (ptScale),  "s",  LROIWave
 		axisStr = AddListItem(aChan, axisStr, ";")
 	endfor
 	if (s.liveRatio)
@@ -5320,13 +5405,13 @@ Function twoP_MakeLROIGraph (s)
 			make/n= (lroiPoints) root:Packages:twoP:acquire:LroiWave_ratio
 			WAVE LroiWave_ratio =  root:Packages:twoP:acquire:LroiWave_ratio
 		endif
-		SetScale /p x, 0, (-s.FrameTime),  "",  LroiWave_ratio
+		SetScale /p x, 0, (ptScale),  "",  LroiWave_ratio
 		LroiWave_ratio = NaN
 		axisStr = AddListItem("ratio", axisStr, ";")
 	endif
 	variable nAxes=Itemsinlist(axisStr, ";")
 	// Display Graph
-	Display/N=twoPLROIGraph as "Live ROI Graph: " +s.newScanName
+	Display/N=twoPLROIGraph/K=1 as "Live ROI Graph: " +s.newScanName
 	variable iAxis, axisFrac = (1-.02*(nAxes-1))/nAxes
 	string anAxis
 	for (iAxis =0; iAxis < nAxes; iAxis += 1)
@@ -5340,6 +5425,7 @@ Function twoP_MakeLROIGraph (s)
 	endfor
 	Label bottom "\\Z12Time (Seconds)"
 	ModifyGraph rgb =(0,0,0)
+	setaxis/A/R bottom
 	// Hook to save window position
 	WC_WindowCoordinatesRestore("twoPLROIGraph")
 	SetWindow twoPLROIGraph hook (saveHook)= twoP_UtilSaveWinPosHook, hookevents = 2
@@ -5348,7 +5434,7 @@ end
 
 
 //******************************************************************************************************
-// Makes a new graph for live ROI display
+// Makes a new graph for live raw A/D value display
 // Last Modified 2025/08/11 by Jamie Boyd 
 Function twoP_MakeLiveRawGraph (s)
 	STRUCT NQ_ScanStruct &s
@@ -5376,7 +5462,7 @@ Function twoP_MakeLiveRawGraph (s)
 		anAxis = stringfromlist (iAxis, axisStr) 
 		WAVE LiveRaw = $"Root:Packages:twoP:acquire:Acq1D_" + anAxis
 		appendtoGraph/L=$"L_" + anAxis LiveRaw
-		ModifyGraph mode($"Acq1D_" + anAxis)=2,lsize($"Acq1D_" + anAxis)=2, zColorMin($"Acq1D_" + anAxis)=(65535,0,0), zColorMax($"Acq1D_" + anAxis)=(0,0,0)
+		ModifyGraph mode($"Acq1D_" + anAxis)=2,lsize($"Acq1D_" + anAxis)=2, zColorMin($"Acq1D_" + anAxis)=(65280,0,0), zColorMax($"Acq1D_" + anAxis)=(0,0,0)
 		ModifyGraph zColor($"Acq1D_" + anAxis)={LiveRaw,0,1,Grays,0}
 		ModifyGraph freePos($"L_" + anAxis)={0,bottom}
 		ModifyGraph axisEnab($"L_" +  anAxis)={(iAxis * axisFrac) + (iAxis * .02) , ((iAxis + 1) * axisFrac) + (iAxis* .02)}
@@ -5725,14 +5811,14 @@ end
 		if (kNQRedChan == 1)
 			// ch1 is red plane and  ch2 is green
 			rangevar = 65536/(last1 - first1)
-			outwave [] [] [0] =  min (65535, max (0,(scangraph_ch1 [p] [q] - first1)) * rangevar)
+			outwave [] [] [0] =  min (65280, max (0,(scangraph_ch1 [p] [q] - first1)) * rangevar)
 			rangevar = 65536/(last2 - first2)
-			outwave [] [] [1] =   min (65535, max (0,(scangraph_ch2 [p] [q] - first2)) * rangevar)
+			outwave [] [] [1] =   min (65280, max (0,(scangraph_ch2 [p] [q] - first2)) * rangevar)
 		else
 			rangevar = 65536/(last1 - first1)
-			outwave [] [] [1] =  min (65535, max (0,(scangraph_ch1 [p] [q] - first1)) * rangevar)
+			outwave [] [] [1] =  min (65280, max (0,(scangraph_ch1 [p] [q] - first1)) * rangevar)
 			rangevar = 65536/(last2 - first2)
-			outwave [] [] [0] =   min (65535, max (0,(scangraph_ch2 [p] [q] - first2)) * rangevar)
+			outwave [] [] [0] =   min (65280, max (0,(scangraph_ch2 [p] [q] - first2)) * rangevar)
 		endif
 	endif	
 	// increment Z series counter. Are we done yet?
@@ -5900,14 +5986,14 @@ Function NQ_SetScanSize(type)
 		SetDrawLayer/K ProgFront
 		SetDrawEnv xcoord= bottom,ycoord= left,fillpat= 0,linefgc= (0,0,0),linethick= 3.00
 		DrawLine V_Left,V_Bottom, V_Right, V_Bottom 
-		SetDrawEnv xcoord= bottom,ycoord= left,fillpat= 0,linefgc= (65535,65535,65535),linethick= 1, dash = 2
+		SetDrawEnv xcoord= bottom,ycoord= left,fillpat= 0,linefgc= (65280,65280,65280),linethick= 1, dash = 2
 		DrawLine V_Left,V_Bottom, V_Right, V_Bottom 
 	else
 		V_top =  (YEV-WaveYSV) * WaveYScal + WaveYPos
 		SetDrawLayer/K ProgFront
 		SetDrawEnv xcoord= bottom,ycoord= left,fillpat= 0,linefgc= (0,0,0),linethick= 3.00
 		DrawRect V_Left,V_top,V_right, V_bottom
-		SetDrawEnv xcoord= bottom,ycoord= left,fillpat= 0,linefgc= (65535,65535,65535),linethick= 1, dash = 2
+		SetDrawEnv xcoord= bottom,ycoord= left,fillpat= 0,linefgc= (65280,65280,65280),linethick= 1, dash = 2
 		DrawRect V_Left,V_top,V_right, V_bottom
 		SetDrawLayer UserFront
 	endif
@@ -6039,7 +6125,7 @@ Function NQ_SetLiveROI ()
 	SetDrawLayer/K ProgFront
 	SetDrawEnv xcoord= bottom,ycoord= left,fillpat= 0,linefgc= (0,0,0),linethick= 3.00
 	DrawRect Left, top, right, bottom
-	SetDrawEnv xcoord= bottom,ycoord= left,fillpat= 0,linefgc= (65535,65535,65535),linethick= 1, dash = 2
+	SetDrawEnv xcoord= bottom,ycoord= left,fillpat= 0,linefgc= (65280,65280,65280),linethick= 1, dash = 2
 	DrawRect Left, top, right, bottom
 	SetDrawLayer UserFront
 end
@@ -6081,7 +6167,7 @@ Function NQ_MultiAqReset ()
 			break
 	endswitch
 	// reset start button
-	Button MultiAqStartButton win = twoP_Controls, title="Start",  fColor=(0,65535,0), userdata = "Start Multi"
+	Button MultiAqStartButton win = twoP_Controls, title="Start",  fColor=(0,65280,0), userdata = "Start Multi"
 	// reset counts for multiAq
 	NVAR iAq = root:packages:twoP:acquire:multiAqiAq
 	iAq = 0
@@ -6700,7 +6786,7 @@ ThreadSafe Function NQ_tSeriesChanThread (scanWave, scanGraphWave, mergeWave)
 				NVAR lastColor = dfrInit:lastColor
 				variable rangevar= 65536/(lastColor - firstColor)
 				//printf "mergeLayer = %d, firstcolor = %d, lastcolor = %d, rangeVar = %f\r", mergeLayer, firstColor, lastColor, rangevar
-				mergeWave [*] [*] [mergeLayer] =  min (65535, max (0,(scanGraphWave [p] [q] - firstColor)) * rangevar)
+				mergeWave [*] [*] [mergeLayer] =  min (65280, max (0,(scanGraphWave [p] [q] - firstColor)) * rangevar)
 			endif
 		endif
 	endfor
@@ -6751,7 +6837,7 @@ ThreadSafe Function NQ_tSeriesCyclicChanThread (scanWave, acqWave, scanGraphWave
 					NVAR lastColor = dfr:lastColor
 					variable rangevar= 65536/(lastColor - firstColor)
 					//printf "mergeLayer = %d, firstcolor = %d, lastcolor = %d, rangeVar = %f\r", mergeLayer, firstColor, lastColor, rangevar
-					mergeWave [*] [*] [mergeLayer] =  min (65535, max (0,(scanGraphWave [p] [q] - firstColor)) * rangevar)
+					mergeWave [*] [*] [mergeLayer] =  min (65280, max (0,(scanGraphWave [p] [q] - firstColor)) * rangevar)
 				endif
 			endif
 			killdatafolder dfr
@@ -6824,7 +6910,7 @@ ThreadSafe Function NQ_zSeriesChanThread (scanWave, acqWave, scanGraphWave, merg
 					NVAR lastColor = dfr:lastColor
 					variable rangevar= 65536/(lastColor - firstColor)
 					//printf "mergeLayer = %d, firstcolor = %d, lastcolor = %d, rangeVar = %f\r", mergeLayer, firstColor, lastColor, rangevar
-					mergeWave [*] [*] [mergeLayer] =  min (65535, max (0,(scanGraphWave [p] [q] - firstColor)) * rangevar)
+					mergeWave [*] [*] [mergeLayer] =  min (65280, max (0,(scanGraphWave [p] [q] - firstColor)) * rangevar)
 				endif
 			endif
 			killdatafolder dfr
@@ -6911,7 +6997,7 @@ ThreadSafe Function NQ_LiveChanThread (AcqWave, displayWave, mergeWave, histWave
 				NVAR lastColor = dfr:lastColor
 				variable rangevar= 65536/(lastColor - firstColor)
 				//printf "mergeLayer = %d, firstcolor = %d, lastcolor = %d, rangeVar = %f\r", mergeLayer, firstColor, lastColor, rangevar
-				mergeWave [*] [*] [mergeLayer] =  min (65535, max (0,(displayWave [p] [q] - firstColor)) * rangevar)
+				mergeWave [*] [*] [mergeLayer] =  min (65280, max (0,(displayWave [p] [q] - firstColor)) * rangevar)
 			endif
 		endif
 	endfor
