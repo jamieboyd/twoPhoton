@@ -10,7 +10,7 @@
 #include "Stages"
 
 
-#undef OLD_SCAN_INIT
+#define OLD_SCAN_INIT
 
 
 // Constants that are not (yet) set from peferences
@@ -3986,11 +3986,89 @@ end
 
 
 
+#ifdef OLD_SCAN_INIT
 
 
+Function NQ_ScanInit (s)
+	STRUCT NQ_ScanStruct &s
 
+	// only for image scan, ePhys has its own NI-DAQ init, which should already have run
+	if (s.scanmode== kephysOnly)
+		return 0
+	endif
 
+	// clear any stored error messages
+	for (;(cmpstr (fDAQmx_ErrorString(), "") != 0);)
+	endfor
 
+	string RPTChook
+	string EOShook
+	string ScanErrhook
+	sprintf ScanErrhook, "twoP_ScanErr(%d)", s.ScanMode
+	try
+		// pixel clock on ctr1
+		//fDAQmx_CTR_Finished(s.ImageBoard, 1)
+		//variable pixTicks= round (s.PixTime * 20E06)
+		variable pixHz =1/(s.PixTime)
+		//variable hiPix = floor (pixTicks/2)
+		//variable loPix = pixTicks-hiPix
+		//DAQmx_CTR_OutputPulse/DEV=s.ImageBoard/TICK={hiPix,loPix}/IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/20MhzTimeBase" /Rate=(20e06) 1; ABORTONRTE
+		
+		// lineGate on ctr0, source is RTSI_5, where we will put output of the waveform generator, direct output to RTSI_6
+		fDAQmx_CTR_Finished(s.ImageBoard, 0)
+		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth), s.PixWidth} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ctr0InternalOutput", "/" + s.ImageBoard + "/RTSI6", 0), 18
+		
+		// wave form generator, clock is ctr1 output, send to RTSI_5
+		string scanWavesList
+		If (s.ScanMode == kLineScan)
+			scanWavesList = "root:packages:twoP:acquire:HorWave, 0;"
+		else
+			scanWavesList = "root:packages:twoP:acquire:HorWave, 0;root:packages:twoP:acquire:VerWave, 1;"
+		endif
+		//DAQmx_WaveformGen /DEV=s.imageBoard/CLK={"/" + s.ImageBoard + "/ctr1InternalOutput", 1} /BKG=0/NPRD=0/Strt=1 scanWavesList;abortOnRTE
+		DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/Strt=1  scanWavesList
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ao/SampleClock", "/" + s.ImageBoard + "/RTSI5", 0), 27
+		
+		// A/D scanning
+		//sprintf RPTChook "twoP_LiveHook(\"%s\", %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ",")
+		//DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1} /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+		
+		
+			Switch (s.ScanMode)
+			case kLiveMode:		// scan repeats till stopped
+				sprintf RPTChook "twoP_LiveHook(\"%s\", %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ",")
+				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1} /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+				break
+			case kTimeSeries:
+				if (s.ScanIsCyclic)	
+					sprintf RPTChook, "twoP_timeCyclicHook (\"%s\", %d, %d, %d, %d, %d, %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ","), s.nCycFrames, s.PixWidth, s.PixHeight, s.numFrames, s.flyBackMode
+					// scan repeats till scan Wave is full
+					variable/G root:packages:twoP:acquire:tSeriesFrame =0	//to track how many frames have been done
+					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1} /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+				else
+					sprintf EOShook,  "twoP_timeSeriesEndHook(\"%s\", \"%s\", %d, %d, %d, %d)", s.newScanName, s.onlyChansImage, s.pixWidth, s.pixHeight, s.numFrames, s.flybackMode
+					// no repeats, scan at once, with background task to update display and end of task hook to redimension and clean up
+					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/EOSH=EOShook /ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+					variable/G root:packages:twoP:acquire:nBKGFrames=s.nCycFrames
+					variable taskPeriod=ceil(s.nCycFrames * s.frameTime * 60)
+					CtrlNamedBackground tSeriesTask, period =  taskPeriod, burst =0, proc= twoP_tSeriesBkg, start=(ticks + taskPeriod)
+				endif
+				break
+		endSwitch
+
+		
+		
+		
+	catch
+		variable err=GetRTError(1)
+		printf  "The \"NQ_ScanInit\" function failed:\r%s\r", fDAQmx_ErrorString()
+		return 1 // exit with failure
+	endtry
+	return 0
+end
+
+#else
 // waveform generator clock is set by scaling of galvo waves to be pixelTime
 // ctr0 pixel clock is made independently using 20Mhz source to be same as waveform clock, 50% duty cycle
 // ctr1 line gate is made independently using 20Mhz source (ON and OFF times set by pixels  * pixelTime * 20Mhz clock ticks
@@ -4089,6 +4167,8 @@ Function NQ_ScanInit (s)
 	return 0
 end
 		
+#endif
+
 
 //*****************************************************************************************************************************
 // structure for background function for shutter/trigger
