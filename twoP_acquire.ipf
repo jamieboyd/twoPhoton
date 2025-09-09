@@ -1232,7 +1232,7 @@ Function NQ_SetTimes ()
 	endif
 	// Rough initial calculation of frame time before nasty tests for even point numbers
 	if (FlybackMode == 0)
-		PixWidthTotal = round (Pixwidth/DutyCycle) + round (Pixwidth*FlyBackProp/DutyCycle)
+		PixWidthTotal = round (Pixwidth/DutyCycle) + round (Pixwidth*FlyBackProp/DutyCycle) ///@@@@@
 	else
 		PixWidthTotal = round (Pixwidth/DutyCycle)
 	endif
@@ -3969,6 +3969,10 @@ Function  NQ_StartScan (ba) : ButtonControl
 		if (itemsinlist (s.selEphysChanList, ";") > 0)
 			NQ_doEphysInit (s)
 		endif
+		wave horwave=root:packages:twoP:acquire:horwave
+		wave verwave=root:packages:twoP:acquire:verwave
+		//horwave [0]=3
+		//verwave [0] = 3
 
 		// inits image scan and waits for trigger, if triggered
 		if (s.scanmode != kephysOnly)
@@ -3988,7 +3992,11 @@ end
 
 #ifdef OLD_SCAN_INIT
 
-
+//******************************************************************************************************
+// Starts the image board scanning, or waiting for input trigger
+// returns 1 if an error ocurred, else 0
+// ues RTSI lines as a bus to connect sources to destinations they may not otherwise connect to without errors
+// Last Modified:2025/09/09
 Function NQ_ScanInit (s)
 	STRUCT NQ_ScanStruct &s
 
@@ -3997,7 +4005,7 @@ Function NQ_ScanInit (s)
 		return 0
 	endif
 
-	// clear any stored error messages
+	// clear any stored DAQmx error messages
 	for (;(cmpstr (fDAQmx_ErrorString(), "") != 0);)
 	endfor
 
@@ -4005,64 +4013,86 @@ Function NQ_ScanInit (s)
 	string EOShook
 	string ScanErrhook
 	sprintf ScanErrhook, "twoP_ScanErr(%d)", s.ScanMode
+	
+	variable pixHz =1/(s.PixTime)
+	//global variables for the shutter. Pugged into digital line 0 on the Image Board
+	NVAR shutterTaskNum = root:packages:twoP:Acquire:shutterTaskNum
+	NVAR triggerTaskNum =  root:packages:twoP:Acquire:triggerTaskNum
+	NVAR shutterOpen = root:Packages:twoP:acquire:shutterOpenLevel
+	NVAR shutterDelay = root:Packages:twoP:acquire:shutterDelay
 	try
-		// pixel clock on ctr1
-		//fDAQmx_CTR_Finished(s.ImageBoard, 1)
-		//variable pixTicks= round (s.PixTime * 20E06)
-		variable pixHz =1/(s.PixTime)
-		//variable hiPix = floor (pixTicks/2)
-		//variable loPix = pixTicks-hiPix
-		//DAQmx_CTR_OutputPulse/DEV=s.ImageBoard/TICK={hiPix,loPix}/IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/20MhzTimeBase" /Rate=(20e06) 1; ABORTONRTE
+		// connect ao/sample clock and ai/sample clock to PFI pins for use with chunkulator, e.g. You can comment one or both of these out if you don't need them.
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ao/SampleClock", "/" + s.ImageBoard + "/PFI5", 0), 1	// rests high, brief high-to-low low pulses, leads
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ai/SampleClock", "/" + s.ImageBoard + "/PFI7", 0), 2   // rests low, brief high pulse on low-to-high of ao sample clock
+		// connect counter0 (line gate) output to normal counter 0 output pin (aka PFI 12) for use with image projector, e.g. 
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ctr0InternalOutput", "/" + s.ImageBoard + "/ctr0Out", 0), 3   // rests low, brief high pulse on low-to-high of ao sample clock
 		
-		// lineGate on ctr0, source is RTSI_5, where we will put output of the waveform generator, direct output to RTSI_6
+		// mnake lineGate on ctr0, source is RTSI_5, where we will put ao  signal of the waveform generator, direct the output to RTSI_6 where it is used to gate analog input
 		fDAQmx_CTR_Finished(s.ImageBoard, 0)
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ctr0InternalOutput", "/" + s.ImageBoard + "/RTSI6", 0), 4
 		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth), s.PixWidth} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
-		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ctr0InternalOutput", "/" + s.ImageBoard + "/RTSI6", 0), 18
+
+		// A/D scanning, we set it all up but don't start it till after waveform generator has started. This ensures we are in the high phase of the linegate when we start
+		Switch (s.ScanMode)
+			case kLiveMode:		// scan repeats till stopped
+				sprintf RPTChook "twoP_LiveHook(\"%s\", %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ",")
+				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5",1}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/STRT=0 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+				break
+			case kTimeSeries:
+				if (s.ScanIsCyclic) // scan repeats till scan Wave is full
+					sprintf RPTChook, "twoP_timeCyclicHook (\"%s\", %d, %d, %d, %d, %d, %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ","), s.nCycFrames, s.PixWidth, s.PixHeight, s.numFrames, s.flyBackMode
+					variable/G root:packages:twoP:acquire:tSeriesFrame =0	//to track how many frames have been done
+					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 1}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/STRT=0 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+				else // no repeats, scan at once, with background task to update display and end of task hook to redimension and clean up
+					sprintf EOShook,  "twoP_timeSeriesEndHook(\"%s\", \"%s\", %d, %d, %d, %d)", s.newScanName, s.onlyChansImage, s.pixWidth, s.pixHeight, s.numFrames, s.flybackMode
+					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 1}/STRT=0/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/EOSH=EOShook /ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+					variable/G root:packages:twoP:acquire:nBKGFrames=s.nCycFrames
+					variable taskPeriod=ceil(s.nCycFrames * s.frameTime * 60)
+					CtrlNamedBackground tSeriesTask, period =  taskPeriod, burst =0, proc= twoP_tSeriesBkg, start=(ticks + taskPeriod)
+				endif
+				break
+		endSwitch		
 		
-		// wave form generator, clock is ctr1 output, send to RTSI_5
+		// wave form generator, send sample clock output to RTSI_5
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ao/SampleClock", "/" + s.ImageBoard + "/RTSI5", 0), 5
 		string scanWavesList
 		If (s.ScanMode == kLineScan)
 			scanWavesList = "root:packages:twoP:acquire:HorWave, 0;"
 		else
 			scanWavesList = "root:packages:twoP:acquire:HorWave, 0;root:packages:twoP:acquire:VerWave, 1;"
 		endif
-		//DAQmx_WaveformGen /DEV=s.imageBoard/CLK={"/" + s.ImageBoard + "/ctr1InternalOutput", 1} /BKG=0/NPRD=0/Strt=1 scanWavesList;abortOnRTE
-		DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/Strt=1  scanWavesList
-		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ao/SampleClock", "/" + s.ImageBoard + "/RTSI5", 0), 27
-		
-		// A/D scanning
-		//sprintf RPTChook "twoP_LiveHook(\"%s\", %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ",")
-		//DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1} /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
-		
-		
-			Switch (s.ScanMode)
-			case kLiveMode:		// scan repeats till stopped
-				sprintf RPTChook "twoP_LiveHook(\"%s\", %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ",")
-				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1} /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
-				break
-			case kTimeSeries:
-				if (s.ScanIsCyclic)	
-					sprintf RPTChook, "twoP_timeCyclicHook (\"%s\", %d, %d, %d, %d, %d, %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ","), s.nCycFrames, s.PixWidth, s.PixHeight, s.numFrames, s.flyBackMode
-					// scan repeats till scan Wave is full
-					variable/G root:packages:twoP:acquire:tSeriesFrame =0	//to track how many frames have been done
-					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1} /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+		// if input trigger, setup waveform generator then wait for trigger low-to-high to open dhutter and for trigger-high-to low to progress to starting A/D scan
+		if (s.inPutTrigger)
+			//CtrlNamedBackground shutterTask, period = 1, burst =0, proc= twoP_WaitForShutter, start
+			DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/TRIG={"/" + s.ImageBoard + "/PFI6", 1, 0}/Strt=1  scanWavesList; ABORTONRTE
+			variable shutterIsOpen=0
+			for (;;)
+				if (!(shutterIsOpen))
+					if (fDAQmx_DIO_Read(s.imageBoard, triggerTaskNum))
+						fDAQmx_DIO_Write(s.imageBoard, shutterTaskNum, shutterOpen)
+						shutterIsOpen = 1//;print "SHutter open"
+					endif
 				else
-					sprintf EOShook,  "twoP_timeSeriesEndHook(\"%s\", \"%s\", %d, %d, %d, %d)", s.newScanName, s.onlyChansImage, s.pixWidth, s.pixHeight, s.numFrames, s.flybackMode
-					// no repeats, scan at once, with background task to update display and end of task hook to redimension and clean up
-					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/EOSH=EOShook /ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
-					variable/G root:packages:twoP:acquire:nBKGFrames=s.nCycFrames
-					variable taskPeriod=ceil(s.nCycFrames * s.frameTime * 60)
-					CtrlNamedBackground tSeriesTask, period =  taskPeriod, burst =0, proc= twoP_tSeriesBkg, start=(ticks + taskPeriod)
+					if (!(fDAQmx_DIO_Read(s.imageBoard, triggerTaskNum)))
+						//print "Triggered"
+						break
+					endif
 				endif
-				break
-		endSwitch
-
-		
-		
-		
+			endfor
+		else // if not triggered, open shutter and wait shutter open time before starting waveform generator
+			abortonvalue fDAQmx_DIO_Write (s.ImageBoard, shutterTaskNum, (shutterOpen)), 6
+			// wait a few milliseconds while shutter opens before continuing
+			if (shutterDelay > 0)
+				Sleep/c=-1/S shutterDelay
+			endif
+			DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/Strt=1  scanWavesList; ABORTONRTE
+		endif
+		// start the A/D scan which is all setup to go
+		fDAQmx_ScanStart(s.imageBoard,1)
+		Button AqStartButton  win = twoP_Controls,title="Abort", fColor=(65280,0,0)
 	catch
 		variable err=GetRTError(1)
-		printf  "The \"NQ_ScanInit\" function failed:\r%s\r", fDAQmx_ErrorString()
+		printf  "The \"NQ_ScanInit\" function failed at %d:\r%s\r",   err,  fDAQmx_ErrorString()
 		return 1 // exit with failure
 	endtry
 	return 0
@@ -4094,7 +4124,7 @@ Function NQ_ScanInit (s)
 	// clear any stored error messages
 	for (;(cmpstr (fDAQmx_ErrorString(), "") != 0);)
 	endfor
-
+			
 	string RPTChook
 	string EOShook
 	string ScanErrhook
