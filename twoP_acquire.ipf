@@ -4062,7 +4062,7 @@ Function NQ_ScanInit (s)
 			scanWavesList = "root:packages:twoP:acquire:HorWave, 0;root:packages:twoP:acquire:VerWave, 1;"
 		endif
 		// if input trigger, setup waveform generator then wait for trigger low-to-high to open dhutter and for trigger-high-to low to progress to starting A/D scan
-		if (s.inPutTrigger)
+		if ((s.inPutTrigger) && (s.scanMode != kLiveMode))
 			//CtrlNamedBackground shutterTask, period = 1, burst =0, proc= twoP_WaitForShutter, start
 			DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/TRIG={"/" + s.ImageBoard + "/PFI6", 1, 0}/Strt=1  scanWavesList; ABORTONRTE
 			variable shutterIsOpen=0
@@ -4074,7 +4074,9 @@ Function NQ_ScanInit (s)
 					endif
 				else
 					if (!(fDAQmx_DIO_Read(s.imageBoard, triggerTaskNum)))
-						//print "Triggered"
+						// start the A/D scan which is all setup to go
+						fDAQmx_ScanStart(s.imageBoard,1)
+						Button AqStartButton, win = twoP_Controls, fColor=(65280,0,0), title = "Abort"
 						break
 					endif
 				endif
@@ -4086,10 +4088,8 @@ Function NQ_ScanInit (s)
 				Sleep/c=-1/S shutterDelay
 			endif
 			DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/Strt=1  scanWavesList; ABORTONRTE
+			fDAQmx_ScanStart(s.imageBoard,1)
 		endif
-		// start the A/D scan which is all setup to go
-		fDAQmx_ScanStart(s.imageBoard,1)
-		Button AqStartButton  win = twoP_Controls,title="Abort", fColor=(65280,0,0)
 	catch
 		variable err=GetRTError(1)
 		printf  "The \"NQ_ScanInit\" function failed at %d:\r%s\r",   err,  fDAQmx_ErrorString()
