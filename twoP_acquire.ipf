@@ -10,9 +10,6 @@
 #include "Stages"
 
 
-#define OLD_SCAN_INIT
-
-
 // Constants that are not (yet) set from peferences
 // Size of counters on NI boards. These limit size that can be aquired at one shot. Older boards are 24, mewer boards might be 32
 CONSTANT kNQImageCounterSize = 24
@@ -2079,9 +2076,9 @@ Function VoltageAxisProc(ctrlName,checked) : CheckBoxControl
 		//			ModifyGraph lsize(VoltagePulseDummyWave)=0
 		//		endif
 		ModifyGraph grid(bottom)=0
-		ModifyGraph grid(top)=1, nticks (top) = 30
-		setaxis top , 0, (rightx(editwave)/FrameTime)
-		label top "Frames"
+		ModifyGraph grid(bottom)=1, nticks (bottom) = 30
+		setaxis bottom , 0, (rightx(editwave)/FrameTime)
+		label bottom "Frames"
 		SetVariable X1SetVar disable =1
 		SetVariable X2SetVar disable = 1
 		SetVariable F1SetVar disable =0
@@ -2324,7 +2321,6 @@ Structure NQ_ScanStruct
 	string vOutWave2
 	variable vOutStart // "1 = on Scan Start;2=on Trig 1;"
 endStructure
-
 
 
 //******************************************************************************************************
@@ -3194,7 +3190,7 @@ Function twoP_reSetBoards ()
 		// configure trigger input task on port 0/line 1
 		DAQmx_DIO_Config /DEV=ImageBoard/DIR= 0/LGRP=1  "/" + ImageBoard +"/port0/line1";AbortOnRTE
 		triggerTaskNum = V_DAQmx_DIO_TaskNumber
-		if (CmpStr (ephysBoard, "") == 0)
+		if (CmpStr (ephysBoard, "") != 0)
 			AbortOnValue fDAQmx_ResetDevice(ePhysBoard), 0
 			// set an initial dummy counter task just to put outputs in low state
 			DAQmx_CTR_OutputPulse /DEV=ephysBoard/SEC={1e-6, 1e-6} /IDLE=(Trig1Polarity) /NPLS=1/STRT=0 (0) ; AbortOnRTE
@@ -3203,9 +3199,9 @@ Function twoP_reSetBoards ()
 			AbortOnValue fDAQmx_CTR_Finished(ephysBoard, 1), 0
 		endif
 	catch
-		Print "Error resetting shutter on image board or triggers on ephys board:" +  fDAQmx_ErrorString()
 		return 1
 	endtry
+	return 0
 end
 
 
@@ -3674,32 +3670,6 @@ Function NQ_MakeEphysWaves (s)
 end	
 
 
-//******************************************************************************************************
-// Sets up triggers, using the ephys board.  returns 1 if an error occurs, else 0
-// Last Modified 2025/08/11 by Jamie Boyd
-Function twoP_doTriggers (s)
-	STRUCT NQ_ScanStruct &s
-	
-	NVAR Trig1Polarity = root:packages:twoP:acquire:Trig1Polarity
-	NVAR Trig2Polarity= root:packages:twoP:acquire:Trig2Polarity
-	NVAR Trig1Duration =root:packages:twoP:acquire:Trig1Duration
-	NVAR Trig2Duration =root:packages:twoP:acquire:Trig2Duration
-	
-	try
-		if (!(s.scanmode == kLiveMode || s.scanmode == kZseries))
-			if (s.trigChans & 1)
-				DAQmx_CTR_OutputPulse /DEV=s.ePhysBoard/SEC={Trig1Duration, Trig1Duration} /IDLE=(Trig1Polarity)/DELY=(s.trig1Secs)/NPLS=1/STRT=1/TRIG="/" + s.ephysBoard + "/ai/SampleClock"/MC={"/" + s.imageBoard + "/20MHzTimebase", 20e06} 0 ; AbortOnRTE
-			endif
-			if (s.trigChans & 2)
-				DAQmx_CTR_OutputPulse /DEV=s.ePhysBoard/SEC={Trig2Duration, Trig2Duration} /IDLE=(Trig2Polarity)/DELY=(s.trig2Secs)/NPLS=1/STRT=1/TRIG="/" + s.imageBoard + "/ai/StartTrigger" /MC={"/" + s.imageBoard + "/20MHzTimebase", 20e06} 1; AbortOnRTE
-			endif
-		endif
-	catch
-		print  "The \"NQ_doTriggers\" function failed:\r" +  fdaqmx_errorString()
-		return 1
-	endtry
-	return 0	// exit with success
-end
 
 
 // **********************************************************************************************************
@@ -3734,45 +3704,132 @@ End
 // sets input trigger to waveform generator or, for ePhys alone,  sends scan start to RTSI
 //  returns 1 if an error ocurred, else 0
 // last Modified:
-// 2017/08/31 by Jamie Boyd-input triggering for ephys with imaging
+// 2025/09/10 by Jamie Boyd-input triggering for ephys with imaging
 Function NQ_doEphysInit (s)
 	STRUCT NQ_ScanStruct &s
 	
-	variable NidaqError
-	string endFuncStr
+	string EOShook = "twoP_ePhysOnlyEndHook()"
 	string errFuncStr
-	//sprintf errFuncStr, "NQ_ScanEnd(3, %s)",  s.ScanMode
-	//sprintf endFuncStr, "NQ_ScanEnd(0, %s)",  s.ScanMode
-	print s.ePhysPath
+
 	try
-		if (s.ScanMode == kePhysOnly)
+		if (s.ScanMode == kePhysOnly) // no signals from imaging board
 			if (s.inPutTrigger)
-				DAQmx_Scan /DEV= s.ePhysBoard/STRT=1/TRIG= {"/" + s.imageBoard + "/PFI6",1}/BKG=1 WAVES= s.ePhysPath;abortonRTE
+				DAQmx_Scan /DEV= s.ePhysBoard/STRT=1/TRIG= {"/" + s.imageBoard + "/PFI6",1}/BKG=1/EOSH=EOShook  WAVES= s.ePhysPath;abortonRTE // NO master clock, start on PFI6 input trigger directly
 			else
-				DAQmx_Scan /DEV= s.ePhysBoard/STRT=1/BKG=1 WAVES= s.ePhysPath;abortonRTE
+				DAQmx_Scan /DEV= s.ePhysBoard/STRT=1/BKG=1/EOSH=EOShook WAVES= s.ePhysPath;abortonRTE	//no trigger, no master clock, just ephys, start right away
 			endif
-		else
-			DAQmx_Scan /DEV= s.ePhysBoard/STRT=1/TRIG= {"/" + s.imageBoard + "/ai/StartTrigger",1,0,0,0}/BKG=1 WAVES= s.ePhysPath;abortonRTE
+		else	// if doing imaging, start on line gate on RTSI bus
+			fdaqmx_ConnectTerminals("/" + s.imageBoard + "/20MHzTimeBase", "/" + s.imageBoard +"/RTSI7", 0)
+			DAQmx_Scan /DEV= s.ePhysBoard/STRT=1/TRIG= {"/" + s.imageBoard + "/RTSI6",1,1}/BKG=1 /MC={"/" + s.imageBoard + "/RTSI7", 20e06} WAVES= s.ePhysPath;abortonRTE
 		endif
 	catch
-		printf  "The \"NQ_doEphysInit\" function failed with %d. The Error message was:\r%s\r", V_AbortCode, fdaqmx_errorString ()
+		printf  "The \"NQ_doEphysInit\" function failed with code %d. The Error message was:\r%s\r", V_AbortCode, fdaqmx_errorString ()
 		return 1
 	endtry
 
 	return 0	// exit with success
 end
 
+//******************************************************************************************************
+// End-of-Scan function when doing ePhys only
+// last modified 2025/09/10 by Jamie Boyd
+function twoP_ePhysOnlyEndHook()
 
+	twoP_scanStop()
+	NVAR liveStop = root:packages:twoP:acquire:scanStopOrAbort
+	liveStop = 0
+	// Make sure controls will be set properly when user switches to examine side of things
+	SVAR newScanName=root:packages:twoP:acquire:NewScanName
+	GUIPTabClick ("twoP_Controls", "AcquireExamineTab", "Examine")
+	twoP_ScanAdjustExamineControls (newScanName)
+	NVAR autincCheck = root:packages:twoP:Acquire:autIncCheck
+	if (autIncCheck)
+		NewScanName = twoP_autinc (NewScanName, 1)
+	endif
+	NVAR toDo =root:packages:twoP:acquire:exportAfterScan
+	if (toDo)
+		NQ_ExportAfterScan(toDo)
+	endif
+end
+
+//******************************************************************************************************
+// Sets up triggers, using the ephys board.  returns 1 if an error occurs, else 0
+// ePhys chans have first dibs on triggers from image board, 
+// Last Modified 2025/09/10 by Jamie Boyd
+Function twoP_doTriggers (s)
+	STRUCT NQ_ScanStruct &s
+
+	// use no triggers in liveMode or zSeries
+	if (s.scanmode == kLiveMode || s.scanmode == kZseries)
+		return 0
+	endif
+	// polarity and duration from preferences
+	NVAR Trig1Polarity = root:packages:twoP:acquire:Trig1Polarity
+	NVAR Trig2Polarity= root:packages:twoP:acquire:Trig2Polarity
+	NVAR Trig1Duration =root:packages:twoP:acquire:Trig1Duration
+	NVAR Trig2Duration =root:packages:twoP:acquire:Trig2Duration
+	// trigger source
+	string trigSrc
+	if (itemsinList (s.selEphysChanList, ";") >0)		// we are collecting ePhys, so we have a startTrigger signal on ePhys Board
+		trigSrc= "/" +  s.ePhysBoard + "/ai/StartTrigger"
+	else
+		trigSrc= "/" +  s.imageBoard + "/RTSI6"	// trigger off of line gate on RTSI bus only when no ePhys channelsare used
+	endif
+	// mater clock src is RTSI 7 if we are doing imaging, else use ephysboard
+	string mcSrc
+	if (s.scanMode == kEphysOnly)
+		mcSrc = "/" + s.ephysBoard + "/20MHzTimeBase"
+	else
+	 	mcSrc = "/" + s.imageBoard + "/RTSI7"
+	 endif
+	try
+
+		if (s.trigChans & 1)
+			fDAQmx_CTR_Finished(s.ePhysBoard, 0)
+			DAQmx_CTR_OutputPulse /DEV=s.ePhysBoard/SEC={Trig1Duration, Trig1Duration} /IDLE=(Trig1Polarity)/DELY=(s.trig1Secs)/NPLS=1/STRT=1 /TRIG= trigSrc /MC={mcSrc, 20e06} 0 ; AbortOnRTE
+		endif
+		if (s.trigChans & 2)
+			fDAQmx_CTR_Finished(s.ePhysBoard, 1)
+			DAQmx_CTR_OutputPulse /DEV=s.ePhysBoard/SEC={Trig2Duration, Trig2Duration} /IDLE=(Trig2Polarity)/DELY=(s.trig2Secs)/NPLS=1/STRT=1 /TRIG=trigSrc /MC={mcSrc, 20e06} 1; AbortOnRTE
+		endif
+	catch
+		print  "The \"NQ_doTriggers\" function failed:\r" +  fdaqmx_errorString()
+		return 1
+	endtry
+	return 0	// exit with success
+end
 
 //******************************************************************************************************
 // Gets the ephys board ready to Output Voltage Waves using waveform generator 0 and waveform generator 1
 //  returns 1 if an error ocurred, else 0
-// Last Modified 2025/08/11 by Jamie
+// Last Modified 2025/09/10 by Jamie
 Function NQ_DoVoltagePulseWaves (s)
 	STRUCT NQ_ScanStruct &s
 	
+	// use no voltage waves in liveMode or zSeries
+	if (s.scanmode == kLiveMode || s.scanmode == kZseries)
+		return 0
+	endif
+	// trigger source
+	string trigSrc
+	if (s.vOutStart == 1) // start voltage output on scan start
+		if (itemsinList (s.selEphysChanList, ";") >0)			// we are collecting ePhys, so we have a startTrigger signal on ePhys Board
+			trigSrc= "/" +  s.ePhysBoard + "/ai/StartTrigger"
+		else
+			trigSrc= "/" +  s.imageBoard + "/RTSI6"				//no ai/StartTrigger, so trigger off of line gate on RTSI bus only when no ePhys channels are used
+		endif
+	else
+		trigSrc= "/" + s.ePhysBoard +"/Ctr1/InternalOutput"
+	endif
+	// mater clock src is RTSI 7 if we are doing imaging, else use ephysboard
+	string mcSrc
+	if (s.scanMode == kEphysOnly)
+		mcSrc = "/" + s.ephysBoard + "/20MHzTimeBase"
+	else
+	 	mcSrc = "/" + s.imageBoard + "/RTSI7"
+	endif
+	
 	try
-		variable NidaqError
 		string VoltageWavePath = ""
 		// Make VoltageWavePath string ready for NIDAQ command
 		if (1 & s.vOutChans) // channel 1 is selected
@@ -3781,16 +3838,10 @@ Function NQ_DoVoltagePulseWaves (s)
 		if (2 & s.vOutChans) // channel 2 is selected
 			VoltageWavePath +=  "root:packages:twoP:acquire:VoltagePulseWaves:" + s.vOutWave2 + " , 1;"
 		endif
-		// Configure triggers
-		if (s.vOutStart == 1) // start voltage output on scan start
-			DAQmx_WaveformGen /DEV=s.ePhysBoard /MC={"/" + s.imageBoard +"/20MHzTimebase", 20E06} /NPRD =1 /STRT=1 /TRIG={"/" + s.ePhysBoard + "/ai/StartTrigger"} VoltageWavePath
-		elseif (s.vOutStart == 2) // start on output of trig 2 - this also uses trigger 1 - we could try shuttling to a RTSI line
-			DAQmx_WaveformGen /DEV=s.ePhysBoard /MC={"/" + s.imageBoard +"/20MHzTimebase", 20E06} /NPRD =1 /STRT=1 /TRIG={"/" + s.ePhysBoard +"/Ctr1/InternalOutput"} VoltageWavePath
-		endif	
-			
-		
+		// Configure waveform generator
+		DAQmx_WaveformGen /DEV=s.ePhysBoard /MC={mcSrc, 20E06} /NPRD =1 /STRT=1 /TRIG={trigSrc, 1, 1} VoltageWavePath; AbortonRTE
 	catch
-		printf  "The \"NQ_doVoltagePulseWaves\" function failed at position %d. The Error message was:\r%s\r", V_AbortCode, "" //NQGetErrorString (NidaqError)
+		printf  "The \"NQ_doVoltagePulseWaves\" function failed with %d. The Error message was:\r%s\r", V_AbortCode, fDAQMX_errorString()
 		return 1
 	endtry
 	return 0	// exit with success
@@ -3800,202 +3851,225 @@ end
 
 //******************************************************************************************************
 // Function called by the "Start Scan" Button.
-// Last Modified: 2025/09/03 by Jamie Boyd
+// Last Modified: 2025/09/10 by Jamie Boyd
 Function  NQ_StartScan (ba) : ButtonControl
 	STRUCT WMButtonAction &ba
-	
+
 	switch( ba.eventCode )
 		case 2: // mouse up
-		// scan mode
-		NVAR scanMode = root:packages:twoP:Acquire:ScanMode
-		// grab scan mode and save in case user flips to a different tab in scanmode tabcontrol
-		NVAR ScanStartMode = root:packages:twoP:Acquire:ScanStartMode
-		ScanStartMode=scanMode
-		// Load ScanStruct with settings variables
-		STRUCT NQ_ScanStruct s
-		NQ_LoadScanStruct (s)
-		// check for overwriting 
-		if (NQ_CheckOverWrite (s))
-			return 1
-		endif
-		// check for channel selection according to scan mode
-		if (s.scanMode == kEphysOnly)
-			if (itemsInList (s.selEphysChanList, ";") ==0)
-				doAlert 0, "Select some ePhys channels before starting ePhys scanning."
+			// scan mode
+			NVAR scanMode = root:packages:twoP:Acquire:ScanMode
+			// grab scan mode and save in case user flips to a different tab in scanmode tabcontrol
+			NVAR ScanStartMode = root:packages:twoP:Acquire:ScanStartMode
+			ScanStartMode=scanMode
+			// Load ScanStruct with settings variables
+			STRUCT NQ_ScanStruct s
+			NQ_LoadScanStruct (s)
+			// check for overwriting
+			if (NQ_CheckOverWrite (s))
 				return 1
 			endif
-		else
-			if (itemsInList (s.selImageChanList, ";") ==0)
-				doAlert 0, "Select some image channels before scanning."
-				return 1
-			endif
-		endif
-		variable xS=1, yS=1, zS=1, axS=NaN
-		// if Z-stack, move to start of stack
-		if (s.ScanMode == kzSeries)
-			xS=NaN; yS=NaN; zS=s.zPos; axS =NaN
-			funcref StageMove_Template stageMove = $"StageMove_" + s.stageProc
-			stageMove (0, 1, xS, yS, zS, axS)
-			// Set focus increment to zStepsize
-			funcref StageSetInc_Template SetInc= $"StageSetInc_" + s.stageProc
-			SetInc (zVal=s.zStepSize)
-		endif
-		// Update stage and X,Y position unless repeated multiAq
-		if (!(s.isMulti && (s.multiAqiAq > 0)))
-			funcref  StageUpdate_Template UpdateStage=$"StageUpDate_" + s.StageProc
-			UpdateStage (xS, yS, zS, axS)
-			// if reading stage fails, set stage values to 0
-			if (((numtype (xS) != 0) ||  (numtype (yS) != 0)) ||(numtype (zS) != 0))
-				s.xPos = 0
-				s.yPos =0
-				s.zPos =0
-				print "Stage reading failed; XYZ positions for " + s.newScanName + " set arbitrarily to 0"
+			// check for channel selection according to scan mode
+			if (s.scanMode == kEphysOnly)
+				if (itemsInList (s.selEphysChanList, ";") ==0)
+					doAlert 0, "Select some ePhys channels before starting ePhys scanning."
+					return 1
+				endif
 			else
-				s.xPos=xS
-				s.yPos = yS
-				s.zPos =zS
+				if (itemsInList (s.selImageChanList, ";") ==0)
+					doAlert 0, "Select some image channels before scanning."
+					return 1
+				endif
 			endif
-			WAVE/T objWave = root:packages:twoP:acquire:ObjWave
-			variable xScaling= str2num (objWave [s.objNum] [1])
-			variable yScaling= str2num (objWave [s.objNum] [2])
-			variable xOffset = str2num (objWave [s.objNum] [3])
-			variable yOffset = str2num (objWave [s.objNum] [4])
-			s.xScalStart = s.xPos - xOffset + s.xSV * xScaling
-			s.yScalStart = s.yPos - yOffset + s.ySV * yScaling
-		endif
-		// make a folder for this scan
-		newDataFolder/O $"root:twoP_Scans:" + s.newScanName
-		// Make info string 
-		if (NQ_ScanNoter (s))
-			doAlert 0,"Scan not created"
-			return 0
-		endif
-		// make waves for imaging - laser scan waves and imaging data
-		if (s.scanMode != kePhysOnly)
-			if (!(s.isMulti && (s.multiAqiAq > 0)))	// only need to make galvo waves once for multiaq
-				NQ_MakeGalvoScanWaves (s)
+			variable xS=1, yS=1, zS=1, axS=NaN
+			// if Z-stack, move to start of stack
+			if (s.ScanMode == kzSeries)
+				xS=NaN; yS=NaN; zS=s.zPos; axS =NaN
+				funcref StageMove_Template stageMove = $"StageMove_" + s.stageProc
+				stageMove (0, 1, xS, yS, zS, axS)
+				// Set focus increment to zStepsize
+				funcref StageSetInc_Template SetInc= $"StageSetInc_" + s.stageProc
+				SetInc (zVal=s.zStepSize)
 			endif
-			// set galvos to start of X and Y galvo waves
-			WAVE HorWave=root:Packages:twoP:acquire:HorWave
-			WAVE VerWave=root:Packages:twoP:acquire:VerWave
-			fDAQmx_WriteChan(s.ImageBoard, 0, HorWave [0], -10, 10)
-			fDAQmx_WriteChan(s.ImageBoard, 1, VerWave [0], -10, 10)
-			NQ_MakeImageScanWaves(s) // also fills out paths and channels in s.scanWavePath entry in scanStruct for NI-DAQ
-		endif
-		// make waves for ePhys
-		if (itemsInList (s.selEphysChanList, ";") > 0)
-			NQ_MakeEphysWaves (s)
-		endif
-		// set up triggers
-		if (s.trigChans)
-			twoP_doTriggers(s)
-		endif
-		// make waves for voltage pulses
-		if (s.vOutChans)
-			NQ_DoVoltagePulseWaves (s)
-		endif
-
-		// Select our new scan as current scan, with selected channels on scanGraph to match channels being acquired
-		if (s.scanMode != kephysOnly)
-			SVAR selChans = root:packages:twoP:examine:scanGraphSelChans
-			selChans=s.onlyChansImage
-		endif
-		STRUCT WMPopupAction pa
-		pa.eventCode = 2
-		pa.popStr =  s.NewScanName
-		twoP_ScanPopMenuProc(pa)
-		// change start button status
-		NVAR StopOrAbort = root:Packages:twoP:Acquire:ScanStopOrAbort
-		StopOrAbort = 0
-		Button AqStartButton, win = twoP_Controls, proc= twoP_StopOrAbort
-		if (s.scanMode== kLiveMode)
-			Button AqStartButton, win = twoP_Controls, fColor=(65280,0,0), title = "Stop"
-		else
-			if (s.inPutTrigger)
-				Button AqStartButton, win = twoP_Controls, fColor=(65280,65280,0), title = "Wait"
-			else
-				Button AqStartButton, win = twoP_Controls, fColor=(65280,0,0), title = "Abort"
+			// Update stage and X,Y position unless repeated multiAq
+			if (!(s.isMulti && (s.multiAqiAq > 0)))
+				funcref  StageUpdate_Template UpdateStage=$"StageUpDate_" + s.StageProc
+				UpdateStage (xS, yS, zS, axS)
+				// if reading stage fails, set stage values to 0
+				if (((numtype (xS) != 0) ||  (numtype (yS) != 0)) ||(numtype (zS) != 0))
+					s.xPos = 0
+					s.yPos =0
+					s.zPos =0
+					print "Stage reading failed; XYZ positions for " + s.newScanName + " set arbitrarily to 0"
+				else
+					s.xPos=xS
+					s.yPos = yS
+					s.zPos =zS
+				endif
+				WAVE/T objWave = root:packages:twoP:acquire:ObjWave
+				variable xScaling= str2num (objWave [s.objNum] [1])
+				variable yScaling= str2num (objWave [s.objNum] [2])
+				variable xOffset = str2num (objWave [s.objNum] [3])
+				variable yOffset = str2num (objWave [s.objNum] [4])
+				s.xScalStart = s.xPos - xOffset + s.xSV * xScaling
+				s.yScalStart = s.yPos - yOffset + s.ySV * yScaling
 			endif
-		endif
-		DoUpdate /W=twoP_Controls /E=1	// mark control panel as a progress window
-		// do things specific to scan mode
-		switch (ScanStartMode)
-			case kLiveMode:
-				ValDisplay AqPercentCompleteDisplay win= twoP_Controls, mode=4
-				// live histogram?
-				if (s.liveHist)
-					SVAR HistGraphSelChans = root:packages:twoP:examine:HistGraphSelChans
-					HistGraphSelChans = s.onlyChansImage
-					twoP_HistMakeGraph ()
+			// make a folder for this scan
+			newDataFolder/O $"root:twoP_Scans:" + s.newScanName
+			// Make info string
+			if (NQ_ScanNoter (s))
+				doAlert 0,"Scan not created"
+				return 0
+			endif
+			// make waves for imaging - laser scan waves and imaging data
+			if (s.scanMode != kePhysOnly)
+				if (!(s.isMulti && (s.multiAqiAq > 0)))	// only need to make galvo waves once for multiaq
+					NQ_MakeGalvoScanWaves (s)
 				endif
-				// live ROI?
-				if (s.liveROI)
-					twoP_MakeLROIGraph (s)
-				endif
-				//live Raw A/D ?
-				if (s.liveRaw)
-					twoP_MakeLiveRawGraph(s)
-				endif
-				variable/G root:packages:twoP:acquire:LiveiFrame = 0
-				variable/G root:packages:twoP:acquire:LiveNchannels = ItemsInList(s.selImageChanList,";")
-				break
-			case kTimeSeries:
-				// live ROI?
-				if (s.liveROI)
-					twoP_MakeLROIGraph (s)
-				endif
-				break
-			case kSingleImage:
+				// set galvos to start of X and Y galvo waves
+				WAVE HorWave=root:Packages:twoP:acquire:HorWave
+				WAVE VerWave=root:Packages:twoP:acquire:VerWave
+				fDAQmx_WriteChan(s.ImageBoard, 0, HorWave [0], -10, 10)
+				fDAQmx_WriteChan(s.ImageBoard, 1, VerWave [0], -10, 10)
+				NQ_MakeImageScanWaves(s) // also fills out paths and channels in s.scanWavePath entry in scanStruct for NI-DAQ
+			endif
+			// make waves for ePhys
+			if (itemsInList (s.selEphysChanList, ";") > 0)
+				NQ_MakeEphysWaves (s)
+			endif
+			//update experiment size after making waves
+			NQ_UpdateExpSize ()
 			
-				break
-			case kZseries:
-				
-				break
-			case KlineScan:
-				break
-				
-			case kePhysOnly:
-				break
-				
-		endSwitch
-		
-		// start Threads
-		if (s.scanmode != kephysOnly)
-			twoP_AcquireStartThreads(s)
-		endif
-		
-
-		// Init NI-DAQ for ePhys. If ePhys only and triggered, waits for trigger
-		if (itemsinlist (s.selEphysChanList, ";") > 0)
-			NQ_doEphysInit (s)
-		endif
-		wave horwave=root:packages:twoP:acquire:horwave
-		wave verwave=root:packages:twoP:acquire:verwave
-		//horwave [0]=3
-		//verwave [0] = 3
-
-		// inits image scan and waits for trigger, if triggered
-		if (s.scanmode != kephysOnly)
-			if (NQ_ScanInit (s))
-				print fdaqmx_errorString()
-				twoP_reSetBoards ()
-				NVAR gThreadGroupID = root:packages:twoP:Acquire:gThreadGroupID
-				variable released = threadgroupRelease(gThreadGroupID)
-				Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65280, 0), proc= NQ_StartScan
+			// Select our new scan as current scan, with selected channels on scanGraph to match channels being acquired
+			if (s.scanMode != kephysOnly)
+				SVAR selChans = root:packages:twoP:examine:scanGraphSelChans
+				selChans=s.onlyChansImage
 			endif
-		endif
-		break
-endswitch
+			STRUCT WMPopupAction pa
+			pa.eventCode = 2
+			pa.popStr =  s.NewScanName
+			twoP_ScanPopMenuProc(pa)
+			// change start button status
+			NVAR StopOrAbort = root:Packages:twoP:Acquire:ScanStopOrAbort
+			StopOrAbort = 0
+			Button AqStartButton, win = twoP_Controls, proc= twoP_StopOrAbort
+			if (s.scanMode== kLiveMode)
+				Button AqStartButton, win = twoP_Controls, fColor=(65280,0,0), title = "Stop"
+			else
+				if (s.inPutTrigger)
+					Button AqStartButton, win = twoP_Controls, fColor=(65280,65280,0), title = "Wait"
+				else
+					Button AqStartButton, win = twoP_Controls, fColor=(65280,0,0), title = "Abort"
+				endif
+			endif
+			DoUpdate /W=twoP_Controls /E=1	// mark control panel as a progress window
+			// do things specific to scan mode
+			switch (ScanStartMode)
+				case kLiveMode:
+					ValDisplay AqPercentCompleteDisplay win= twoP_Controls, mode=4
+					// live histogram?
+					if (s.liveHist)
+						SVAR HistGraphSelChans = root:packages:twoP:examine:HistGraphSelChans
+						HistGraphSelChans = s.onlyChansImage
+						twoP_HistMakeGraph ()
+					endif
+					// live ROI?
+					if (s.liveROI)
+						twoP_MakeLROIGraph (s)
+					endif
+					//live Raw A/D ?
+					if (s.liveRaw)
+						twoP_MakeLiveRawGraph(s)
+					endif
+					variable/G root:packages:twoP:acquire:LiveiFrame = 0
+					variable/G root:packages:twoP:acquire:LiveNchannels = ItemsInList(s.selImageChanList,";")
+					break
+				case kTimeSeries:
+					// live ROI?
+					if (s.liveROI)
+						twoP_MakeLROIGraph (s)
+					endif
+					break
+				case kSingleImage:
+
+					break
+				case kZseries:
+
+					break
+				case KLineScan:
+					break
+
+				case kePhysOnly:
+					break
+
+			endSwitch
+
+			// start Threads, get threadgroup Id in case we need to release thhreads
+			if (s.scanmode != kephysOnly)
+				twoP_AcquireStartThreads(s)
+			endif
+			variable released
+			NVAR gThreadGroupID = root:packages:twoP:Acquire:gThreadGroupID
+			
+			//configure NI-DAQ functionality
+			// set up triggers
+			if (s.trigChans)
+				if (twoP_doTriggers(s))
+					twoP_reSetBoards ()
+					released = threadgroupRelease(gThreadGroupID)
+					Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65280, 0), proc= NQ_StartScan
+					return 1
+				endif
+			endif
+			
+			// set up voltage waves
+			if (s.vOutChans)
+				if (NQ_DoVoltagePulseWaves (s))
+					twoP_reSetBoards ()
+					released = threadgroupRelease(gThreadGroupID)
+					Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65280, 0), proc= NQ_StartScan
+					return 1
+				endif
+			endif
+
+			// Init NI-DAQ for ePhys. If ePhys only and starts on trigger, waits for trigger on /imageBoard/PFI6
+			if (itemsinlist (s.selEphysChanList, ";") > 0)
+				if (NQ_doEphysInit (s))
+					twoP_reSetBoards ()
+					released = threadgroupRelease(gThreadGroupID)
+					Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65280, 0), proc= NQ_StartScan
+					return 1
+				endif
+			endif
+
+
+			
+			//wave horwave=root:packages:twoP:acquire:horwave
+			//wave verwave=root:packages:twoP:acquire:verwave
+			//horwave [0]=3
+			//verwave [0] = 3
+
+			// init NI-DAQ for image scan and waits for trigger, if triggered
+			if (s.scanmode != kephysOnly)
+				if (NQ_ScanInit (s))
+					print fdaqmx_errorString()
+					twoP_reSetBoards ()
+					NVAR gThreadGroupID = root:packages:twoP:Acquire:gThreadGroupID
+					released = threadgroupRelease(gThreadGroupID)
+					Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65280, 0), proc= NQ_StartScan
+					return 1
+				endif
+			endif
+			break
+	endswitch
+	return 0
 end
 
-
-
-#ifdef OLD_SCAN_INIT
 
 //******************************************************************************************************
 // Starts the image board scanning, or waiting for input trigger
 // returns 1 if an error ocurred, else 0
-// ues RTSI lines as a bus to connect sources to destinations they may not otherwise connect to without errors
+// ues RTSI lines as a bus to connect sources to destinations they may not otherwise connect to without errors. Like old school 2P version
 // Last Modified:2025/09/09
 Function NQ_ScanInit (s)
 	STRUCT NQ_ScanStruct &s
@@ -4021,13 +4095,15 @@ Function NQ_ScanInit (s)
 	NVAR shutterOpen = root:Packages:twoP:acquire:shutterOpenLevel
 	NVAR shutterDelay = root:Packages:twoP:acquire:shutterDelay
 	try
+		//connect imaging board timebase to RTSI7 so it can be used on otherboard
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/20MhzTimeBase", "/" + s.ImageBoard + "/RTSI7", 0), 0
 		// connect ao/sample clock and ai/sample clock to PFI pins for use with chunkulator, e.g. You can comment one or both of these out if you don't need them.
 		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ao/SampleClock", "/" + s.ImageBoard + "/PFI5", 0), 1	// rests high, brief high-to-low low pulses, leads
 		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ai/SampleClock", "/" + s.ImageBoard + "/PFI7", 0), 2   // rests low, brief high pulse on low-to-high of ao sample clock
 		// connect counter0 (line gate) output to normal counter 0 output pin (aka PFI 12) for use with image projector, e.g. 
 		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ctr0InternalOutput", "/" + s.ImageBoard + "/ctr0Out", 0), 3   // rests low, brief high pulse on low-to-high of ao sample clock
 		
-		// mnake lineGate on ctr0, source is RTSI_5, where we will put ao  signal of the waveform generator, direct the output to RTSI_6 where it is used to gate analog input
+		// mnake lineGate on ctr0, source is RTSI_5, where we will put ao signal of the waveform generator, direct the output to RTSI_6 where it is used to gate analog input
 		fDAQmx_CTR_Finished(s.ImageBoard, 0)
 		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ctr0InternalOutput", "/" + s.ImageBoard + "/RTSI6", 0), 4
 		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth), s.PixWidth} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
@@ -4098,106 +4174,7 @@ Function NQ_ScanInit (s)
 	return 0
 end
 
-#else
-// waveform generator clock is set by scaling of galvo waves to be pixelTime
-// ctr0 pixel clock is made independently using 20Mhz source to be same as waveform clock, 50% duty cycle
-// ctr1 line gate is made independently using 20Mhz source (ON and OFF times set by pixels  * pixelTime * 20Mhz clock ticks
-// pixel clock is gated by line gate
-// analog input uses ctr0 output as scanClock
 
-//******************************************************************************************************
-// Starts the image board scanning, or waiting for input trigger
-//  returns 1 if an error ocurred, else 0
-// Last Modified:
-// 20235/09/04 by Jamie Boyd
-// 2025/08/26 by Jamie Boyd - two counters, with trigger
-// 2017/08/21 by Jamie Boyd - adding support for input trigger
-// 2016/11/15 by Jamie Boyd - adding support for background task per channel
-Function NQ_ScanInit (s)
-	STRUCT NQ_ScanStruct &s
-
-	// only for image scan, ePhys has its own NI-DAQ init, which should already have run
-	if (s.scanmode== kephysOnly)
-		return 0
-	endif
-
-	// clear any stored error messages
-	for (;(cmpstr (fDAQmx_ErrorString(), "") != 0);)
-	endfor
-			
-	string RPTChook
-	string EOShook
-	string ScanErrhook
-	sprintf ScanErrhook, "twoP_ScanErr(%d)", s.ScanMode
-	try
-		// ouput scan clock and input sample clock for use with chunkulator, e.g.
-		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ao/SampleClock", "/" + s.ImageBoard + "/PFI5", 0), 1	// rests high, brief high-to-low low pulses, leads
-		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ai/SampleClock", "/" + s.ImageBoard + "/PFI7", 0), 2   // rests low, brief high pulse on low-to-high of ao sample clock
-		// start analog input 
-		Switch (s.ScanMode)
-			case kLiveMode:		// scan repeats till stopped
-				sprintf RPTChook "twoP_LiveHook(\"%s\", %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ",")
-				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/ctr0InternalOutput", 0}/TRIG={"/" + s.imageBoard + "/ctr0Gate", 1, 1} /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
-				break
-			case kTimeSeries:
-				if (s.ScanIsCyclic)	
-					sprintf RPTChook, "twoP_timeCyclicHook (\"%s\", %d, %d, %d, %d, %d, %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ","), s.nCycFrames, s.PixWidth, s.PixHeight, s.numFrames, s.flyBackMode
-					// scan repeats till scan Wave is full
-					variable/G root:packages:twoP:acquire:tSeriesFrame =0	//to track how many frames have been done
-					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/ctr0InternalOutput", 0}/TRIG={"/" + s.imageBoard + "/ctr0Gate", 1, 1} /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
-				else
-					sprintf EOShook,  "twoP_timeSeriesEndHook(\"%s\", \"%s\", %d, %d, %d, %d)", s.newScanName, s.onlyChansImage, s.pixWidth, s.pixHeight, s.numFrames, s.flybackMode
-					// no repeats, scan at once, with background task to update display and end of task hook to redimension and clean up
-					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/ctr0InternalOutput", 0}/TRIG={"/" + s.imageBoard + "/ctr0Gate", 1, 1}/EOSH=EOShook /ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
-					variable/G root:packages:twoP:acquire:nBKGFrames=s.nCycFrames
-					variable taskPeriod=ceil(s.nCycFrames * s.frameTime * 60)
-					CtrlNamedBackground tSeriesTask, period =  taskPeriod, burst =0, proc= twoP_tSeriesBkg, start=(ticks + taskPeriod)
-				endif
-				break
-		endSwitch
-
-		// Start the waveform generator
-		string scanWavesList
-		If (s.ScanMode == kLineScan)
-			scanWavesList = "root:packages:twoP:acquire:HorWave, 0;"
-		else
-			scanWavesList = "root:packages:twoP:acquire:HorWave, 0;root:packages:twoP:acquire:VerWave, 1;"
-		endif
-		DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/Strt=1 /TRIG={"/" + s.imageBoard + "/ctr0Gate", 1, 0} scanWavesList;abortOnRTE
-		// make analog input pixel clock on ctr 0, gated with output of ctr1. NOTE: start of ctr0 is not synched to ctr1
-		variable pixTix = round (s.pixTime*20e06)
-		variable pixOn=floor (pixTix/2)
-		variable pixOff= pixTix - pixON
-		// if triggered, start a background task that waits for the trigger
-		NVAR shutterTaskNum = root:packages:twoP:Acquire:shutterTaskNum
-		NVAR triggerTaskNum = root:packages:twoP:Acquire:triggerTaskNum
-		NVAR shutterOpen = root:Packages:twoP:acquire:shutterOpenLevel
-		NVAR shutterDelay = root:Packages:twoP:acquire:shutterDelay
-		if (s.inPutTrigger)
-			// lineGate on ctr 1 WITH TRIGGER
-			DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={pixOn, pixOff}/STRT=1 /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/20MhzTimeBase" /Rate=(20e06)/PAUS={"/" + s.imageBoard + "/ctr1InternalOutput", 1, 1}  0; ABORTONRTE
-			DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth)*pixTix, s.PixWidth*pixTix}/STRT=1 /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/20MhzTimeBase" /Rate=(20e06)/TRIG={"/" + s.imageBoard + "/PFI6", 1,0} 1; ABORTONRTE
-			CtrlNamedBackground shutterTask, period = 1, burst =0, proc= twoP_WaitForShutter, start
-		else // if not triggered, open shutter and wait shutter open time
-			// Open up the shutter. Pugged into digital line 0 on the Image Board
-			abortonvalue fDAQmx_DIO_Write (s.ImageBoard, shutterTaskNum, (shutterOpen)), 0
-			// wait a few milliseconds while shutter opens before continuing
-			if (shutterDelay > 0)
-				Sleep/c=-1/S shutterDelay
-			endif
-			// lineGate on ctr 1 WITH NO TRIGGER
-			DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth)*pixTix, s.PixWidth*pixTix} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/20MhzTimeBase" /Rate=(20e06) 1; ABORTONRTE
-			DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={pixOn, pixOff} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/20MhzTimeBase" /Rate=(20e06)/PAUS={"/" + s.imageBoard + "/ctr1InternalOutput", 1, 1}  0; ABORTONRTE
-		endif
-	catch
-		variable err=GetRTError(1)
-		printf  "The \"NQ_ScanInit\" function failed:\r%s\r", fDAQmx_ErrorString()
-		return 1 // exit with failure
-	endtry
-	return 0
-end
-		
-#endif
 
 
 //*****************************************************************************************************************************
@@ -4249,26 +4226,37 @@ end
 // **************************************************************************************************
 // Generic stuff done whenever a live scan is stopped, or a scan finishes, or is aborted
 // Other specific things will have to be done depending on scan mode
-// Last Modified 2025/08/29 by Jamie boyd
+// Last Modified 2025/09/10 by Jamie boyd
 Function twoP_scanStop()
-	// release threads
-	NVAR gThreadGroupID = root:packages:twoP:Acquire:gThreadGroupID
-	variable released = threadgroupRelease(gThreadGroupID)
-	// close the shutter
-	SVAR imageBoard = root:packages:twoP:Acquire:imageBoard
-	NVAR shutterTaskNum = root:packages:twoP:Acquire:shutterTaskNum
-	NVAR shutterOpenLevel = root:Packages:twoP:acquire:shutterOpenLevel
-	fDAQmx_DIO_Write(imageBoard, shutterTaskNum, (!(shutterOpenLevel)))
-	// stop scanning
-	fDAQmx_ScanStop(imageBoard)
-	// Stop the waveform Generator
-	fDAQmx_WaveformStop(imageBoard)
-	// stop the counters
-	fDAQmx_CTR_Finished(imageBoard, 1)
-	fDAQmx_CTR_Finished(imageBoard, 0)
-	// stop background tasks - no error stopping a task that is not currently running
-	CtrlNamedBackground tSeriesTask stop
-	CtrlNamedBackground shutterTask stop 
+	NVAR scanMode=root:packages:twoP:acquire:scanStartMode
+	if (ScanMode != kEphysOnly)
+		// release threads
+		NVAR gThreadGroupID = root:packages:twoP:Acquire:gThreadGroupID
+		variable released = threadgroupRelease(gThreadGroupID)
+		// close the shutter
+		SVAR imageBoard = root:packages:twoP:Acquire:imageBoard
+		NVAR shutterTaskNum = root:packages:twoP:Acquire:shutterTaskNum
+		NVAR shutterOpenLevel = root:Packages:twoP:acquire:shutterOpenLevel
+		fDAQmx_DIO_Write(imageBoard, shutterTaskNum, (!(shutterOpenLevel)))
+		// stop scanning
+		fDAQmx_ScanStop(imageBoard)
+		// Stop the waveform Generator
+		fDAQmx_WaveformStop(imageBoard)
+		// stop the counters
+		fDAQmx_CTR_Finished(imageBoard, 0)
+		// stop background tasks - no error stopping a task that is not currently running
+		CtrlNamedBackground tSeriesTask stop
+		CtrlNamedBackground shutterTask stop  
+	endif
+	SVAR ePhysBoard = root:packages:twoP:Acquire:ePhysBoard
+	if (cmpStr (ePhysBoard, "") != 0)
+		fDAQmx_ScanStop(ePhysBoard)
+		// Stop the waveform Generator
+		fDAQmx_WaveformStop(ePhysBoard)
+		// stop the counters
+		fDAQmx_CTR_Finished(ePhysBoard, 0)
+		fDAQmx_CTR_Finished(ePhysBoard, 1)
+	endif
 	// reset start button and percent complete display
 	Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65280, 0), proc= NQ_StartScan
 	ValDisplay AqPercentCompleteDisplay win= twoP_Controls, mode=3
