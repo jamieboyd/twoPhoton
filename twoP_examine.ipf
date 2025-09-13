@@ -352,7 +352,7 @@ Function twoP_ExamineAddControls (able)
 	PopupMenu DROIChansPopmenu win = twoP_Controls,mode=0,value=#"twoP_DROIListChans()",frame=0
 	PopupMenu DROIChansPopmenu win = twoP_Controls, disable=able
 
-	TitleBox SelDROIChansTitle win = twoP_Controls,pos={67.00,368.00},size={53.00,15.00},fSize=12
+	TitleBox SelDROIChansTitle win = twoP_Controls,pos={67.00,368.00},size={53.00,15.00},frame=0, fSize=12
 	TitleBox SelDROIChansTitle win = twoP_Controls,variable=root:packages:twoP:examine:DROISelChans
 	TitleBox SelDROIChansTitle win = twoP_Controls,disable=able
 	
@@ -642,7 +642,7 @@ End
 //******************************************************************************************************
 // Function for the Scan popup menu. This allows you to select a scan to display as the current scan in the ScanGraph window.
 // Once here, you can view it as a movie, save it to disk, etc
-// Last Modified 2025/08/04 by Jamie Boyd
+// Last Modified 2025/09/12 by Jamie Boyd
 Function twoP_ScanPopMenuProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 	switch( pa.eventCode )
@@ -659,7 +659,7 @@ Function twoP_ScanPopMenuProc(pa) : PopupMenuControl
 			scanNum = str2num (stringfromlist (1, pa.popStr, "_"))
 			// Get some variables from scan note
 			variable mode = NumberByKey("mode",ScanNote, ":", "\r")
-			variable doephys = NumberByKey("ephys",ScanNote, ":", "\r")
+			variable doephys = itemsInList (StringByKey("ePhysChanDesc",ScanNote, ":", "\r"), ",")
 			if (mode == kePhysOnly)
 				DoWindow/K twoPscanGraph
 				NQ_NewTracesGraph (curScan)
@@ -1676,53 +1676,108 @@ End
 // -----------------------------code for making and altering traces graph----------------------------------------------
 //******************************************************************************************************
 
-// Makes the Nidaq traces graph, where ephysiology and ROIs/ Linescan averages are displayed. EPhys is on the left axis, on top
+// Makes the Nidaq traces graph, where ephysiology and ROIs/ Linescan averages are displayed. 
+// 
 // LIne scans on a separate Y axis, same X axis (cause they have the same time base). When DeltaF/F is applied, the averages are put on a new Y axis on bottom right
 // Last Modified Jul 12 2010 by Jamie Boyd
 Function NQ_NewTracesGraph (curScan)
 	string curScan
 	
 	variable isNew // if making graph from scratch, this will be set to 1, 0 for revamping an existing graph
-	// If ScanGraph is open, we can just bring it to the front
 	DoWindow/F twoP_TracesGraph
-	if (V_Flag == 1)	// then we don't have to make the graph, it already existed and we just brought it to the front
+	if (V_Flag) // window already exists
+		DoWindow/T twoP_TracesGraph,  curScan + " Traces"
+		string OnGraph = guiplistWavesFromGraph("twoP_TracesGraph" , "*", 1, 0, "")
 		isNew =0
 	else
-		isNew =1
+		display/N=twoP_TracesGraph/k=1 as curScan + " Traces"
+		WC_WindowCoordinatesRestore("twoP_TracesGraph")
+		SetWindow twoP_TracesGraph hook (infoHook)= twoP_UtilSaveWinPosHook, hookevents = 2
+		isNew=1
+	endif
+	SVAR ScanInfo = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
+	string ePhysWaves=""
+	// ePhys channels existing for this scan -
+	string ePhysChans = StringByKey("ePhysChanDesc", ScanInfo, ":", "\r")
+	string roiWaves = GUIPListObjs ("root:twoP_Scans:" + CurScan, 1, "*avg*", 0, "") 
+	string ratioWaves = GUIPListObjs ("root:twoP_Scans:" + CurScan, 1, "*ratio*", 0, "")
+	variable nEphysChans=itemsinList (ePhysChans, ",")
+	variable nROIWaves=itemsinlist (roiWaves, ";")
+	variable nRatioWaves = itemsinlist (ratioWaves, ";")
+	// ePhys channels each get their own axis, ROIs share an axis, ratios share an axis
+	variable nAxes=itemsinlist (ePhysChans, ",")
+	if (nROIWaves > 0)
+		nAxes +=1
+	endif
+	if (nRatioWaves > 0)
+		nAxes +=1
+	endif
+	variable axisFrac = (1-.02*(nAxes-1))/nAxes
+	// append ePhys chans, each in own axis
+	variable iChan, iAxis
+	string aChan, traceName
+	for (iChan=0;iChan < nEphysChans;iChan +=1)
+		aChan = stringFromList (iChan, ePhysChans, ",")
+		traceName = curScan + "_" + aChan
+		WAVE traceWave =  $"root:twoP_Scans:" + curScan + ":" + traceName
+		appendtograph/W=twoP_TracesGraph/L= $"L_" + aChan traceWave
+		modifygraph/W=twoP_TracesGraph rgb ($traceName) = (0,0,0), mode ($traceName) = 0
+		ModifyGraph freePos($"L_" + aChan)={0,bottom}
+		label $"L_" + aChan  aChan +  " (\\U)"
+		ModifyGraph lblPos($"L_" + aChan)= 55
+		ModifyGraph/W=twoP_TracesGraph axisEnab($"L_" +  aChan)={(iChan * axisFrac) + (iChan * .01) , ((iChan + 1) * axisFrac) + (iChan * .01)}
+	endfor
+	
+	variable red, green, blue
+	// append ROI averages on one axis
+	if (nROIWaves > 0)
+		iAxis = nEphysChans
+		for (iChan=0;iChan < nROIWaves;iChan +=1)
+			aChan = stringFromList (iChan, roiWaves, ";")
+			WAVE traceWave = $"root:twoP_Scans:" + CurScan + ":" + aChan
+			red = numberbykey ("Red", note (traceWave))
+			green = numberbykey ("Green", note (traceWave))
+			blue = numberbykey ("Blue", note (traceWave))
+			if ((numberbykey ("deltafed", note (traceWave))) == 0)
+				appendtograph /W=twoP_TracesGraph/C=((red), (green), (blue))/L=ROILAxis/B=Bottom traceWave
+			else
+				appendtograph /W=twoP_TracesGraph/C=((red), (green), (blue))/R=ROIRAxis/B=Bottom traceWave
+			endif
+		endfor
+		if (WhichListItem("ROILAxis", axislist("twoP_TracesGraph"), ";") >-1)
+			ModifyGraph/W=twoP_TracesGraph axisEnab(ROILAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
+			ModifyGraph /W=twoP_TracesGraph freePos(ROILAxis)={0,bottom}, lblPos(ROILAxis)=45
+			Label ROILAxis "\\Z12Raw 12 bit A/D"
+		endif
+		if (WhichListItem("ROIRAxis", axislist("twoP_TracesGraph"), ";") >-1)
+			ModifyGraph/W=twoP_TracesGraph axisEnab(ROIRAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
+			ModifyGraph/W=twoP_TracesGraph freePos(ROIrAxis)={0,kwFraction}, lblPos(ROIRAxis)=45
+			Label ROIrAxis  "\\Z12Delta F/F"
+		endif
+	endif
+	
+	//append ROI ratios on one axis 
+	if (nRatioWaves> 0)
+		iAxis +=1
+		for (iChan=0;iChan < nROIWaves;iChan +=1, iAxis +=1)
+			aChan = stringFromList (iChan, ratioWaves, ";")
+			WAVE traceWave = $"root:twoP_Scans:" + CurScan + ":" + aChan
+			red = numberbykey ("Red", note (traceWave))
+			green = numberbykey ("Green", note (traceWave))
+			blue = numberbykey ("Blue", note (traceWave))
+			appendtograph /W=twoP_TracesGraph/C=((red), (green), (blue))/L=RATIOAxis/B=Bottom traceWave
+		endfor
+		ModifyGraph/W=twoP_TracesGraph axisEnab(RATIOAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
+		ModifyGraph freePos(RATIOAxis)={0,bottom},  lblPos(RATIOAxis)=45
+		Label RATIOAxis  "\\Z12Ratio"
 	endif
 
-		// Make sure folder for this scan exists and reference scan Note
-		if (!(dataFolderExists ("root:twoP_Scans:" + CurScan)))
-			doAlert 0, "The datafolder for the scan, \"" + CurScan + "\" was not found."
-			return 1
-		endif
-		SVAR ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
-	
-	if (isNew)
-		// Display the graph 
-		Display/K=1/N = twoP_TracesGraph as "Nidaq Traces: " + CurScan
-	else
-		DoWindow /T twoP_TracesGraph,  "Nidaq Traces: " + CurScan
-		string traceList = TraceNameList("twoP_TracesGraph", ";", 1)
-	endif
-	// Add traces
-	if (NQ_AddTraces(curScan) ==0)
-		doWindow/K twoP_TracesGraph
-		return 1
-	endif
-	if (!(isNew)) // remove old traces
-		variable it, nt = itemsinlist (traceList, ";")
-		for (it =0; it < nt; it += 1)
-			removefromgraph/w=twoP_TracesGraph $stringfromlist (it, traceList)
-		endfor
-	endif
+
 	if (isNew)
 		// Set the margins of the graph
 		ModifyGraph /W=twoP_TracesGraph margin(left)=54,margin(bottom)=36,margin(top)=10,margin(right)=54
-		// Make backgraounds black
-		ModifyGraph/W=twoP_TracesGraph wbRGB=(0,0,0),gbRGB=(0,0,0)
 		Label bottom "\\Z12Time (\\U)"
-		ModifyGraph/W=twoP_TracesGraph  lblLatPos(bottom)=-15
+		ModifyGraph/W=twoP_TracesGraph lblLatPos(bottom)=-15
 		// control bar and controls
 		ControlBar 36
 		SetVariable FSetVar,pos={33,3},size={172,15},title="Set \"F \" from first n points"
@@ -1739,13 +1794,20 @@ Function NQ_NewTracesGraph (curScan)
 		// Aply saved settings for size, position
 		WC_WindowCoordinatesRestore("twoP_TracesGraph")//ApplyWinPosStr ("twoP_TracesGraph")
 		// set the hook function to save positions
-		//SetWindow twoP_TracesGraph hook (SavePosHook)= SaveWinPosStrHook, hookevents = 0
+		SetWindow twoP_TracesGraph hook (SavePosHook)= SaveWinPosStrHook, hookevents = 0
 	endif
-	//adjust axes
-	NQ_TracesGraphShareAxes (curScan)
 
-	return 0
+	// remove old traces
+	if (!(isNew)) // remove old traces
+		variable it, nt = itemsinlist (OnGraph, ";")
+		for (it =0; it < nt; it += 1)
+			removefromgraph/w=twoP_TracesGraph $stringfromlist (it, OnGraph)
+		endfor
+	endif
+
 end
+	
+
 
 //******************************************************************************************************
 // Adds ephy and ROI average traces for the current scan to the traces graph
@@ -2009,14 +2071,16 @@ end
 // **********************************************************************************
 // shares left axis space for all the channels - run after adding or removing a channel
 // Last Modified: 2025/08/02 by Jamie Boyd
-Function twoP_HistShareAxisSpace ()
-	string LeftAxes = removefromlist ("bottom", axisList("twoP_HistGraph"), ";")
+Function twoP_ShareAxisSpace (graphName)
+	string graphName
+	
+	string LeftAxes = removefromlist ("bottom", axisList(graphName), ";")
 	variable iAxis, nAxes = itemsinList (LeftAxes, ";")
 	variable axisFrac = (1-.02*(nAxes-1))/nAxes
 	string anAixs
 	for (iAxis  =0; iAxis < nAxes; iAxis +=1)
 		anAixs = stringFromList (iAxis, LeftAxes, ";")
-		ModifyGraph axisEnab($anAixs)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
+		ModifyGraph/W= $graphName axisEnab($anAixs)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
 	endfor
 end
 
@@ -2063,7 +2127,7 @@ Function twoP_HistGraphChansPopMenuProc(pa) : PopupMenuControl
 					string leftName = "ImRangeLefty" + pa.popStr
 					string rightName = "ImRangerighty" + pa.popStr
 					removefromGraph/W=twoP_HistGraph $histName, $leftName, $rightName
-					twoP_HistShareAxisSpace ()
+					twoP_ShareAxisSpace ("twoP_HistGraph")
 				endif
 			else
 				selChans = sortList (addlistItem(pa.popStr, selChans, ","), ",") // adding a channel
@@ -2072,7 +2136,7 @@ Function twoP_HistGraphChansPopMenuProc(pa) : PopupMenuControl
 				twoP_HistDoChannel (pa.popStr)
 				if (V_Flag) // window was found
 					twoP_HistAddChannel (pa.popStr)
-					twoP_HistShareAxisSpace ()
+					twoP_ShareAxisSpace ("twoP_HistGraph")
 				endif
 			endif
 			break

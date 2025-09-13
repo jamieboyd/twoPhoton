@@ -1,6 +1,6 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3
-#pragma version = 3  	// Last Modified: 2025/09/03 by Jamie Boyd.
+#pragma version = 3  	// Last Modified: 2025/09/13 by Jamie Boyd.
 #pragma IgorVersion = 9
 
 //******************************************************************************************************
@@ -342,7 +342,7 @@ Function twoP_DoRoi()
 	endif
 	// reference channel waves
 	if (cmpStr (chStr, "_mrg") == 0)
-		NVAR topChan = root:packages:twoP:examine:doDROITopChan
+		NVAR topChan = root:packages:twoP:examine:ROITopChan
 		if (topChan == 1)
 			Wave topWave = $"root:twoP_Scans:" + curScan + ":" + curScan+ "_ch1"
 			Wave bottomWave = $"root:twoP_Scans:" + curScan + ":" + curScan+ "_ch2"
@@ -514,10 +514,10 @@ Function NQ_ROIPopMenuProc(pa) : PopupMenuControl
 
 	switch( pa.eventCode )
 		case 2: // mouse up
-			if (cmpStr (pa.ctrlName, "dROItopChanPopUp") ==0)
-				SVAR Chan = root:packages:twoP:examine:dROItopChan
-			elseif (cmpStr (pa.ctrlName, "dROIbottomChanPopUp") ==0)
-				SVAR Chan = root:packages:twoP:examine:dROIbottomChan
+			if (cmpStr (pa.ctrlName, "ROItopChanPopUp") ==0)
+				SVAR Chan = root:packages:twoP:examine:ROItopChan
+			elseif (cmpStr (pa.ctrlName, "ROIbottomChanPopUp") ==0)
+				SVAR Chan = root:packages:twoP:examine:ROIbottomChan
 			endif
 			Chan =  pa.popStr
 			break
@@ -744,7 +744,8 @@ End
 
 //******************************************************************************************************
 // Deletes selected ROIS when delete key is pressed
-// Last Modified Jul 16 2010 by Jamie Boyd
+// sets color in popmenu when ROI is selected
+// Last Modified 2025/09/13 by Jamie Boyd
 Function NQ_ROIListBoxProc(lba) : ListBoxControl
 	STRUCT WMListboxAction &lba
 
@@ -762,6 +763,11 @@ Function NQ_ROIListBoxProc(lba) : ListBoxControl
 			break
 		case 4: // cell selection
 		case 5: // cell selection plus shift key
+			WAVE/z ROIWAVE=$"root:twoP_ROIS:" +  listWave[row] + "_x"
+			variable red = NumberByKey("Red", note (ROIWAVE))
+			variable green = NumberByKey("Green", note (ROIWAVE))
+			variable blue = NumberByKey("Blue", note (ROIWAVE))
+			PopupMenu RoiColorPopup, win=$"twoP_Controls", popColor=(red,green,blue)
 			break
 		case 6: // begin edit
 			break

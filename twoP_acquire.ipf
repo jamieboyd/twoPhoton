@@ -2708,16 +2708,18 @@ Function NQ_ScanNoter (s)
 	noteStr += "Ypos:" + num2str (s.yPos) + "\r"
 	noteStr += "Zpos:" + num2str (s.zPos) + "\r"
 	// was ePhys also collected?
-	variable ePhysChans=0
-	if (WhichListItem ("ch1", s.selEphysChanList,";", 0,0) > -1)
-		ephysChans += 1
-	endif
-	if (WhichListItem ("ch2", s.selEphysChanList,";", 0,0) > -1)
-		ePhysChans += 2
-	endif
-	notestr += "ephys:" + num2str (ePhysChans) + "\r"
-	NoteStr += "ePhysChanDesc:" + s.selEphysChanList + "\r"
+	if ((s.scanMode==kTimeSeries) || (s.ScanMode==kLineScan) || (s.ScanMode==kEphysOnly))
+		variable ePhysChans=0
+		if (WhichListItem ("ep1", s.onlyChansEphys,",", 0,0) > -1)
+			ephysChans += 1
+		endif
+		if (WhichListItem ("ep2", s.onlyChansEphys,",", 0,0) > -1)
+			ePhysChans += 2
+		endif
+		notestr += "ephys:" + num2str (ePhysChans) + "\r"
+		NoteStr += "ePhysChanDesc:" + s.onlyChansEphys + "\r"
 	// Need to add extra info for ePhys?
+	endif
 	return 0
 end
 
@@ -4042,13 +4044,6 @@ Function  NQ_StartScan (ba) : ButtonControl
 				endif
 			endif
 
-
-			
-			//wave horwave=root:packages:twoP:acquire:horwave
-			//wave verwave=root:packages:twoP:acquire:verwave
-			//horwave [0]=3
-			//verwave [0] = 3
-
 			// init NI-DAQ for image scan and waits for trigger, if triggered
 			if (s.scanmode != kephysOnly)
 				if (NQ_ScanInit (s))
@@ -4112,16 +4107,16 @@ Function NQ_ScanInit (s)
 		Switch (s.ScanMode)
 			case kLiveMode:		// scan repeats till stopped
 				sprintf RPTChook "twoP_LiveHook(\"%s\", %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ",")
-				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5",1}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/STRT=0 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5",0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/STRT=0 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 				break
 			case kTimeSeries:
 				if (s.ScanIsCyclic) // scan repeats till scan Wave is full
 					sprintf RPTChook, "twoP_timeCyclicHook (\"%s\", %d, %d, %d, %d, %d, %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ","), s.nCycFrames, s.PixWidth, s.PixHeight, s.numFrames, s.flyBackMode
 					variable/G root:packages:twoP:acquire:tSeriesFrame =0	//to track how many frames have been done
-					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 1}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/STRT=0 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/STRT=0 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 				else // no repeats, scan at once, with background task to update display and end of task hook to redimension and clean up
 					sprintf EOShook,  "twoP_timeSeriesEndHook(\"%s\", \"%s\", %d, %d, %d, %d)", s.newScanName, s.onlyChansImage, s.pixWidth, s.pixHeight, s.numFrames, s.flybackMode
-					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 1}/STRT=0/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/EOSH=EOShook /ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/STRT=0/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/EOSH=EOShook /ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 					variable/G root:packages:twoP:acquire:nBKGFrames=s.nCycFrames
 					variable taskPeriod=ceil(s.nCycFrames * s.frameTime * 60)
 					CtrlNamedBackground tSeriesTask, period =  taskPeriod, burst =0, proc= twoP_tSeriesBkg, start=(ticks + taskPeriod)
@@ -4137,7 +4132,7 @@ Function NQ_ScanInit (s)
 		else
 			scanWavesList = "root:packages:twoP:acquire:HorWave, 0;root:packages:twoP:acquire:VerWave, 1;"
 		endif
-		// if input trigger, setup waveform generator then wait for trigger low-to-high to open dhutter and for trigger-high-to low to progress to starting A/D scan
+		// if input trigger, setup waveform generator then wait for trigger low-to-high to open shutter and for trigger-high-to low to progress to starting A/D scan
 		if ((s.inPutTrigger) && (s.scanMode != kLiveMode))
 			//CtrlNamedBackground shutterTask, period = 1, burst =0, proc= twoP_WaitForShutter, start
 			DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/TRIG={"/" + s.ImageBoard + "/PFI6", 1, 0}/Strt=1  scanWavesList; ABORTONRTE
