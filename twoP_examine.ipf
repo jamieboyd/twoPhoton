@@ -1724,7 +1724,7 @@ Function NQ_NewTracesGraph (curScan)
 		modifygraph/W=twoP_TracesGraph rgb ($traceName) = (0,0,0), mode ($traceName) = 0
 		ModifyGraph freePos($"L_" + aChan)={0,bottom}
 		label $"L_" + aChan  aChan +  " (\\U)"
-		ModifyGraph lblPos($"L_" + aChan)= 55
+		ModifyGraph lblPos($"L_" + aChan)= 45
 		ModifyGraph/W=twoP_TracesGraph axisEnab($"L_" +  aChan)={(iChan * axisFrac) + (iChan * .01) , ((iChan + 1) * axisFrac) + (iChan * .01)}
 	endfor
 	
@@ -1751,7 +1751,7 @@ Function NQ_NewTracesGraph (curScan)
 		endif
 		if (WhichListItem("ROIRAxis", axislist("twoP_TracesGraph"), ";") >-1)
 			ModifyGraph/W=twoP_TracesGraph axisEnab(ROIRAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
-			ModifyGraph/W=twoP_TracesGraph freePos(ROIrAxis)={0,kwFraction}, lblPos(ROIRAxis)=45
+			ModifyGraph/W=twoP_TracesGraph freePos(ROIRAxis)={0,kwFraction}, lblPos(ROIRAxis)=45
 			Label ROIrAxis  "\\Z12Delta F/F"
 		endif
 	endif
@@ -1771,13 +1771,15 @@ Function NQ_NewTracesGraph (curScan)
 		ModifyGraph freePos(RATIOAxis)={0,bottom},  lblPos(RATIOAxis)=45
 		Label RATIOAxis  "\\Z12Ratio"
 	endif
-
-
 	if (isNew)
 		// Set the margins of the graph
-		ModifyGraph /W=twoP_TracesGraph margin(left)=54,margin(bottom)=36,margin(top)=10,margin(right)=54
+		ModifyGraph /W=twoP_TracesGraph margin(left)=50,margin(bottom)=30,margin(top)=10,margin(right)=50
 		Label bottom "\\Z12Time (\\U)"
 		ModifyGraph/W=twoP_TracesGraph lblLatPos(bottom)=-15
+		// Set tick lengths
+		ModifyGraph /W=twoP_TracesGraph btLen=2
+		ModifyGraph /W=twoP_TracesGraph stLen=1
+		ModifyGraph /W=twoP_TracesGraph ftLen=2
 		// control bar and controls
 		ControlBar 36
 		SetVariable FSetVar,pos={33,3},size={172,15},title="Set \"F \" from first n points"
@@ -1810,65 +1812,6 @@ end
 
 
 //******************************************************************************************************
-// Adds ephy and ROI average traces for the current scan to the traces graph
-// Last modified Jul 14 2010 by Jamie Boyd
-Function NQ_AddTraces (curScan)
-	string curScan
-	
-	variable hasTraces =0
-
-		SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-
-	//Put up the ephys stuff
-	variable ePhysChans = numberbykey ("ePhys", scanStr, ":", "\r")
-	variable scanmode = numberbykey ("mode", scanStr, ":", "\r")
-	if (ePhysChans&1)
-		hasTraces +=1
-		WAVE eDataWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ep1"
-		appendtograph /W=twoP_TracesGraph/C=(65535,0,0)/L=Left/B=Bottom eDataWave
-		Label left "\\Z12ePhys Chan 1 (\\U)"
-		ModifyGraph /W=twoP_TracesGraph lblPos(left)=49
-	endif
-	if (ePhysChans&2)
-		hasTraces +=1
-		WAVE eDataWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ep2"
-		appendtograph /W=twoP_TracesGraph/C=(0,0,65535)/R=Right/B=Bottom eDataWave
-		label right "\\Z12ePhys Chan 2 (\\U)"
-		ModifyGraph /W=twoP_TracesGraph lblPos(right)=49
-	endif
-	// Now put up ROI avgs
-	variable red, green, blue
-	string WaveTypeStr, roiStr1, roiStr2, waveStr
-	roiStr1 = GUIPListObjs("root:twoP_Scans:" + CurScan, 1, "*avg*",0, "") 
-	variable numwaves
-	if ((cmpstr (roiStr1 [0,3], "\M1(")) == 0)
-		roiStr1 = ""
-	endif
-	roiStr2 = GUIPListObjs("root:twoP_Scans:" + CurScan, 1, "*ratio*",0, "")
-	if (cmpstr (roiStr2 [0,3], "\M1(") == 0)
-		roiStr2 = ""
-	endif
-	waveStr = roiStr1 + roiStr2
-	numwaves = itemsinlist (WaveStr, ";")
-	hasTraces +=numWaves
-	variable ii, iii = 0
-	FOR (ii = 0; ii < numwaves; ii += 1)
-		WAVE thewave = $"root:twoP_Scans:" + CurScan + ":" + StringFromList(ii, WaveStr, ";")
-		if (WaveExists (theWave))
-			red = numberbykey ("Red", note (thewave))
-			green = numberbykey ("Green", note (thewave))
-			blue = numberbykey ("Blue", note (thewave))
-			if ((numberbykey ("deltafed", note (thewave))) == 0)
-				appendtograph /W=twoP_TracesGraph/C=((red), (green), (blue))/L=ROILAxis/B=Bottom theWave
-			else
-				appendtograph /W=twoP_TracesGraph/C=((red), (green), (blue))/R=ROIRAxis/B=Bottom theWave
-			endif
-		endif
-	endfor
-	return hasTraces
-end
-
-//******************************************************************************************************
 // Adjust the axes on the Nidaq Traces Graph to share axis space, if necessary
 /// ePhys traces are  on left and right axes, get top half of graph if sharing
 // rois avgs on  2 custom axes, ROILAxis for non-deltaF/F and ROIRAxis for traces that have been deltaF/F, on bottom half of graph, if sharing 
@@ -1877,11 +1820,15 @@ Function NQ_TracesGraphShareAxes (curScan)
 	string curScan
 	
 	// set colors
-	ModifyGraph/W=twoP_TracesGraph axRGB=(65535,65535,65535), tlblRGB=(65535,65535,65535), alblRGB=(65535,65535,65535)
+	//ModifyGraph/W=twoP_TracesGraph axRGB=(65535,65535,65535), tlblRGB=(65535,65535,65535), alblRGB=(65535,65535,65535)
 	// Set tick lengths
 	ModifyGraph /W=twoP_TracesGraph btLen=2
 	ModifyGraph /W=twoP_TracesGraph stLen=1
 	ModifyGraph /W=twoP_TracesGraph ftLen=2
+
+
+
+
 	if (cmpStr (curScan, "LiveWave") == 0)
 		SVAR scanStr = root:packages:twoP:Acquire:LiveModeScanStr
 	else

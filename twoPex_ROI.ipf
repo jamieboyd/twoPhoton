@@ -441,17 +441,17 @@ Function twoP_DoRoi()
 	endif
 	// apend ROIs and roiAvg to ScanGraph and TracesGraph
 	NQ_AppendROIandAvg (ROIavg, curScan + "_R" + num2str (ROINum), 0)
-	NQ_TracesGraphShareAxes (curScan)
+	//NQ_TracesGraphShareAxes (curScan)
 end
 
 //******************************************************************************************************
-// Appends an ROI average to the Traces graph and the associated ROI to the ScanGraph 
-// Last Modified Jul 26 2010 by Jamie Boyd
+// Appends an ROI average to the Traces graph and the associated ROI to the ScanGraph
+// Last Modified 2025/09/15 by Jamie Boyd
 Function NQ_AppendROIandAvg (ROIavg, ROIStr, isDeltaFed)
 	WAVE ROIavg
 	string ROIStr
 	variable isDeltaFed
-	
+
 	WAVE roiX = $"root:twoP_ROIs:" + ROIStr + "_x"
 	WAVE roiY = $"root:twoP_ROIs:" + ROIStr + "_y"
 	// Draw ROI on twoP ScanGraph, if not there already
@@ -459,7 +459,7 @@ Function NQ_AppendROIandAvg (ROIavg, ROIStr, isDeltaFed)
 	variable green = NumberByKey("Green", note (roiX), ":", ";")
 	variable blue = NumberByKey("Blue", note (roiX), ":", ";")
 	SVAR curScan = root:packages:twoP:examine:curScan
-	doWIndow/F twoPScanGraph
+	doWindow/F twoPScanGraph
 	if (V_Flag == 0)
 		twoP_ImGraphNew (curScan)
 	else
@@ -478,12 +478,43 @@ Function NQ_AppendROIandAvg (ROIavg, ROIStr, isDeltaFed)
 	if (V_Flag == 0)	// window didn't exist
 		NQ_NewTracesGraph (curScan)
 	else
+		variable hasROISpace=0, hasROIaxis=0
+		string infoStr, thisAxis, thatAxis
+		variable axStart, axEnd
 		traceList = TraceNameList("twoP_TracesGraph", ";", 1 )
-		if (WhichListItem(nameOfwave (roiAvg), traceList , ";") == -1)
-			if (isDeltaFed)
-				appendtograph /W=twoP_TracesGraph/C=(red, green, blue)/R=ROIRAxis/B=Bottom  ROIavg
+		if (WhichListItem(nameOfwave (roiAvg), traceList , ";") == -1) // ROI avg is not already plotted on TracesGraph
+			if (isDeltaFed) // need ROIR axis
+				thisAxis = "ROIRAxis"
+				thatAxis="ROILAxis"
 			else
-				appendtograph /W=twoP_TracesGraph/C=(red, green, blue)/L=ROILAxis/B=Bottom  ROIavg
+				thisAxis = "ROILAxis"
+				thatAxis="ROIRAxis"
+			endif
+
+			if (WhichListItem(thisAxis, AxisList("twoP_TracesGraph"))  > -1) // has needed axis
+				hasROIaxis =1
+				hasROISpace=1
+			else
+				if (WhichListItem(thatAxis, AxisList("twoP_TracesGraph")) > -1) // has axis n opposite side with same proportions
+					hasROISpace =1
+				endif
+			endif
+			appendtograph /W=twoP_TracesGraph/C=(red, green, blue)/R=$thisAxis/B=Bottom  ROIavg
+			if (!(hasROISpace))
+				NQ_TracesGraphShareAxes (curScan)
+			else
+				if (!(hasROIaxis))
+					 infoStr= stringByKey("axisEnab(x)", axisinfo ("twoP_TracesGraph", thatAxis),"=", ";")
+					sscanf infoStr, "{%f,%f}", axStart, axEnd
+					ModifyGraph /W=twoP_TracesGraph axisEnab($thisAxis)={axStart,axEnd}
+					if (cmpStr (thisAxis, "ROIRAxis") ==0)
+						ModifyGraph/W=twoP_TracesGraph freePos($thisAxis)={0,kwFraction}, lblPos($thisAxis)=45
+						Label $thisAxis "\\Z12Delta F/F"
+					else
+						Label $thisAxis "\\Z12Raw 12 bit A/D"  
+						ModifyGraph /W=twoP_TracesGraph freePos($thisAxis)={0,bottom}, lblPos($thisAxis)=-45
+					endif
+				endif
 			endif
 		endif
 	endif

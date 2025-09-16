@@ -1,7 +1,7 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2025/09/01 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2025/09/14 by Jamie Boyd.
 #pragma IgorVersion = 7			//Not sure about this. Perhaps some Igor 9isms have slipped in
 
 #include "twoP_Prefs"
@@ -1541,7 +1541,7 @@ Function NQ_SetFullScaleProc(ba) : ButtonControl
 			NVAR YStartVoltageBU = root:Packages:twoP:acquire:YStartVoltsBU
 			NVAR YEndVoltageBU =root:Packages:twoP:acquire:YEndVoltsBU
 			NVAR PixWidthBU = root:Packages:twoP:acquire:PixWidthBU
-			NVAR PixHeightBU = root:Packages:twoP:PixHeightBU
+			NVAR PixHeightBU = root:Packages:twoP:acquire:PixHeightBU
 			// First save current values in backup copies
 			XStartVoltageBU = xStartVoltage
 			XEndVoltageBU = XEndVoltage
@@ -5985,7 +5985,7 @@ end
 // type 0 =zoom scan,	keeps pixel number constant, adjusting pixel scaling
 // type 1 = Crop scan, keeps pixel scaling constant, adjusting pixel number.
 // type 2 = line scan
-// Last Modified Oct 25 2010 by Jamie Boyd
+// Last Modified 2025/09/14 by Jamie Boyd
 Function NQ_SetScanSize(type)
 	variable type // 0 = zoom scan; 1 = crop scan; 2 = line scan
 	
@@ -6044,21 +6044,21 @@ Function NQ_SetScanSize(type)
 	variable WaveYEV = NumberByKey("YEV", scanStr, ":", "\r")
 	variable WavePixWidth = NumberByKey("PixWidth", scanStr, ":", "\r")
 	variable WavePixHeight =NumberByKey("PixHeight", scanStr, ":", "\r")
-	variable WaveXPos = NumberByKey("xPos", scanStr, ":", "\r")
-	Variable waveYpos = NumberByKey("yPos", scanStr, ":", "\r")
+	variable WaveXOffset = NumberByKey("Xoffset", scanStr, ":", "\r")
+	Variable waveYOffset = NumberByKey("Yoffset", scanStr, ":", "\r")
 	variable waveXPixSize = NumberByKey("xPixSize", scanStr, ":", "\r")
 	variable waveYPixSize = NumberByKey("yPixSize", scanStr, ":", "\r")
 	// calculate scaling in m/Volts
 	variable WaveXScal = (WavePixWidth *waveXPixSize)/(WaveXEV - WaveXSV)
 	variable WaveYScal =(WavePixHeight *waveYPixSize)/ (WaveYEV - WaveYSV)
 	// calculate appropriate voltages based on scaling
-	XSV = max (xStartVoltsFS, WaveXSV + (V_left - WaveXPos)/ WaveXScal)
-	XEV= min (xEndVoltsFS, WaveXSV + (V_right - WaveXPos)/ WaveXScal)
-	YSV = max (yStartVoltsFS, WaveYSV + (V_bottom - WaveYPos)/WaveYScal)
-	YEV= min (yEndVoltsFS, WaveYSV + (V_top - WaveYPos)/WaveYScal)
+	XSV = max (xStartVoltsFS, WaveXSV + (V_left - waveXOffset)/ WaveXScal)
+	XEV= min (xEndVoltsFS, WaveXSV + (V_right - waveXOffset)/ WaveXScal)
+	YSV = max (yStartVoltsFS, WaveYSV + (V_bottom - waveYOffset)/WaveYScal)
+	YEV= min (yEndVoltsFS, WaveYSV + (V_top - waveYOffset)/WaveYScal)
 	// For linescan, set Y to average of starting and ending voltage
 	if (type == 2)
-		YSV = (YSV +  WaveYSV + (V_top - WaveYPos)/WaveYScal)/2
+		YSV = (YSV +  WaveYSV + (V_top - waveYOffset)/WaveYScal)/2
 	endif
 	// for crop scan, adjust pixel number to keep scaling constant
 	// to keep marquee functions to a minimum, there is no crop for linescans, but holding shift key will work
@@ -6072,9 +6072,9 @@ Function NQ_SetScanSize(type)
 	//run set times proc, which may adjust width/height of selected region for aspect ratio (and fix odd number of lines/pixels)
 	NQ_SetTimes()
 	// draw a rectangle on graph in ADJUSTED location
-	V_left = (XSV-WaveXSV) * WaveXScal + WaveXPos
-	V_right = (XEV-WaveXSV) * WaveXScal + WaveXPos
-	V_bottom =  (YSV-WaveYSV) * WaveYScal + WaveYPos
+	V_left = (XSV-WaveXSV) * WaveXScal + waveXOffset
+	V_right = (XEV-WaveXSV) * WaveXScal + waveXOffset
+	V_bottom =  (YSV-WaveYSV) * WaveYScal + waveYOffset
 	if (type == 2)
 		SetDrawLayer/K ProgFront
 		SetDrawEnv xcoord= bottom,ycoord= left,fillpat= 0,linefgc= (0,0,0),linethick= 3.00
@@ -6082,7 +6082,7 @@ Function NQ_SetScanSize(type)
 		SetDrawEnv xcoord= bottom,ycoord= left,fillpat= 0,linefgc= (65280,65280,65280),linethick= 1, dash = 2
 		DrawLine V_Left,V_Bottom, V_Right, V_Bottom 
 	else
-		V_top =  (YEV-WaveYSV) * WaveYScal + WaveYPos
+		V_top =  (YEV-WaveYSV) * WaveYScal + waveYOffset
 		SetDrawLayer/K ProgFront
 		SetDrawEnv xcoord= bottom,ycoord= left,fillpat= 0,linefgc= (0,0,0),linethick= 3.00
 		DrawRect V_Left,V_top,V_right, V_bottom
