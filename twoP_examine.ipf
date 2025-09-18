@@ -1729,7 +1729,7 @@ Function NQ_NewTracesGraph (curScan)
 	endfor
 	
 	variable red, green, blue
-	// append ROI averages on one axis
+	// append ROI averages on two axes (delta effed (Left) or not (right)) that share axis space
 	if (nROIWaves > 0)
 		iAxis = nEphysChans
 		for (iChan=0;iChan < nROIWaves;iChan +=1)
@@ -1746,17 +1746,17 @@ Function NQ_NewTracesGraph (curScan)
 		endfor
 		if (WhichListItem("ROILAxis", axislist("twoP_TracesGraph"), ";") >-1)
 			ModifyGraph/W=twoP_TracesGraph axisEnab(ROILAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
-			ModifyGraph /W=twoP_TracesGraph freePos(ROILAxis)={0,bottom}, lblPos(ROILAxis)=45
+			ModifyGraph /W=twoP_TracesGraph freePos(ROILAxis)={0,bottom}, lblPos(ROILAxis)=45, tick(ROILAxis)=0
 			Label ROILAxis "\\Z12Raw 12 bit A/D"
 		endif
 		if (WhichListItem("ROIRAxis", axislist("twoP_TracesGraph"), ";") >-1)
 			ModifyGraph/W=twoP_TracesGraph axisEnab(ROIRAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
-			ModifyGraph/W=twoP_TracesGraph freePos(ROIRAxis)={0,kwFraction}, lblPos(ROIRAxis)=45
+			ModifyGraph/W=twoP_TracesGraph freePos(ROIRAxis)={0,kwFraction}, lblPos(ROIRAxis)=45, tick(ROIRAxis)=0
 			Label ROIrAxis  "\\Z12Delta F/F"
 		endif
 	endif
 	
-	//append ROI ratios on one axis 
+	//append Ratio averages on one axis 
 	if (nRatioWaves> 0)
 		iAxis +=1
 		for (iChan=0;iChan < nROIWaves;iChan +=1, iAxis +=1)
@@ -1776,7 +1776,7 @@ Function NQ_NewTracesGraph (curScan)
 		ModifyGraph /W=twoP_TracesGraph margin(left)=50,margin(bottom)=30,margin(top)=10,margin(right)=50
 		Label bottom "\\Z12Time (\\U)"
 		ModifyGraph/W=twoP_TracesGraph lblLatPos(bottom)=-15
-		// Set tick lengths
+		// Set tick lengths for all axes
 		ModifyGraph /W=twoP_TracesGraph btLen=2
 		ModifyGraph /W=twoP_TracesGraph stLen=1
 		ModifyGraph /W=twoP_TracesGraph ftLen=2
@@ -1809,89 +1809,38 @@ Function NQ_NewTracesGraph (curScan)
 
 end
 	
-
-
 //******************************************************************************************************
 // Adjust the axes on the Nidaq Traces Graph to share axis space, if necessary
-/// ePhys traces are  on left and right axes, get top half of graph if sharing
-// rois avgs on  2 custom axes, ROILAxis for non-deltaF/F and ROIRAxis for traces that have been deltaF/F, on bottom half of graph, if sharing 
-// Last modified 2012/06/13 by Jamie Boyd
-Function NQ_TracesGraphShareAxes (curScan)
-	string curScan
+// call after adding or removing traces
+// Last modified 2025/09/18 by Jamie Boyd
+Function NQ_TracesGraphShareAxes ()
 	
-	// set colors
-	//ModifyGraph/W=twoP_TracesGraph axRGB=(65535,65535,65535), tlblRGB=(65535,65535,65535), alblRGB=(65535,65535,65535)
-	// Set tick lengths
-	ModifyGraph /W=twoP_TracesGraph btLen=2
-	ModifyGraph /W=twoP_TracesGraph stLen=1
-	ModifyGraph /W=twoP_TracesGraph ftLen=2
-
-
-
-
-	if (cmpStr (curScan, "LiveWave") == 0)
-		SVAR scanStr = root:packages:twoP:Acquire:LiveModeScanStr
-	else
-		SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
+	variable hasLeftROI =0
+	variable hasRightROI =0
+	string Axes = removefromList ("bottom", axisList("twoP_TracesGraph"))
+	if (whichListItem ("ROIRAxis", Axes) > -1)
+		hasRightROI =1
 	endif
-	variable scanmode = numberbykey ("mode", scanStr, ":", "\r")
-	variable ePhysChans = numberbykey ("ePhys", scanStr, ":", "\r")
-	// if only ephys, no need to share - no possibility of ROIS
-	if (Scanmode == kEPhysOnly)
-		if (ePhysChans&1)
-			ModifyGraph axisEnab(left)={0, 1}
+	if (whichListItem ("ROILAxis", Axes) > -1)
+		hasLeftROI =1
+	endif
+	variable hasBothROI = hasRightROI && hasLeftROI
+	variable iAxis, nAxes = itemsinList(Axes)
+	if (hasBothROI)
+		nAxes -=1
+		Axes = removefromList ("ROIRAxis",Axes)
+	endif
+	variable axisFrac = (1-.02*(nAxes-1))/nAxes
+	string anAxis
+	for (iAxis =0; iAxis < nAxes; iAxis +=1)
+		anAxis = stringfromlist (iAxis, Axes)
+		ModifyGraph/W=twoP_TracesGraph axisEnab($anAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
+		if (cmpStr (anAxis, "ROILAxis") ==0)
+			ModifyGraph/W=twoP_TracesGraph axisEnab(ROIRAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
 		endif
-		if (ePhysChans&2)
-			ModifyGraph axisEnab(right)={0, 1}
-		endif
-		return 0
-	endif
-	// Have ROIs?
-	string waveStr =GUIPListObjs("root:twoP_Scans:" + CurScan, 1, "*avg*",0, "") + GUIPListObjs("root:twoP_Scans:" + CurScan, 1, "*ratio*",0, "")
-	variable numWaves = itemsinList (WaveStr, ";")
-	if (numWaves == 0)
-		// If no ePhys and no ROIS, kill the Traces Graph
-		if (ePhysChans ==0)
-			doWindow/K twoP_tracesGraph
-			return 1
-		else
-			if (ePhysChans&1)
-				ModifyGraph axisEnab(left)={0, 1}
-			endif
-			if (ePhysChans&2)
-				ModifyGraph axisEnab(right)={0, 1}
-			endif
-			return 0
-		endif
-	endif
-	// have ROIs
-	// ePhys gets top half of graph
-	if (ePhysChans&1)
-		ModifyGraph axisEnab(left)={0.52, 1}
-	endif
-	if (ePhysChans&2)
-		ModifyGraph axisEnab(right)={0.52, 1}
-	endif
-	// rois get bottom half of graph, if sharing
-	if ((cmpstr (AxisInfo("twoP_TracesGraph", "ROILAXIS"), "")) != 0)	// then we have ROIS on Roileft axis
-		if (ePhysChans > 0)
-			ModifyGraph /W=twoP_TracesGraph axisEnab(ROILAxis)={0,0.48}
-		else
-			ModifyGraph /W=twoP_TracesGraph axisEnab(ROILAxis)={0,1}
-		endif
-		Label ROILAxis "\\Z12Raw 12 bit A/D"
-		ModifyGraph /W=twoP_TracesGraph freePos(ROILAxis)={0,kwFraction},  lblPos(ROILAxis)=45
-	endif
-	if ((cmpstr (AxisInfo("twoP_TracesGraph", "ROIRAXIS"), "")) != 0)	// then we have ROIS on RoiRight axis
-		if (ePhysChans > 0)
-			ModifyGraph /W=twoP_TracesGraph axisEnab(ROIRAxis)={0,0.48}
-		else
-			ModifyGraph /W=twoP_TracesGraph axisEnab(ROIRAxis)={0,1}
-		endif
-		Label ROIRAxis "\\Z12Delta F/F"
-		ModifyGraph /W=twoP_TracesGraph freePos(ROIRAxis)={0,kwFraction}, lblPos(ROIRAxis)=40
-	endif
+	endfor
 end
+
 
 
 //******************************************************************************************************

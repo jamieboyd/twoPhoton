@@ -1,6 +1,6 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3
-#pragma version = 3  	// Last Modified: 2025/09/13 by Jamie Boyd.
+#pragma version = 3  	// Last Modified: 2025/09/18 by Jamie Boyd.
 #pragma IgorVersion = 9
 
 //******************************************************************************************************
@@ -364,7 +364,7 @@ Function twoP_DoRoi()
 	String ROIBaseName =  "root:twoP_ROIs:"  + curScan + "_R" + num2str (ROINum)
 	variable red, green, blue
 	variable NumFrames
-	NQ_RGBSetter (ROINum, red, green, blue)	// automatically sets color for the ROI based on ROI number
+	twoP_RGBSetter (ROINum, red, green, blue)	// automatically sets color for the ROI based on ROI number
 	make/n= 5 $ ROIBaseName + "_x", $ROIBaseName + "_y"
 	WAVE RoiXWave = $ROIBaseName + "_x"
 	WAVE RoiYWave = $ROIBaseName + "_y"
@@ -441,7 +441,6 @@ Function twoP_DoRoi()
 	endif
 	// apend ROIs and roiAvg to ScanGraph and TracesGraph
 	NQ_AppendROIandAvg (ROIavg, curScan + "_R" + num2str (ROINum), 0)
-	//NQ_TracesGraphShareAxes (curScan)
 end
 
 //******************************************************************************************************
@@ -480,44 +479,58 @@ Function NQ_AppendROIandAvg (ROIavg, ROIStr, isDeltaFed)
 	else
 		variable hasROISpace=0, hasROIaxis=0
 		string infoStr, thisAxis, thatAxis
-		variable axStart, axEnd
-		traceList = TraceNameList("twoP_TracesGraph", ";", 1 )
-		if (WhichListItem(nameOfwave (roiAvg), traceList , ";") == -1) // ROI avg is not already plotted on TracesGraph
-			if (isDeltaFed) // need ROIR axis
+		if (isDeltaFed) // need ROIR axis
 				thisAxis = "ROIRAxis"
 				thatAxis="ROILAxis"
+				appendtograph /W=twoP_TracesGraph/C=(red, green, blue)/R=$thisAxis/B=Bottom  ROIavg
 			else
 				thisAxis = "ROILAxis"
 				thatAxis="ROIRAxis"
+				appendtograph /W=twoP_TracesGraph/C=(red, green, blue)/L=$thisAxis/B=Bottom  ROIavg
 			endif
-
+		variable axStart, axEnd
+		traceList = TraceNameList("twoP_TracesGraph", ";", 1 )
+		if (WhichListItem(nameOfwave (roiAvg), traceList , ";") == -1) // ROI avg is not already plotted on TracesGraph
+			
 			if (WhichListItem(thisAxis, AxisList("twoP_TracesGraph"))  > -1) // has needed axis
 				hasROIaxis =1
 				hasROISpace=1
 			else
-				if (WhichListItem(thatAxis, AxisList("twoP_TracesGraph")) > -1) // has axis n opposite side with same proportions
+				if (WhichListItem(thatAxis, AxisList("twoP_TracesGraph")) > -1) // has axis on opposite side with same proportions
 					hasROISpace =1
 				endif
 			endif
-			appendtograph /W=twoP_TracesGraph/C=(red, green, blue)/R=$thisAxis/B=Bottom  ROIavg
-			if (!(hasROISpace))
-				NQ_TracesGraphShareAxes (curScan)
+			if (isDeltaFed) // need ROIR axis
+				thisAxis = "ROIRAxis"
+				thatAxis="ROILAxis"
+				appendtograph /W=twoP_TracesGraph/C=(red, green, blue)/R=$thisAxis/B=Bottom  ROIavg
 			else
-				if (!(hasROIaxis))
-					 infoStr= stringByKey("axisEnab(x)", axisinfo ("twoP_TracesGraph", thatAxis),"=", ";")
+				thisAxis = "ROILAxis"
+				thatAxis="ROIRAxis"
+				appendtograph /W=twoP_TracesGraph/C=(red, green, blue)/L=$thisAxis/B=Bottom  ROIavg
+			endif
+		
+			if (!(hasROIaxis))
+				if (hasROISpace)
+					infoStr= stringByKey("axisEnab(x)", axisinfo ("twoP_TracesGraph", thatAxis),"=", ";")
 					sscanf infoStr, "{%f,%f}", axStart, axEnd
 					ModifyGraph /W=twoP_TracesGraph axisEnab($thisAxis)={axStart,axEnd}
-					if (cmpStr (thisAxis, "ROIRAxis") ==0)
-						ModifyGraph/W=twoP_TracesGraph freePos($thisAxis)={0,kwFraction}, lblPos($thisAxis)=45
-						Label $thisAxis "\\Z12Delta F/F"
-					else
-						Label $thisAxis "\\Z12Raw 12 bit A/D"  
-						ModifyGraph /W=twoP_TracesGraph freePos($thisAxis)={0,bottom}, lblPos($thisAxis)=-45
-					endif
+				else
+					NQ_TracesGraphShareAxes ()
+				endif
+				if (cmpStr (thisAxis, "ROIRAxis") ==0)
+					ModifyGraph/W=twoP_TracesGraph freePos($thisAxis)={0,kwFraction}, lblPos($thisAxis)=45
+					Label $thisAxis "\\Z12Delta F/F"
+				else
+					Label $thisAxis "\\Z12Raw 12 bit A/D"  
+					ModifyGraph /W=twoP_TracesGraph freePos($thisAxis)={0,bottom}, lblPos($thisAxis)=-45
 				endif
 			endif
 		endif
 	endif
+	ModifyGraph /W=twoP_TracesGraph btLen=2
+	ModifyGraph /W=twoP_TracesGraph stLen=1
+	ModifyGraph /W=twoP_TracesGraph ftLen=2
 end
 
 
@@ -1199,7 +1212,7 @@ Function NQ_DoRoiFromList (curScan)
 			NQ_AppendROIandAvg (ROIavg, ROIListWave [iROI], 0)
 		endif
 	endfor
-	NQ_TracesGraphShareAxes (curScan)
+	//NQ_TracesGraphShareAxes ()
 end
 
 //******************************************************************************************************
@@ -1445,69 +1458,69 @@ end
 //******************************************************************************************************
 // This function is used to set the red, green, and blue values for ROI Waves.
 // We use pass by reference (note the "&") for the colors, because there are three of them and IGOR only lets us
-// return a single number to the calling function. You can change the colours for the numbered ROI's
-// by editing the RGB values in the code below
-// Last Modified Jul 15 2010 by Jamie Boyd
-Function NQ_RGBSetter (ROINum, red, green, blue)
-	variable RoiNum, &red, &green, &blue
+// return a single number to the calling function. 
+// Last Modified 2025/09/18 by Jamie Boyd
+ Function twoP_RGBSetter (ROINum, Red, Green, Blue)
+ 	variable ROINum, &Red, &Green, &Blue
+ 	
+ 	variable Value = 0.8
+ 	variable Saturation = 1
+ 	variable Hue = twoP_ROIgetColorAngle (ROINum)
+ 	variable C = Value*65535
+ 	variable M = C*(1-Saturation)
+ 	variable X = (C-M)*(1-abs(mod(Hue/60,2)-1))
+    
+    if (Hue >=   0 && Hue < 60)
+    	Red = C; Green = M; Blue = X+M;
+    elseif (Hue >=  60 && Hue < 120)
+		Red = X+M; Green = M; Blue = C;
+	elseif (Hue >= 120 && Hue < 180)
+		Red = M; Green = X+M; Blue = C;
+    elseif (Hue >= 180 && Hue < 240)
+        Red = M; Green = C; Blue = X+M;
+    elseif (Hue >= 240 && Hue < 300)
+        Red = X+M; Green = C; Blue = M;
+    elseif (Hue >= 300 && Hue <= 360)
+        Red = C; Green = X+M; Blue = M;
+    endif
+ end
 
-	SWITCH (ROINum)
-		case 0:		// red
-			red = 65535
-			blue = 0
-			green = 0
-			break
-		case 1:		//blue
-			red =0
-			blue = 65535
-			green = 0
-			break
-		case 2:		//green
-			red = 0
-			blue = 0
-			green =65535
-			break
-		case 3:		// orange
-			red = 65535
-			blue = 0
-			green = 43690
-			break
-		case 4:		// cyan
-			red = 0
-			blue = 65535
-			green = 65535
-			break
-		case 5:		//lavender
-			red = 36873
-			blue = 58982
-			green = 14755
-			break
-		case 6:		//puce (or so my wife says)
-			red = 65535
-			blue = 26214
-			green = 0
-			break
-		case 7:		// yellow
-			red = 52425
-			blue = 0
-			green = 52425
-			break
-		case 8: // any further ROIS will be white
-			red = 655535
-			blue = 65535
-			green = 65535
-			break
-	EndSwitch
-end
 
 //******************************************************************************************************
-// Last modified 2025/09/03 by Jamie Boyd
+// returns an angle from 0 - 360. 
+// We go round the circle at increasingly finer steps to choose an angle which gets translated to a color
+// from the color wheel
+// Last Modified 2025/09/18 by Jamie Boyd
+function twoP_ROIgetColorAngle (nROI)
+	variable nROI
+
+	if (nROI ==0)
+		return 0
+	endif
+	variable angle
+	variable iRoi
+	variable angleIncr
+	variable iCirc 
+	for (iRoi = 1, iCirc = 0; iROI <= nROI; iCirc +=1)
+		for (angleIncr = 360/(2^iCirc), angle = angleIncr/2; angle < 360 ; iROI +=1, angle += angleIncr )
+			//printf "iROI = %d, iCirc = %d, Angle = %.1f\r", iROI, iCirc, angle
+			if (iROI == nROI)
+				return angle
+			endif
+		endfor
+	endfor
+	return angle
+end
+
+
+
+//******************************************************************************************************
+// Last modified 2025/09/17 by Jamie Boyd
 Function NQ_DoDeltaFProc (pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 
 	switch( pa.eventCode )
 		case 2: // mouse up
-
 			string RoiList	// Will contain a list of ROIs, if select all is chosen. Otherwise, contains the name of the chosen ROI
 			SVAR curscan = root:Packages:twoP:examine:curscan
 			variable bstart, bend, baseline
@@ -1532,11 +1545,13 @@ Function NQ_DoDeltaFProc (pa) : PopupMenuControl
 			variable numRois = itemsinList (RoiList)
 			string tempstr
 	
-			variable hasRLOI
-			if ((cmpstr (AxisInfo("twoP_TracesGraph", "ROIRAxis"), "")) == 0)
-				hasRLOI =0
+			variable hasRROI =0
+			if ((cmpstr (AxisInfo("twoP_TracesGraph", "ROIRAxis"), "")) != 0)
+				hasRROI =1
 			else
-				hasRLOI =1
+				variable axStart, axEnd
+				string infoStr= stringByKey("axisEnab(x)", axisinfo ("twoP_TracesGraph", "ROILAxis"),"=", ";")
+				sscanf infoStr, "{%f,%f}", axStart, axEnd
 			endif
 	
 			FOR (ii =0; ii < numRois; ii+=1)
@@ -1566,7 +1581,11 @@ Function NQ_DoDeltaFProc (pa) : PopupMenuControl
 					note Roiwave, tempstr
 				endif
 			endfor
-			NQ_TracesGraphShareAxes (curScan)
+			if (!hasRROI)
+				ModifyGraph /W=twoP_TracesGraph axisEnab(ROIRAxis)={axStart,axEnd}
+				ModifyGraph/W=twoP_TracesGraph freePos(ROIRAxis)={0,kwFraction}, lblPos(ROIRAxis)=45
+				Label ROIRAxis "\\Z12Delta F/F"
+			endif
 			break
 	endSwitch
 	return 0
@@ -1596,11 +1615,13 @@ Function NQ_UnDoDeltaFProc(pa) : PopupMenuControl
 			variable numRois = itemsinList (RoiList)
 			string tempstr
 	
-			variable hasRLOI
-			if ((cmpstr (AxisInfo("twoP_TracesGraph", "ROILAxis"), "")) == 0)
-				hasRLOI =0
-			else
+			variable hasRLOI =0
+			if ((cmpstr (AxisInfo("twoP_TracesGraph", "ROILAxis"), "")) != 0)
 				hasRLOI =1
+			else
+				string infoStr= stringByKey("axisEnab(x)", axisinfo ("twoP_TracesGraph", "ROIRAxis"),"=", ";")
+				variable axStart, axEnd
+				sscanf infoStr, "{%f,%f}", axStart, axEnd
 			endif
 	
 			FOR (ii =0; ii < numRois; ii+=1)
@@ -1630,7 +1651,13 @@ Function NQ_UnDoDeltaFProc(pa) : PopupMenuControl
 					note Roiwave, tempstr
 				endif
 			endfor
-			NQ_TracesGraphShareAxes (curScan)
+			
+			if (!hasRLOI)
+				ModifyGraph /W=twoP_TracesGraph axisEnab(ROILAxis)={axStart,axEnd}
+				ModifyGraph/W=twoP_TracesGraph freePos(ROILAxis)={0,kwFraction}, lblPos(ROILAxis)=45
+				Label ROILAxis "\\Z12Raw 12 bit A/D"  
+			endif
+
 			break
 	endSwitch
 	return 0
@@ -1736,7 +1763,7 @@ Function NQ_DeleteRoiProc(pa) : PopupMenuControl
 					endif
 				endif
 			endfor
-			NQ_TracesGraphShareAxes (curScan)
+			NQ_TracesGraphShareAxes ()
 			break
 	endSwitch
 End
