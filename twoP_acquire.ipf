@@ -1032,7 +1032,7 @@ Function NQ_ZfirstLastButtonProc(ba) : ButtonControl
 	switch( ba.eventCode )
 		case 2: // mouse up
 			// Update stage for Z
-			variable xS=0, yS=0, zS=1, axS=0
+			variable xS=0, yS=0, zS=1, axS=NaN
 			SVAR StageProc = root:packages:twoP:Acquire:StageProc
 			SVAR thePort = root:packages:twoP:acquire:StagePort
 			funcref  StageUpdate_Template UpdateStage=$"StageUpDate_" + StageProc

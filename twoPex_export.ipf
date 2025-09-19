@@ -1,6 +1,6 @@
 #pragma rtGlobals=3
 #pragma IgorVersion =6.2
-#pragma version =2.0	// modification date: 2015/04/14 by Jamie Boyd.
+#pragma version =2.0	// modification date: 2025/09/19 by Jamie Boyd.
 #include "GUIPControls"
 #include "TIFFwriter" 
 #include "GUIPKillDisplayedWave"
@@ -93,7 +93,7 @@ End
 
 //******************************************************************************************************
 //Saves to disk and/or deletes selected scans. including all waves in the folder
-// Last Modified 2015/04/12 by Jamie Boyd
+// Last Modified 2025/09/19 by Jamie Boyd
 Function NQ_SaveAndOrDeleteButtonProc(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 
@@ -401,7 +401,7 @@ end
 
 //******************************************************************************************************
 // Saves to disk all waves from the given scan as tiff images
-// Last Modified 2015/04/12 by Jamie Boyd
+// Last Modified 2025/09/19 by Jamie Boyd
 Function NQ_ExportScan_tif (curScan, doOverWrite, inSubFolder,  tiffScaleMode, tiffExpType)
 	string curScan
 	variable doOverWrite
@@ -421,65 +421,68 @@ Function NQ_ExportScan_tif (curScan, doOverWrite, inSubFolder,  tiffScaleMode, t
 	// get scan note and experiment time
 	SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 	variable timeinSecs = numberbykey ("ExpTime", scanStr, ":", "\r")
-	// get list of 2D and 2D waves in the folder for channel 1
-	string fileNameStr
-	variable iWave, nWaves
-	string ch1List = WaveList("*_ch1", ";", "DIMS:2" ) + WaveList("*_ch1", ";", "DIMS:3" )
-	nWaves = itemsinlist (ch1List, ";")
 	// look for other tiff files in export path, if overwriting is not set
-	variable owCode
-	string tifsAlready, ibwsAlready
 	if (!(doOverWrite))
-		tifsAlready=GUIPListFiles ("ExportPath",  ".tif", "*", 0, "")
-		ibwsAlready=GUIPListFiles ("ExportPath",  ".ibw", "*", 0, "")
+		string tifsAlready = tifsAlready=GUIPListFiles ("ExportPath",  ".tif", "*", 0, "")
+		string ibwsAlready=GUIPListFiles ("ExportPath",  ".ibw", "*", 0, "")
 	endif
-	NVAR minVal = root:packages:twoP:examine:ch1firstlutcolor
-	NVAR maxVal=root:packages:twoP:examine:ch1Lastlutcolor
-	for (iWave =0; iWave < nWaves; iWave += 1)
-		wave dataWave = $"root:twoP_Scans:" + curScan + ":"  + stringFromList (iWave, ch1List)
-		FileNameStr = stringFromList (iWave, ch1List) + ".tif"
+	variable owCode
+	
+	
+	string aChan, chanList= StringByKey("imChanDesc", scanStr, ":", "\r")
+	variable iChan, nChans = itemsinlist (chanList, ",")
+	string otherChanIms
+	variable iOther,nOthers
+	string anOther
+	string fileName
+	for (iChan=0; iChan < nChans ; iChan +=1)
+		aChan = stringFromList (iChan, chanList, ",")
+		NVAR minVal = $"root:packages:twoP:examine:" + aChan + "firstlutcolor"
+		NVAR maxVal= $"root:packages:twoP:examine:" + aChan + "Lastlutcolor"
+		WAVE scanWave = $"root:twoP_Scans:" + curScan + ":"  + curScan + "_" + aChan
+		fileName=curScan  + "_" + aChan + ".tif"
 		if (!(doOverWrite))
-			owCode = NQ_ExportCheckRename (fileNameStr, tifsAlready)
+			owCode = NQ_ExportCheckRename (fileName, tifsAlready)
 			if (owCode == 3)
 				continue
 			elseif (owCode ==4)
 				break
 			endif
 		endif
-		ExportGreyScaleTIFF (datawave,ExportPathStr,TIFFexpType, TIFFscaleMode, minVal = minVal, maxVal = maxVal, timeInSecs = timeinSecs)
-	endfor
-	string ch2List = WaveList("*_ch2", ";", "DIMS:2" ) + WaveList("*_ch2", ";", "DIMS:3" )
-	nWaves = itemsinlist (ch2List, ";")
-	NVAR minVal = root:packages:twoP:examine:ch2firstlutcolor
-	NVAR maxVal=root:packages:twoP:examine:ch2Lastlutcolor
-	for (iWave =0; iWave < nWaves; iWave += 1)
-		wave dataWave = $"root:twoP_Scans:" + curScan + ":"  + stringFromList (iWave, ch2List)
-		FileNameStr = stringFromList (iWave, ch2List) + ".ibw"
-		if (!(doOverWrite))
-			owCode = NQ_ExportCheckRename (fileNameStr, tifsAlready)
-			if (owCode == 3)
-				continue
-			elseif (owCode ==4)
-				break
+		ExportGreyScaleTIFF (scanWave,ExportPathStr,TIFFexpType, TIFFscaleMode, minVal = minVal, maxVal = maxVal, timeInSecs = timeinSecs)	
+		otherChanIms = WaveList("*_" + aChan, ";", "DIMS:2" ) + WaveList("*_" + aChan, ";", "DIMS:3" )
+		nOthers = itemsinlist (otherChanIms, ";")
+		for (iOther=0; iOther < nOthers; iOther +=1)
+			anOther = stringFromList (iOther, otherChanIms)
+			FileName = anOther + ".tif"
+			if (!(doOverWrite))
+				owCode = NQ_ExportCheckRename (fileName, tifsAlready)
+				if (owCode == 3)
+					continue
+				elseif (owCode ==4)
+					break
+				endif
 			endif
-		endif
-		ExportGreyScaleTIFF (datawave, ExportPathStr,TIFFexpType, TIFFscaleMode, minVal = minVal, maxVal = maxVal, timeInSecs = timeinSecs)
+			Wave anotherWave = $"root:twoP_Scans:" + curScan + ":"  + anOther
+			ExportGreyScaleTIFF (anotherWave,ExportPathStr,TIFFexpType, TIFFscaleMode, minVal = minVal, maxVal = maxVal, timeInSecs = timeinSecs)
+		endfor
 	endfor
+
 	// get list of all 1D waves in the folder
 	string folderList =  WaveList("*", ";", "DIMS:1" )
-	nWaves = itemsinlist (folderList, ";")
+	variable iWave, nWaves = itemsinlist (folderList, ";")
 	for (iWave =0; iWave < nWaves; iWave += 1)
 		wave dataWave = $"root:twoP_Scans:" + curScan + ":"  + stringFromList (iWave, folderList)
-		FileNameStr = stringFromList (iWave, folderList) + ".ibw"
+		FileName = stringFromList (iWave, folderList) + ".ibw"
 		if (!(doOverWrite))
-			owCode = NQ_ExportCheckRename (fileNameStr, ibwsAlready)
+			owCode = NQ_ExportCheckRename (FileName, ibwsAlready)
 			if (owCode == 3)
 				continue
 			elseif (owCode ==4)
 				break
 			endif
 		endif
-		Save /C/O/P=$ExportPathStr datawave as FileNameStr
+		Save /C/O/P=$ExportPathStr datawave as FileName
 	endfor
 	// save note
 	NQ_ExportScan_Note (curScan, doOverWrite,inSubFolder)
@@ -490,7 +493,7 @@ end
 
 //******************************************************************************************************
 // Saves as a 2D tiff whatever image is displayed in the scan Graph, usually the current frame of a 3D wave
-// Last Modified 2015/04/12 by Jamie Boyd
+// Last Modified 2025/09/19 by Jamie Boyd
 Function NQ_ExportScan_tifCurFrame (curScan, doOverWrite, inSubFolder,TiffScaleMode, tiffExpType, CurFramePos)
 	string curScan
 	variable doOverwrite
@@ -514,13 +517,16 @@ Function NQ_ExportScan_tifCurFrame (curScan, doOverWrite, inSubFolder,TiffScaleM
 	if (!(doOverWrite))
 		tifsAlready=GUIPListFiles ("ExportPath",  ".tif", "*", 0, "")
 	endif
-	// process images displayed in the 3 possible subwindows of the scanGraph
-	// The ugly imagenametowaveref is used because 2D waves - lineScans and Avgs - are displayed directly in the scangraph
-	string fileNameStr
-	WAVE/Z ch1Wave = imageNameToWaveRef ("twoPscanGraph#GCH1", stringfromlist (0,  ImageNameList("twoPscanGraph#GCH1", ";"), ";"))
-	if (waveExists (ch1Wave))
-		NVAR minVal = root:packages:twoP:examine:ch1firstlutcolor
-		NVAR maxVal=root:packages:twoP:examine:ch1Lastlutcolor
+	NVAR framPos= root:Packages:twoP:examine:CurFramePos
+	SVAR channels=root:Packages:twoP:examine:ScanGraphSelChans
+	variable iChan, nChans=itemsinList (channels, ",")
+	string aChan
+	string FileNameStr
+	for (iChan=0;iChan < nChans; iChan +=1)
+		aChan = stringFromList(iChan, channels, ",")
+		WAVE chWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
+		NVAR minVal = $"root:packages:twoP:examine:" + aChan + "firstlutcolor"
+		NVAR maxVal= $"root:packages:twoP:examine:" + aChan + "Lastlutcolor"
 		FileNameStr = curScan + "_ch1_f" + num2str (curFramePos) + ".tif"
 		if (!(doOverWrite))
 			owCode = NQ_ExportCheckRename (fileNameStr, tifsAlready)
@@ -528,32 +534,13 @@ Function NQ_ExportScan_tifCurFrame (curScan, doOverWrite, inSubFolder,TiffScaleM
 				return 1
 			endif
 		endif
-		ExportGreyScaleTIFF (ch1Wave, ExportPathStr, tiffExpType, TiffScaleMode, minVal = minVal, maxVal=maxVal, TimeInSecs = timeinSecs, FileNameStr = FileNameStr)
-	endif
-	WAVE/Z ch2Wave = imageNameToWaveRef ("twoPscanGraph#GCH2", stringfromlist (0,  ImageNameList("twoPscanGraph#GCH2", ";"), ";"))
-	if (waveExists (ch2Wave))
-		NVAR minVal = root:packages:twoP:examine:ch2firstlutcolor
-		NVAR maxVal=root:packages:twoP:examine:ch2Lastlutcolor
-		FileNameStr = curScan + "_ch2_f" + num2str (curFramePos) + ".tif"
-		if (!(doOverWrite))
-			owCode = NQ_ExportCheckRename (fileNameStr, tifsAlready)
-			if ((owCode == 3) || (owCode ==4))
-				return 1
-			endif
-		endif
-		ExportGreyScaleTIFF (ch2Wave, ExportPathStr, tiffExpType, TiffScaleMode, minVal = minVal, maxVal=maxVal, TimeInSecs = timeinSecs, FileNameStr = FileNameStr)
-	endif
-	// mrg wave is alwyas mrg wave, but still need to check if subwindow is diplayed
-	WAVE/Z mrgWave = imageNameToWaveRef ("twoPscanGraph#GMRG", stringfromlist (0,  ImageNameList("twoPscanGraph#GMRG", ";"), ";"))
-	if (waveExists (mrgWave))
-		FileNameStr = curScan + "_mrg_f" + num2str (curFramePos) + ".tif"
-		if (!(doOverWrite))
-			owCode = NQ_ExportCheckRename (fileNameStr, tifsAlready)
-			if ((owCode == 3) || (owCode ==4))
-				return 1
-			endif
-		endif
-		ExportRGBcolorTIFF (ExportPathStr, 1, fileNameStr, dataWaveRGB = mrgWave, timeInSecs =timeInSecs)
+		ExportGreyScaleTIFF (chWave, ExportPathStr, tiffExpType, TiffScaleMode, minVal = minVal, maxVal=maxVal, TimeInSecs = timeinSecs, FileNameStr = FileNameStr)
+	endfor
+	
+	NVAR hasRGB=root:Packages:twoP:examine:RGB_hasRGB
+	if (hasRGB)
+		WAVE rgbWave=root:Packages:twoP:examine:RGBwave
+		ExportRGBcolorTIFF (ExportPathStr, 1, fileNameStr, dataWaveRGB = rgbWave, timeInSecs =timeInSecs)
 	endif
 end
 

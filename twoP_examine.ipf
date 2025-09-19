@@ -1091,7 +1091,7 @@ Function twoP_ImGraphFillcs (cs, curScan, aChan)
 				if (waveExists (ScanWave))
 					if (mode == kTimeSeries)
 						// make a kalman averge of first 20 frames
-						KalmanSpecFrames (ScanWave, 0, max (19, zSize-1), channelWave, 0, 16)
+						KalmanSpecFrames (ScanWave, 0, min (19, zSize-1), channelWave, 0, 16)
 						sprintf cs.UserStrings[2], "%s:%.2W0Ps to %.2W0Ps", aChan, 0, frameTime*max (19, zSize-1)
 					else // project all frames for a Zstack
 						ProjectSpecFrames (ScanWave, 0, zSize-1, channelWave, 0, 2, 1)
@@ -1835,7 +1835,7 @@ Function NQ_TracesGraphShareAxes ()
 	for (iAxis =0; iAxis < nAxes; iAxis +=1)
 		anAxis = stringfromlist (iAxis, Axes)
 		ModifyGraph/W=twoP_TracesGraph axisEnab($anAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
-		if (cmpStr (anAxis, "ROILAxis") ==0)
+		if ((cmpStr (anAxis, "ROILAxis") ==0) && (hasBothROI))
 			ModifyGraph/W=twoP_TracesGraph axisEnab(ROIRAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
 		endif
 	endfor
@@ -1844,13 +1844,32 @@ end
 
 
 //******************************************************************************************************
-// SHows the trces graph, or makes it
+// SHows the traces graph, or makes it
 Function NQ_showTracesProc(ctrlName) : ButtonControl
 	String ctrlName
 	
 	SVAR curScan = root:packages:twoP:examine:curScan
 	NQ_NewTracesGraph (curScan)
 End
+
+
+//******************************************************************************************************
+// Edit this function to call user-supplied analysis code
+// Last midified 2025/09/19 by Jamie Boyd
+Function MakeMiscPanel(ba) : ButtonControl
+	STRUCT WMButtonAction &ba
+
+	switch( ba.eventCode )
+		case 2: // mouse up
+			doalert 0, "This button exists so you can call your own special-purpose code from it by editing the \"MakeMiscPanel\" function."
+			break
+		case -1: // control being killed
+			break
+	endswitch
+
+	return 0
+End
+
 
 
 //******************************************************************************************************
@@ -3534,3 +3553,5 @@ Function NQ_MeasureMarquee()
 		printf "Velocity (rise/run) = %.2W1P%s/%s\r", xSize/ysize, bottomAxisUnits, leftAxisUnits
 	endif
 end
+
+

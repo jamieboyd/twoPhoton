@@ -477,6 +477,7 @@ Function NQ_AppendROIandAvg (ROIavg, ROIStr, isDeltaFed)
 	if (V_Flag == 0)	// window didn't exist
 		NQ_NewTracesGraph (curScan)
 	else
+		traceList = TraceNameList("twoP_TracesGraph", ";", 1 )
 		variable hasROISpace=0, hasROIaxis=0
 		string infoStr, thisAxis, thatAxis
 		if (isDeltaFed) // need ROIR axis
@@ -489,14 +490,14 @@ Function NQ_AppendROIandAvg (ROIavg, ROIStr, isDeltaFed)
 				appendtograph /W=twoP_TracesGraph/C=(red, green, blue)/L=$thisAxis/B=Bottom  ROIavg
 			endif
 		variable axStart, axEnd
-		traceList = TraceNameList("twoP_TracesGraph", ";", 1 )
+		
 		if (WhichListItem(nameOfwave (roiAvg), traceList , ";") == -1) // ROI avg is not already plotted on TracesGraph
 			
-			if (WhichListItem(thisAxis, AxisList("twoP_TracesGraph"))  > -1) // has needed axis
+			if (WhichListItem(thisAxis,traceList)  > -1) // has needed axis
 				hasROIaxis =1
 				hasROISpace=1
 			else
-				if (WhichListItem(thatAxis, AxisList("twoP_TracesGraph")) > -1) // has axis on opposite side with same proportions
+				if (WhichListItem(thatAxis, traceList) > -1) // has axis on opposite side with same proportions
 					hasROISpace =1
 				endif
 			endif
@@ -523,7 +524,7 @@ Function NQ_AppendROIandAvg (ROIavg, ROIStr, isDeltaFed)
 					Label $thisAxis "\\Z12Delta F/F"
 				else
 					Label $thisAxis "\\Z12Raw 12 bit A/D"  
-					ModifyGraph /W=twoP_TracesGraph freePos($thisAxis)={0,bottom}, lblPos($thisAxis)=-45
+					ModifyGraph /W=twoP_TracesGraph freePos($thisAxis)={0,bottom}, lblPos($thisAxis)=45
 				endif
 			endif
 		endif
