@@ -2929,7 +2929,7 @@ end
 //******************************************************************************************************
 // Makes the image waves for scanning in a new folder, for all the different scan modes.
 // Sets string for channels and paths to created waves in s.scanWavePath
-// Last Modified 2025/08/29 by Jamie Boyd
+// Last Modified 2025/09/19 by Jamie Boyd
 Function NQ_MakeImageScanWaves (s)
 	STRUCT NQ_ScanStruct &s
 
@@ -3853,7 +3853,7 @@ end
 
 //******************************************************************************************************
 // Function called by the "Start Scan" Button.
-// Last Modified: 2025/09/10 by Jamie Boyd
+// Last Modified: 2025/09/19 by Jamie Boyd
 Function  NQ_StartScan (ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 
@@ -3993,7 +3993,7 @@ Function  NQ_StartScan (ba) : ButtonControl
 					endif
 					break
 				case kSingleImage:
-
+					
 					break
 				case kZseries:
 
@@ -4141,7 +4141,7 @@ Function NQ_ScanInit (s)
 				if (!(shutterIsOpen))
 					if (fDAQmx_DIO_Read(s.imageBoard, triggerTaskNum))
 						fDAQmx_DIO_Write(s.imageBoard, shutterTaskNum, shutterOpen)
-						shutterIsOpen = 1//;print "SHutter open"
+						shutterIsOpen = 1//;print "Shutter open"
 					endif
 				else
 					if (!(fDAQmx_DIO_Read(s.imageBoard, triggerTaskNum)))
@@ -4159,6 +4159,7 @@ Function NQ_ScanInit (s)
 				Sleep/c=-1/S shutterDelay
 			endif
 			DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/Strt=1  scanWavesList; ABORTONRTE
+			Sleep/c=-1/S 1e-03	// 
 			fDAQmx_ScanStart(s.imageBoard,1)
 		endif
 	catch
