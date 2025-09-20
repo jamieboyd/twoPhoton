@@ -743,7 +743,7 @@ end
 //******************************************************************************************************
 // adjusts the Date and time info and the slider control on the examine scans panel to reflect the time of the current scan.
 // It also disables the movie controls if the current scan is not a stack.
-// Last modified 2025/08/02 by Jamie Boyd 
+// Last modified 2025/09/19 by Jamie Boyd 
 Function twoP_ScanAdjustExamineControls (curScan)
 	string curScan
 
@@ -775,7 +775,7 @@ Function twoP_ScanAdjustExamineControls (curScan)
 	if (nChans > 0)
 		ChanTitleStr += " ePhys:"
 		for (iChan =0; iChan < nChans; iChan +=1)
-			ChanTitleStr += stringFromList(iChan, scanChans, ",") + "; "
+			ChanTitleStr += stringFromList(iChan, ePhysChans, ",") + "; "
 		endfor
 	endif
 	TitleBox ChannnelsTitleBox Win=twoP_Controls, title = ChanTitleStr
@@ -918,7 +918,10 @@ Function twoP_ScanShowScan(ctrlName) : ButtonControl
 	doWindow/F twoPscanGraph
 	if (V_Flag ==0)
 		SVAR curScan = root:packages:twoP:examine:curScan
-		twoP_ImGraphNew(curScan)
+		SVAR scanInfo = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
+		if (numberbyKey("mode", scanInfo, ":", "\r") != kEphysOnly)
+			twoP_ImGraphNew(curScan)
+		endif
 	endif
 End
 
