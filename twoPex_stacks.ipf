@@ -1,6 +1,6 @@
 #pragma rtGlobals=3
 #pragma IgorVersion = 6.2
-#pragma version = 2.0		// modification date: 2014/09/18 by Jamie Boyd
+#pragma version = 2.0		// modification date: 2024/09/20 by Jamie Boyd
 
 #include "twoP_threeD"
 #include "GUIPMath"
@@ -13,79 +13,162 @@ Function NQexStacks_add (able)
 	variable able
 	
 	// Globals for Stacks Tab
-	variable/G root:packages:twoP:examine:StackChan=1
+	string/G root:Packages:twoP:examine:StacksSelChan
 	variable/G root:packages:twoP:examine:ProjStartFrame
 	variable/G root:packages:twoP:examine:ProjEndFrame
-	string/G root:packages:twoP:examine:ProjDiff1
-	string/G root:packages:twoP:examine:ProjDiff2
-	string/G root:packages:twoP:examine:ProjOutName = ""
-	string/G root:packages:twoP:examine:FiltOutName =""
+	variable/G root:packages:twoP:examine:ProjMode =0
+	string/G root:Packages:twoP:examine:ProjOutName
+	String/G root:Packages:twoP:examine:FiltOutName
+	string/G root:Packages:twoP:examine:ProjDiff1
+	string/G root:Packages:twoP:examine:ProjDiff2
 	string/G root:packages:twoP:examine:Top3D
 	string/G root:packages:twoP:examine:thisScanAdjustList = "ProjOutName:_proj;filtOutName:_f;"
 	// controls for Stacks Tab
-	CheckBox StacksCheck1,  win =twoP_Controls, disable =1, pos={11,411},size={58,16},proc=NQ_stacksChanCheckProc,title="Chan 1"
-	CheckBox StacksCheck1,win =twoP_Controls,userdata=  "threeDsliceCheck2;threeDsliceCheck3;"
-	CheckBox StacksCheck1,win =twoP_Controls,fSize=12,value= 1
-	CheckBox StacksCheck2, win =twoP_Controls,disable =1,pos={84,411},size={58,16},proc=NQ_stacksChanCheckProc,title="Chan 2"
-	CheckBox StacksCheck2,win =twoP_Controls,userdata=  "threeDsliceCheck1;threeDsliceCheck3;"
-	CheckBox StacksCheck2,win =twoP_Controls,fSize=12,value= 0
-	CheckBox StacksCheck4, win =twoP_Controls,disable =1,pos={153,411},size={60,16},proc=NQ_stacksChanCheckProc,title="Merged"
-	CheckBox StacksCheck4,win =twoP_Controls,userdata=  "threeDsliceCheck1;threeDsliceCheck2;"
-	CheckBox StacksCheck4,win =twoP_Controls,fSize=12,value= 0
+	// choose channel
+	PopupMenu StackChansPopmenu, win =twoP_Controls,pos={13.00,415.00},size={55.00,20.00},bodyWidth=55,proc=twoP_StacksChansPopMenuProc
+	PopupMenu StackChansPopmenu, win =twoP_Controls,title="Chan",fSize=12
+	PopupMenu StackChansPopmenu, win =twoP_Controls,disable = able
+	PopupMenu StackChansPopmenu, win =twoP_Controls,mode=0,value=#"twoP_ScanListImChans()"
+	TitleBox SelStacksChansTitle, win =twoP_Controls,pos={73.00,417.00},size={19.00,15.00},fSize=12,frame=0
+	TitleBox SelStacksChansTitle, win =twoP_Controls,variable=root:Packages:twoP:examine:StacksSelChan
+	TitleBox SelStacksChansTitle, win =twoP_Controls, disable=able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","PopupMenu StackChansPopmenu 0;TitleBox SelStacksChansTitle 0;",applyAbleState=0)
 	// Projections
-	GroupBox ProjectionsGroup, win =twoP_Controls,disable =1,pos={7,433},size={276,93},title="Projections"
-	GroupBox ProjectionsGroup,win =twoP_Controls,frame=0
-	Button ProjectImageButton, win =twoP_Controls,disable =1,pos={13,449},size={30,20},proc=NQ_ProjectImageProc,title="Proj"
-	SetVariable StacksProjStartSetvariable, win =twoP_Controls,disable =1,pos={48,452},size={71,15},proc=NQ_StackPosSetVarProc,title="First"
-	SetVariable StacksProjStartSetvariable,win =twoP_Controls,limits={0,inf,1},value= root:packages:twoP:examine:ProjStartFrame
-	SetVariable StacksProjEndSetvariable, win =twoP_Controls,disable =1,pos={125,452},size={68,15},proc=NQ_StackPosSetVarProc,title="Last"
-	SetVariable StacksProjEndSetvariable,win =twoP_Controls,limits={1,inf,1},value= root:packages:twoP:examine:ProjEndFrame
-	CheckBox StacksAvgCheck, win =twoP_Controls,disable =1,pos={199,452},size={35,14},proc=GUIPRadioButtonProc,title="Avg"
-	CheckBox StacksAvgCheck,win =twoP_Controls,userdata=  "StacksMaxCheck;",value= 1,mode=1
-	CheckBox StacksMaxCheck, win =twoP_Controls,disable =1,pos={241,452},size={35,14},proc=GUIPRadioButtonProc,title="Max"
-	CheckBox StacksMaxCheck,win =twoP_Controls,userdata=  "StacksAvgCheck;",value= 0,mode=1
-	Button AvgDiffButton, win =twoP_Controls,disable =1,pos={13,476},size={30,20},proc=NQ_ProjSubtracter,title="Diff"
-	Button AvgDiffButton,win =twoP_Controls,fSize=13
-	PopupMenu StackDiffPopMenu1,win =twoP_Controls,disable = 1, pos={47,476},size={21,21},proc=NQ_StacksSetDiffPopMenuProc
-	PopupMenu StackDiffPopMenu1,win =twoP_Controls,mode=0,value= #"GUIPListWavesbyNoteKey (\"root:twoP_Scans:\" + root:packages:twoP:examine:curScan, \"ProjType\", \"*\", 0,  \"\\\\M1(No Projections\", listSepStr=\"\\r\", keySepStr=\":\")"
-	SetVariable StacksDiff1Setvar, win =twoP_Controls,disable = 1, pos={71,479},size={84,16},title=" "
-	SetVariable StacksDiff1Setvar,win =twoP_Controls,value= root:Packages:twoP:examine:ProjDiff1,noedit= 1
-	PopupMenu StackDiffPopMenu2,win =twoP_Controls,disable =1,pos={159,476},size={32,21},proc=NQ_StacksSetDiffPopMenuProc,title="-"
-	PopupMenu StackDiffPopMenu2,win =twoP_Controls,mode=0,value= #"GUIPListWavesbyNoteKey (\"root:twoP_Scans:\" + root:packages:twoP:examine:curScan, \"ProjType\", \"*\", 0,  \"\\\\M1(No Projections\", listSepStr=\"\\r\", keySepStr=\":\")"
-	SetVariable StacksDiff2Setvar, win =twoP_Controls,disable =1,pos={196,479},size={80,15},title=" "
-	SetVariable StacksDiff2Setvar,win =twoP_Controls,value= root:packages:twoP:examine:ProjDiff2,noedit= 1
-	SetVariable StacksOutNameSetvar, win =twoP_Controls,disable =1,pos={14,505},size={157,15},title="OutPut Name"
-	SetVariable StacksOutNameSetvar,win =twoP_Controls,value= root:packages:twoP:examine:ProjOutName
-	PopupMenu DisplayProjsPopMenu, win =twoP_Controls,disable =1,pos={181,501},size={96,20},proc=NQ_DisplayProjectImProc,title="Display Proj",mode=0
-	PopupMenu DisplayProjsPopMenu,win =twoP_Controls, value= #"GUIPListWavesbyNoteKey (\"root:twoP_Scans:\" + root:packages:twoP:examine:curScan, \"ProjType\", \"*\", 0,  \"\\\\M1(No Projections\", listSepStr=\"\\r\", keySepStr=\":\")"
+	GroupBox ProjectionsGroup, win =twoP_Controls, pos={7.00,443.00},size={327.00,100.00},title="Projections",fSize=12,frame=0
+	GroupBox ProjectionsGroup, win =twoP_Controls, disable=able
+	Button ProjectImageButton, win =twoP_Controls,pos={13.00,463.00},size={51.00,20.00},proc=NQ_ProjectImageProc,title="Proj"
+	Button ProjectImageButton, win =twoP_Controls, disable = able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","GroupBox ProjectionsGroup 0;Button ProjectImageButton 0;",applyAbleState=0)
+	SetVariable StacksProjStartSetvariable, win =twoP_Controls, pos={75.00,465.00},size={76.00,18.00},proc=NQ_StackPosSetVarProc
+	SetVariable StacksProjStartSetvariable, win =twoP_Controls, title="First",fSize=12
+	SetVariable StacksProjStartSetvariable, win =twoP_Controls, limits={0,inf,1},value=root:Packages:twoP:examine:ProjStartFrame
+	SetVariable StacksProjStartSetvariable, win =twoP_Controls, disable = able
+	SetVariable StacksProjEndSetvariable, win =twoP_Controls, pos={157.00,465.00},size={71.00,18.00},proc=NQ_StackPosSetVarProc
+	SetVariable StacksProjEndSetvariable, win =twoP_Controls, title="Last",fSize=12
+	SetVariable StacksProjEndSetvariable, win =twoP_Controls, limits={1,inf,1},value=root:Packages:twoP:examine:ProjEndFrame
+	SetVariable StacksProjEndSetvariable, win =twoP_Controls, disable = able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","SetVariable StacksProjStartSetvariable 0, 0;SetVariable StacksProjEndSetvariable 0;",applyAbleState=0)
+	CheckBox StacksAvgCheck, win =twoP_Controls,pos={240.00,466.00},size={38.00,15.00},proc=GUIPRadioButtonProc
+	CheckBox StacksAvgCheck, win =twoP_Controls,title="Avg",userdata="StacksAvgCheck;StacksMaxCheck;"
+	CheckBox StacksAvgCheck, win =twoP_Controls,userdata(gValue)="root:packages:twoP:examine:ProjMode"
+	CheckBox StacksAvgCheck, win =twoP_Controls,fSize=12,value=0,mode=1
+	CheckBox StacksAvgCheck, win =twoP_Controls,disable = able
+	CheckBox StacksMaxCheck, win =twoP_Controls,pos={287.00,466.00},size={40.00,15.00},proc=GUIPRadioButtonProc
+	CheckBox StacksMaxCheck, win =twoP_Controls,title="Max",userdata="StacksAvgCheck;StacksMaxCheck;"
+	CheckBox StacksMaxCheck, win =twoP_Controls,userdata(gValue)="root:packages:twoP:examine:ProjMode"
+	CheckBox StacksMaxCheck, win =twoP_Controls,fSize=12,value=1,mode=1
+	CheckBox StacksMaxCheck, win =twoP_Controls,disable = able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","CheckBox StacksAvgCheck 0;CheckBox StacksMaxCheck 0;",applyAbleState=0)
+	SetVariable StacksOutNameSetvar, win =twoP_Controls,pos={11.00,493.00},size={195.00,18.00}
+	SetVariable StacksOutNameSetvar, win =twoP_Controls,title="OutPut Name",fSize=12
+	SetVariable StacksOutNameSetvar, win =twoP_Controls,value=root:Packages:twoP:examine:ProjOutName
+	SetVariable StacksOutNameSetvar, win =twoP_Controls,disable=able
+	PopupMenu DisplayProjsPopMenu, win =twoP_Controls,pos={216.00,493.00},size={103.00,20.00},proc=NQ_DisplayProjectImProc
+	PopupMenu DisplayProjsPopMenu, win =twoP_Controls,title="Display Proj"
+	PopupMenu DisplayProjsPopMenu, win =twoP_Controls,mode=0,value=#"GUIPListWavesbyNoteKey (\"root:twoP_Scans:\" + root:packages:twoP:examine:curScan, \"ProjType\", \"*\", 0,  \"\\\\M1(No Projections\", listSepStr=\"\\r\", keySepStr=\":\")"
+	PopupMenu DisplayProjsPopMenu, win =twoP_Controls,disable=able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","PopupMenu DisplayProjsPopMenu 0;SetVariable StacksOutNameSetvar 0;",applyAbleState=0)
+	Button AvgDiffButton, win =twoP_Controls,pos={10.00,518.00},size={45.00,20.00},proc=NQ_ProjSubtracter
+	Button AvgDiffButton, win =twoP_Controls,title="Diff",fSize=13
+	Button AvgDiffButton, win =twoP_Controls, disable=able
+	PopupMenu StackDiffPopMenu1, win =twoP_Controls,pos={58.00,518.00},size={20.00,20.00},proc=NQ_StacksSetDiffPopMenuProc
+	PopupMenu StackDiffPopMenu1, win =twoP_Controls,mode=0,value=#"GUIPListWavesbyNoteKey (\"root:twoP_Scans:\" + root:packages:twoP:examine:curScan, \"ProjType\", \"*\", 0,  \"\\\\M1(No Projections\", listSepStr=\"\\r\", keySepStr=\":\")"
+	PopupMenu StackDiffPopMenu1, win =twoP_Controls, disable=able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","Button AvgDiffButton 0;PopupMenu StackDiffPopMenu1 0;PopupMenu StackDiffPopMenu2 0;",applyAbleState=0)
+	SetVariable StacksDiff1Setvar, win =twoP_Controls,pos={80.00,519.00},size={94.00,18.00},title=" "
+	SetVariable StacksDiff1Setvar, win =twoP_Controls,fSize=12,frame=0
+	SetVariable StacksDiff1Setvar, win =twoP_Controls,value=root:Packages:twoP:examine:ProjDiff1,noedit=1
+	SetVariable StacksDiff1Setvar, win =twoP_Controls,disable=able
+	PopupMenu StackDiffPopMenu2, win =twoP_Controls,pos={188.00,518.00},size={42.00,20.00},proc=NQ_StacksSetDiffPopMenuProc
+	PopupMenu StackDiffPopMenu2, win =twoP_Controls,title="-"
+	PopupMenu StackDiffPopMenu2, win =twoP_Controls,mode=0,value=#"GUIPListWavesbyNoteKey (\"root:twoP_Scans:\" + root:packages:twoP:examine:curScan, \"ProjType\", \"*\", 0,  \"\\\\M1(No Projections\", listSepStr=\"\\r\", keySepStr=\":\")"
+	PopupMenu StackDiffPopMenu2, win =twoP_Controls,disable=able
+	SetVariable StacksDiff2Setvar, win =twoP_Controls,pos={233.00,519.00},size={96.00,18.00},title=" "
+	SetVariable StacksDiff2Setvar, win =twoP_Controls,fSize=12,frame=0
+	SetVariable StacksDiff2Setvar, win =twoP_Controls,value=root:Packages:twoP:examine:ProjDiff2,noedit=1
+	SetVariable StacksDiff2Setvar, win =twoP_Controls,disable=able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","SetVariable StacksDiff1Setvar 0;SetVariable StacksDiff2Setvar 0;",applyAbleState=0)
 	// filering
-	GroupBox FilterGroup, win =twoP_Controls,disable =1,pos={7,528},size={276,66},title="Spatial Filtering"
-	GroupBox FilterGroup,win =twoP_Controls,frame=0
-	PopupMenu FilterTypePopUp,win =twoP_Controls, disable =1,pos={8,544},size={94,20},title="Type"
-	PopupMenu FilterTypePopUp,win =twoP_Controls,mode=2,popvalue="Median",value= #"\"Gaus;Median;Hybrid Median(5x5)\""
-	PopupMenu FilterWidthPopUp, win =twoP_Controls,disable =1,pos={178,545},size={54,20},title="Wid"
-	PopupMenu FilterWidthPopUp,win =twoP_Controls,mode=1,popvalue="3",value= #"\"3;5;7;9;11;13;15;\""
-	PopupMenu FilterPassesPopUp,win =twoP_Controls, disable =1,pos={237,546},size={43,20},title="X"
-	PopupMenu FilterPassesPopUp,win =twoP_Controls,mode=1,popvalue="1",value= #"\"1;2;3;4;5\""
-	CheckBox FIltNewScanCheck,win =twoP_Controls, disable =1,pos={9,573},size={60,14},title="New Scan"
-	CheckBox FIltNewScanCheck, win =twoP_Controls, help={"If checked, a filtered wave will be placed in a new scan folder with the given name, else the original wave will be overwritten"}
-	CheckBox FIltNewScanCheck,win =twoP_Controls,value= 1
-	SetVariable StacksfiltOutNameSetvar, win =twoP_Controls,disable =1,pos={80,573},size={115,15},title="name"
-	SetVariable StacksfiltOutNameSetvar,win =twoP_Controls,value= root:packages:twoP:examine:FiltOutName
-	Button FilterButton,win =twoP_Controls, disable =1,pos={228,571},size={52,18},proc=NQ_FilterButtonProc,title="Filter"
+	GroupBox FilterGroup, win =twoP_Controls,pos={7.00,548.00},size={326.00,74.00}
+	GroupBox FilterGroup, win =twoP_Controls,title="Spatial Filtering",fSize=12,frame=0
+	GroupBox FilterGroup, win =twoP_Controls,disable=able
+	Button FilterButton, win =twoP_Controls,pos={12.00,566.00},size={52.00,20.00},proc=NQ_FilterButtonProc
+	Button FilterButton, win =twoP_Controls,title="Filter"
+	Button FilterButton, win =twoP_Controls,disable=able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","GroupBox FilterGroup 0;Button FilterButton 0;",applyAbleState=0)
+	PopupMenu FilterTypePopUp, win =twoP_Controls,pos={72.00,565.00},size={108.00,20.00},title="Type",fSize=12
+	PopupMenu FilterTypePopUp, win =twoP_Controls,mode=2,popvalue="Median",value=#"\"Gaus;Median;\""
+	PopupMenu FilterTypePopUp, win =twoP_Controls,disable=able
+	PopupMenu FilterWidthPopUp, win =twoP_Controls,pos={186.00,564.00},size={80.00,20.00}
+	PopupMenu FilterWidthPopUp, win =twoP_Controls,title="Width",fSize=12
+	PopupMenu FilterWidthPopUp, win =twoP_Controls,mode=1,popvalue="3",value=#"\"3;5;7;9;11;13;15;\""
+	PopupMenu FilterWidthPopUp, win =twoP_Controls,disable=able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","PopupMenu FilterTypePopUp 0;PopupMenu FilterWidthPopUp 0;",applyAbleState=0)
+	PopupMenu FilterPassesPopUp, win =twoP_Controls,pos={272.00,565.00},size={53.00,20.00},title="X"
+	PopupMenu FilterPassesPopUp, win =twoP_Controls,mode=1,popvalue="1",value=#"\"1;2;3;4;5\"",fSize=12
+	PopupMenu FilterPassesPopUp, win =twoP_Controls,disable=able
+	CheckBox FIltNewScanCheck, win =twoP_Controls,pos={11.00,593.00},size={74.00,16.00}
+	CheckBox FIltNewScanCheck, win =twoP_Controls,title="New Scan"
+	CheckBox FIltNewScanCheck, win =twoP_Controls,help={"If checked, a filtered wave will be placed in a new scan folder with the given name, else the original wave will be overwritten"}
+	CheckBox FIltNewScanCheck, win =twoP_Controls,fSize=12,value=1
+	CheckBox FIltNewScanCheck, disable=able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","PopupMenu FilterPassesPopUp 0;CheckBox FIltNewScanCheck 0;",applyAbleState=0)
+	SetVariable StacksfiltOutNameSetvar, win =twoP_Controls,pos={89.00,592.00},size={175.00,18.00}
+	SetVariable StacksfiltOutNameSetvar, win =twoP_Controls,value=root:Packages:twoP:examine:FiltOutName
+	SetVariable StacksfiltOutNameSetvar, win =twoP_Controls,title="name",fSize=12
+	SetVariable StacksfiltOutNameSetvar, win =twoP_Controls,disable=able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","SetVariable StacksfiltOutNameSetvar 0;",applyAbleState=0)
 	// 3D slicer
-	Button ThreeDSliceButton, win =twoP_Controls,disable =1,pos={9,599},size={64,20},proc=NQ_3DslicerProc,title="3D-Slicer"
-	Button ThreeDSliceButton,win =twoP_Controls,fSize=12
-	// Add "Stacks" controls to dataBase
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","Checkbox StacksCheck1 0;Checkbox StacksCheck2 0;Checkbox StacksCheck4 0;groupbox ProjectionsGroup 0;",applyAbleState=0)
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","Button ProjectImageButton 0;Setvariable StacksProjStartSetvariable 0;Setvariable StacksProjEndSetvariable 0;",applyAbleState=0)
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","Checkbox StacksAvgCheck 0;Checkbox StacksAvgCheck 0;Checkbox StacksMaxCheck 0;Button AvgDiffButton 0;",applyAbleState=0)
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","Popupmenu StackDiffPopMenu1 0;Setvariable StacksDiff1Setvar 0;Popupmenu StackDiffPopMenu2 0;",applyAbleState=0)
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","Setvariable StacksDiff2Setvar 0;Setvariable StacksOutNameSetvar 0;Popupmenu DisplayProjsPopMenu 0;",applyAbleState=0)
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","Groupbox FilterGroup 0;Popupmenu FilterTypePopUp 0;Popupmenu FilterWidthPopUp 0;",applyAbleState=0)
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","Popupmenu FilterPassesPopUp 0;Checkbox FIltNewScanCheck 0;Setvariable StacksfiltOutNameSetvar 0;",applyAbleState=0)
-	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","Button FilterButton 0;Button ThreeDSliceButton 0;")
+	Button ThreeDSliceButton,win =twoP_Controls,pos={10.00,629.00},size={64.00,20.00},proc=NQ_3DslicerProc
+	Button ThreeDSliceButton,win =twoP_Controls,title="3D-Slicer",fSize=12
+	Button ThreeDSliceButton,win =twoP_Controls,disable=able
+	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "Stacks","Button ThreeDSliceButton 0;",applyAbleState=0)
 end
+
+
+
+// ***********************************************************************************
+// sets channel tto project or filter
+// Last Modified: 2025/09/20 by Jamie Boyd
+Function twoP_StacksChansPopMenuProc(pa) : PopupMenuControl
+	STRUCT WMPopupAction &pa
+
+	switch( pa.eventCode )
+		case 2: // mouse up
+			SVAR theChan = root:Packages:twoP:examine:StacksSelChan
+			theChan = pa.popStr
+			break
+		case -1: // control being killed
+			break
+	endswitch
+	return 0
+End
+
+
+//****************************************************************************************************
+// Lists channels for stacks, marking with checkmarks ones already displayed
+// Last Modified: 2025/09/20 by Jamie Boyd
+function/S twoP_StacksListChans()
+	SVAR curScan = root:packages:twoP:examine:curScan
+	SVAR/Z scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
+	if (SVAR_EXISTS(scanStr))
+		string chanList = StringByKey("imChanDesc", scanStr, ":", "\r")
+		SVAR selChans = root:packages:twoP:examine:StacksSelChans
+		variable iChan, nChans = itemsInList(chanList, ",")
+		string aChan, outList = ""
+		for (iChan =0; iChan < nChans; iChan += 1)
+			aChan = stringfromlist (iChan, chanList, ",")
+				if (FindListItem(aChan, selChans, ",") > -1)
+					outList += "\\M1!"  +num2char(18)
+				endif
+				outList += aChan + ";"
+		endfor
+		return outList
+	else
+		return ""
+	endif
+end
+
 
 //******************************************************************************************************
 // Sets the default name for a filtered stack from the name of the current scan + "_f"
@@ -103,37 +186,6 @@ Function NQexStacks_Update()
 	projOutName = curScan + "_proj"
 end
 
-//******************************************************************************************************
-//Manages the channel selection radio buttons, setting a global variable to process either channel, or both channels/merged channel as appropriate
-// Last Modified Jul 27 2010 by Jamie Boyd
-Function NQ_stacksChanCheckProc(cba) : CheckBoxControl
-	STRUCT WMCheckboxAction &cba
-
-	switch( cba.eventCode )
-		case 2: // mouse up
-			string tStr = cba.ctrlName 
-			variable chan= str2num (tStr[strlen (tStr)-1])
-			NVAR stackChan = root:packages:twoP:examine:StackChan
-			if (cba.checked)
-				SVAR curScan = root:packages:twoP:examine:curScan
-				if (cmpStr (curScan, "LiveWave") == 0)
-					SVAR scanStr =root:packages:twoP:Acquire:LiveModeScanStr
-				else
-					SVAR scanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
-				endif
-				variable imChans = numberbykey ("imChans", scanStr, ":", "\r")
-				if (((chan ==4) && (imChans < 3)) || ((chan < 4) && ((chan & imChans) == 0)))
-					checkBox $cba.ctrlName win=twoP_Controls,  value = 0
-				else
-					stackChan += chan
-				endif
-			else
-				stackChan -= chan
-			endif
-			break
-	endswitch
-	return 0
-End
 
 //******************************************************************************************************
 // If shift key is pressed, sets the first or last frame for a projection image to the current frame position on the frames slider
@@ -164,37 +216,22 @@ Function NQ_ProjectImageProc(ba) : ButtonControl
 		case 2: // mouse up
 	
 			SVAR CurScan = root:Packages:twoP:examine:curScan
-			if (cmpStr (curScan, "LiveWave") == 0)
-				doalert 0, "This function only works with a Time Series or a Z-stack."
-				return 1
-			endif
-			SVAR scanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
-			variable mode = numberbykey ("Mode", scanStr, ":", "\r")
-			if (!((mode == kZSeries) || (mode == kTimeSeries)))
+			SVAR infoString = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
+			variable scanMode = NumberByKey("Mode", infoString, ":", "\r")
+			if (!((scanMode == kTimeSeries) || (scanMode == kZseries)))
 				doalert 0, "This function only works with a Time Series or a Z-stack."
 				return 1
 			endif
 			// Check what to do
-			NVAR stackChan = root:packages:twoP:examine:StackChan
+			SVAR projChan = root:Packages:twoP:examine:StacksSelChan
 			NVAR startFrame = root:packages:twoP:examine:ProjStartFrame
 			NVAR endFrame = root:packages:twoP:examine:ProjEndFrame
 			SVAR outName = root:packages:twoP:examine:ProjOutName
 			outName = cleanUpName (outName, 0)
-			variable isMax
-			controlinfo /w=twoP_Controls StacksMaxCheck
-			if (V_Value ==1)
-				isMax = 1
-			else
-				controlinfo /w=twoP_Controls StacksAvgCheck
-				if (V_Value ==1)
-					isMax =0
-				else
-					doAlert 0, "Neither Average nor Maximum selected for projection."
-					return 1
-				endif
-			endif
+			NVAR isMax = root:packages:twoP:examine:ProjMode // 0 = avg, 1=max
+
 			// Check that first and last frames are within range
-			variable numFrames = numberbykey ("NumFrames", scanStr, ":", "\r")
+			variable numFrames = numberbykey ("NumFrames", infoString, ":", "\r")
 			if (endFrame >= numFrames)
 				endFrame = numFrames -1
 			endif
@@ -205,38 +242,28 @@ Function NQ_ProjectImageProc(ba) : ButtonControl
 				doAlert 0, "Last Frame must be greater than First Frame."
 				return 0
 			endif
-			// do the projection channel by channel
-			STRUCT WMPopupAction pa
-			pa.eventCode = 2
-			variable ichan, ii
-			string chanStr, outWaveName
-			for (iChan =1; iChan < 3; iChan += 1)
-				if (((stackChan & iChan) == 0) && ((stackChan & 4) == 0))
-					continue
-				endif
-				chanStr =  "_ch" + num2str (iChan)
-				WAVE scanWave = $"root:twoP_Scans:" + curScan + ":" + curScan + chanStr
-				// make a 2D image wave to hold results of project image
-				outWaveName =  outName + chanStr
-				if (waveExists ( $"root:twoP_Scans:" + CurScan + ":" + outWaveName))
-					for (ii =1; waveExists ( $"root:twoP_Scans:" + CurScan + ":" + outWaveName + num2str (ii)); ii+=1)
-					endfor
-					outWaveName +=num2str (ii)
-				endif
-				make/o/y=(wavetype (scanWave))/n= ((dimsize (scanWave,0)), (dimsize (scanWave, 1))) $"root:twoP_Scans:" + curScan + ":" + outWaveName
-				WAVE projWave =$"root:twoP_Scans:" + curScan + ":" + outWaveName
-				SetScale/P x (dimOffset (scanWave, 0)), (dimDelta (scanWave, 0)), "m", projWave
-				SetScale/P Y (dimOffset (scanWave, 1)), (dimDelta (scanWave, 1)), "m", projWave
-				if (isMax)
-					ProjectSpecFrames (scanWave, startFrame, endFrame, projwave, 0, 2, 0)//^^
-					note projWave "ProjType:Max\rstartFrame:" + num2str (startFrame) + "\r" + "endFrame:" + num2str (endFrame) + "\r"
-				else
-					KalmanSpecFrames (scanWave, startframe, endframe, projwave, 0,16)
-					note projWave "ProjType:Avg\rstartFrame:" + num2str (startFrame) + "\r" + "endFrame:" + num2str (endFrame) + "\r"
-				endif
-				pa.popStr = nameofwave (projWave)
-				NQ_DisplayProjectImProc (pa) 
-			endfor
+			string outWaveName = outName + "_" +  num2str(startFrame) + "_" +  num2str (endFrame) + "_" + projChan
+			WAVE scanWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + projChan
+			// make a 2D image wave to hold results of project image
+			make/o/y=(wavetype (scanWave))/n= ((dimsize (scanWave,0)), (dimsize (scanWave, 1))) $"root:twoP_Scans:" + curScan + ":" + outWaveName
+			WAVE projWave =$"root:twoP_Scans:" + curScan + ":" + outWaveName
+			SetScale/P x (dimOffset (scanWave, 0)), (dimDelta (scanWave, 0)), "m", projWave
+			SetScale/P Y (dimOffset (scanWave, 1)), (dimDelta (scanWave, 1)), "m", projWave
+			if (isMax)
+				ProjectSpecFrames (scanWave, startFrame, endFrame, projwave, 0, 2, 0)
+				note projWave "ProjType:Max\rstartFrame:" + num2str (startFrame) + "\r" + "endFrame:" + num2str (endFrame) + "\r"
+			else
+				KalmanSpecFrames (scanWave, startframe, endframe, projwave, 0,16)
+				note projWave "ProjType:Avg\rstartFrame:" + num2str (startFrame) + "\r" + "endFrame:" + num2str (endFrame) + "\r"
+			endif
+
+			break
+	endSwitch
+	return 0
+end
+
+
+
 			// also make a red green merge
 			if (stackChan & 4) 
 				outWaveName = outName +  "_mrg" 
@@ -379,38 +406,15 @@ end
 // Last Modified 2016/10/28 by Jamie Boyd
 Function NQ_FilterButtonProc(ba) : ButtonControl
 	STRUCT WMbuttonAction &ba
-	
+
 	switch( ba.eventCode )
 		case 2: // mouse up
-	
+
 			SVAR curScan = root:packages:twoP:examine:curScan
-			if (cmpStr (curScan, "LiveWave") == 0)
-				SVAR infoStr =root:packages:twoP:Acquire:LiveModeScanStr
-			else
-				SVAR infoStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
-			endif
-			variable mode = NumberByKey("Mode", infoStr, ":", "\r")
-			NVAR stackChan = root:packages:twoP:examine:StackChan
-			variable imChans = numberbykey ("imChans", infoStr, ":", "\r")
-			SVAR outputFolderG = root:packages:twoP:examine:filtOutName
-			string outPutFolder
-			controlinfo/w=twoP_Controls FIltNewScanCheck
-			variable isNewScan = V_Value
-			if (isNewScan)
-				outPutFolderG = CleanupName(outPutFolderG, 0 )
-				outPutFolder = outPutFolderG
-				if (dataFolderExists ("root:twoP_Scans:" + outputFolder))
-					doAlert 1, "A scan with the name \"" + outputFolder + "\"  already exists. Overwrite it?"
-					if (V_Flag == 2) // No was clicked
-						return 1
-					endif
-				endif
-				newdatafolder/o $"root:twoP_scans:" + outputFolder
-				String/G $"root:twoP_Scans:" + outputFolder + ":" + outputFolder + "_info" = infoStr
-				SVAR newInfoStr = $"root:twoP_Scans:" + outputFolder + ":" + outputFolder + "_info"
-			else
-				outPutFolder = curScan
-			endif
+			SVAR infoStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
+			//variable mode = NumberByKey("Mode", infoStr, ":", "\r")
+			SVAR selChan = root:Packages:twoP:examine:StacksSelChan
+			WAVE Scanwave =  $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_" + selChan
 			// read controls
 			controlinfo /W= twoP_Controls FilterWidthPopUp
 			variable width = str2num (S_value)
@@ -418,65 +422,43 @@ Function NQ_FilterButtonProc(ba) : ButtonControl
 			variable passes = str2num (s_value)
 			controlinfo /W= twoP_Controls FilterTypePopUp
 			string filterType = S_Value
-			variable ii, newImChans =0
 			string outputpath
-			for (ii=1; ii < 3; ii +=1)
-				if ((imChans & ii) && (stackChan & ii))
-					WAVE thewave =  $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_ch" + num2str (ii)
-					if (isNewScan ==0)
-						outputpath = GetWavesDataFolder(theWave, 2)
-						
-					else
-						outputpath = "root:twoP_Scans:" + outputFolder + ":" + outputFolder + "_ch" + num2str (ii)
-						newImChans += ii
-					endif
-					strswitch (filterType)
-						case "Gaus":
-							NQ_GausConvolve (theWave, passes, width, outputpath)
-							break
-						case "Median":
-							NQ_Median (theWave, passes, width, outputPath)
-							break
-						case "Hybrid Median (5x5)":
-							if (isNewScan ==0)
-								WAVE outWave = thewave
-							else
-								make/o/y= (wavetype (thewave))/n = (dimsize (thewave, 0), dimsize (thewave, 1), dimsize (thewave, 2)) $outputpath
-								WAVE outWave = $outputpath
-							endif
-							NQ_HybridMedian (theWave, passes, outWave)
-							break
-					endswitch
-					WAVE outWave = $outputpath
-					SetScale/P x,  (dimOffset(theWave, 0)), (dimDelta (theWave, 0)), "m", outwave
-					SetScale/P y,  (dimOffset(theWave, 1)), (dimDelta (theWave, 1)), "m", outwave
-					SetScale/P z,  (dimOffset(theWave, 2)), (dimDelta (theWave, 1)), "m", outwave
-					Note outwave note (theWave)
-				endif
-			endfor
-			// show user what we did
+			controlinfo/w=twoP_Controls FIltNewScanCheck
+			variable isNewScan = V_Value
 			if (isNewScan)
-				STRUCT WMPopupAction pa
-				pa.eventCode = 2
-				pa.popStr = outputFolder
-				twoP_ScanPopMenuProc (pa)
-				// also correct imchan, if needed
-				newInfoStr = ReplaceNumberByKey("imChans", newInfoStr, newImChans, ":", "\r") 
-				// copy ePhys
-				variable ephysChans = NumberByKey("ephys", newInfoStr, ":", "\r" )
-				for (ii =1; ii < 3; ii += 1)
-					if (ePhysChans & ii)
-						WAVE ePhysWave  =   $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_ep" + num2str (ii)
-						duplicate/o ePhysWave  $"root:twoP_Scans:" + outputFolder + ":" + outputFolder + "_ep" + num2str (ii)
-					endif
-				endfor
-			elseif ((mode == kZSeries) || (mode == kTimeSeries)) // call movie procedure for 3D scans
-				NVAR curFramePos = root:packages:twoP:examine:curFramePos
-				STRUCT WMSliderAction sa
-				sa.eventcode =1
-				sa.curVal = curFramePos
-				twoP_MovieDisplayFrame(sa)				
+				SVAR outputFolder = root:packages:twoP:examine:filtOutName
+				outPutFolder = CleanupName(outPutFolder, 0)
+				outputpath = "root:twoP_Scans:" + outputFolder + ":" + outputFolder + "_" + selChan
+				DFREF folderRef = root:twoP_scans:$outputFolder
+				if (!(DataFolderRefStatus(folderRef)))
+					newdatafolder/o $"root:twoP_scans:" + outputFolder
+					DFREF folderRef = root:twoP_scans:$outputFolder
+					String/G $"root:twoP_Scans:" + outputFolder + ":" + outputFolder + "_info" = infoStr
+					variable iWave, nWaves = CountObjectsDFR(folderRef, 1 )
+					for (iWave =0; iWave < nWaves; iWave +=1)
+						WAVE aWave = $"root:twoP_scans:" + curScan + ":" + GetIndexedObjNameDFR(folderRef, 1, iWave)
+						if (!(WaveRefsEqual(aWave , Scanwave)))
+							duplicate/o aWave $"root:twoP_scans:" + outputFolder + ":" + GetIndexedObjNameDFR(folderRef, 1, iWave)
+						endif
+					endfor
+				endif
+			else
+				outputpath = "root:twoP_Scans:" + curScan + ":" + curScan + "_" + selChan
 			endif
+
+			strswitch (filterType)
+				case "Gaus":
+					NQ_GausConvolve (Scanwave, passes, width, outputpath)
+					break
+				case "Median":
+					NQ_Median (Scanwave, passes, width, outputPath)
+					break
+			endswitch
+			WAVE outWave = $outputpath
+			SetScale/P x,  (dimOffset(Scanwave, 0)), (dimDelta (Scanwave, 0)), "m", outwave
+			SetScale/P y,  (dimOffset(Scanwave, 1)), (dimDelta (Scanwave, 1)), "m", outwave
+			SetScale/P z,  (dimOffset(Scanwave, 2)), (dimDelta (Scanwave, 2)), "m", outwave
+			Note outwave note (Scanwave)
 			break
 	endswitch
 end

@@ -18,7 +18,7 @@ Constant kZSeries = 4
 Constant kePhysOnly = 5
 COnstant kMultiAq = 6
 // bit width of images, used when making displays for histograms and slider, etc.
-// either 12 for old school PCI boards or 16 for some new PCIe boards
+// either 12 for old school PCI boards or 16 for some new PCIe boards 
 constant kNQimageBits = 12
 // Tabs on examine tab control at startup
 strConstant kNQexTabList = "export;stacks;fourD;ROI;"
@@ -39,7 +39,7 @@ Menu "Macros"
 			"Remove a Tab from the Examine TabControl",/Q, twoP_ExamineRemoveTab ()
 		end
 	end
-End
+End 
 
 //******************************************************************************************************
 // Graph Marquee functions to do useful things on the scan graph
@@ -3242,7 +3242,7 @@ end
 
 
 //******************************************************************************************************
-// This little function returns the full path to the current scan for channel 2
+// This little function returns the full path to the current scan for given channel
 Function/S sChan (chan)
 	string chan
 	SVAR curScan = root:packages:twoP:examine:curScan
