@@ -761,13 +761,13 @@ Function twoP_ScanAdjustExamineControls (curScan)
 	// Change the info displayed about the current scan
 	twoP_ScanShowNote ("root:twoP_Scans:" + curScan + ":" + curScan + "_info")
 	TitleBox DateTimeTitleBox Win=twoP_Controls, title =  secs2date(numberbykey("ExpTime", ScanStr, ":", "\r"),0) + " " + secs2Time(numberbykey("ExpTime",ScanStr, ":", "\r"),1)
-	string ChanTitleStr = "Chans:" 
+	string ChanTitleStr = "" 
 	string scanChans = StringByKey("ImChanDesc", scanStr, ":", "\r")
 	variable iChan, nChans = ItemsInList(scanChans, ",")
 	if (nChans > 0)
-		ChanTitleStr += " Image:"
+		ChanTitleStr += "Img:"
 		for (iChan =0; iChan < nChans; iChan +=1)
-			ChanTitleStr += stringFromList(iChan, scanChans, ",") + "; "
+			ChanTitleStr += stringFromList(iChan, scanChans, ",") + ", "
 		endfor
 	endif
 	string ePhysChans = StringByKey("ePhysChanDesc", scanStr, ":", "\r")
@@ -775,7 +775,7 @@ Function twoP_ScanAdjustExamineControls (curScan)
 	if (nChans > 0)
 		ChanTitleStr += " ePhys:"
 		for (iChan =0; iChan < nChans; iChan +=1)
-			ChanTitleStr += stringFromList(iChan, ePhysChans, ",") + "; "
+			ChanTitleStr += stringFromList(iChan, ePhysChans, ",") + ", "
 		endfor
 	endif
 	TitleBox ChannnelsTitleBox Win=twoP_Controls, title = ChanTitleStr

@@ -224,6 +224,10 @@ Function NQ_ProjectImageProc(ba) : ButtonControl
 			endif
 			// Check what to do
 			SVAR projChan = root:Packages:twoP:examine:StacksSelChan
+			if (cmpstr (projChan, "") ==0)
+				doAlert 0, "First choose a channel to for which to make the projection."
+				return 1
+			endif
 			NVAR startFrame = root:packages:twoP:examine:ProjStartFrame
 			NVAR endFrame = root:packages:twoP:examine:ProjEndFrame
 			SVAR outName = root:packages:twoP:examine:ProjOutName
@@ -424,23 +428,33 @@ Function NQ_FilterButtonProc(ba) : ButtonControl
 			string filterType = S_Value
 			string outputpath
 			controlinfo/w=twoP_Controls FIltNewScanCheck
+			string copyName
 			variable isNewScan = V_Value
 			if (isNewScan)
 				SVAR outputFolder = root:packages:twoP:examine:filtOutName
 				outPutFolder = CleanupName(outPutFolder, 0)
 				outputpath = "root:twoP_Scans:" + outputFolder + ":" + outputFolder + "_" + selChan
-				DFREF folderRef = root:twoP_scans:$outputFolder
-				if (!(DataFolderRefStatus(folderRef)))
+				DFREF tofolderRef = $"root:twoP_Scans:" + outputFolder
+				DFREF fromfolderRef = $"root:twoP_Scans:" + curScan
+				if (!(DataFolderRefStatus(tofolderRef)))
 					newdatafolder/o $"root:twoP_scans:" + outputFolder
-					DFREF folderRef = root:twoP_scans:$outputFolder
+					DFREF tofolderRef = root:twoP_scans:$outputFolder
 					String/G $"root:twoP_Scans:" + outputFolder + ":" + outputFolder + "_info" = infoStr
-					variable iWave, nWaves = CountObjectsDFR(folderRef, 1 )
+					variable iWave, nWaves = CountObjectsDFR(fromfolderRef, 1 )
 					for (iWave =0; iWave < nWaves; iWave +=1)
-						WAVE aWave = $"root:twoP_scans:" + curScan + ":" + GetIndexedObjNameDFR(folderRef, 1, iWave)
+						copyName =GetIndexedObjNameDFR(fromfolderRef, 1, iWave)
+						WAVE aWave = $"root:twoP_scans:" + curScan + ":" + copyName
 						if (!(WaveRefsEqual(aWave , Scanwave)))
-							duplicate/o aWave $"root:twoP_scans:" + outputFolder + ":" + GetIndexedObjNameDFR(folderRef, 1, iWave)
+							copyName=replacestring (curScan,copyName, outPutFolder)
+							duplicate/o aWave $"root:twoP_scans:" + outputFolder + ":" + copyName
 						endif
 					endfor
+				else
+					WAVE toWave=$outputpath
+					if (waveexists (toWave))
+						fastop toWave = Scanwave
+						WAVE Scanwave = toWave
+					endif
 				endif
 			else
 				outputpath = "root:twoP_Scans:" + curScan + ":" + curScan + "_" + selChan
