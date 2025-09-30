@@ -1,6 +1,6 @@
 #pragma rtGlobals=3
 #pragma IgorVersion = 6.2
-#pragma version = 2.1  // Last Modified: 2025/08/13 by Jamie Boyd
+#pragma version = 2.1  // Last Modified: 2025/09/29 by Jamie Boyd
 
 #include <SaveRestoreWindowCoords>
 #include "twoP_ExConstants"
@@ -1234,16 +1234,15 @@ Function twoP_ImGraphNew (curScan)
 	endfor
 	GUIPSubWin_Display (us)
 	// resize default control panel
-	MoveSubWindow /W=twoPscanGraph#controlPanel fnum=(0, 164, 505, 0 )
+	MoveSubWindow /W=twoPscanGraph#controlPanel fnum=(0, 90, 505, 0 )
 	// Move subwin built-in controls
-	GroupBox SubWinGroup win=twoPscanGraph#controlPanel,pos={363.00,29.00},size={143.00,136.00}
-	PopupMenu arrangePopup win=twoPscanGraph#controlPanel,pos={365.00,41.00}
-	PopupMenu arrangePopup win=twoPscanGraph#controlPanel,popValue=Num2Str(us.nCols) + "Cols x " + num2Str (us.nRows) +"Rows"
-	PopupMenu SetResizePopMenu win=twoPscanGraph#controlPanel,pos={388.00,67.00}
-	PopupMenu SetResizePopMenu win=twoPscanGraph#controlPanel,popvalue=selectString (us.reSizeByWidth, "by Height", "by Width")
-	Button fullScaleButton win=twoPscanGraph#controlPanel,pos={439.00,92.00}
+	GroupBox SubWinGroup win=twoPscanGraph#controlPanel,pos={362.00,30.00},size={143.00,63.00}
+	PopupMenu arrangePopup win=twoPscanGraph#controlPanel,pos={365.00,32.00},size={157.00,19.00}
+	PopupMenu SetResizePopMenu win=twoPscanGraph#controlPanel,pos={366.00,50.00},size={111.00,19.00},bodyWidth=76
+	Button fullScaleButton win=twoPscanGraph#controlPanel, pos={418.00,70.00},size={60.00,20.00}
 	// show axes
-	CheckBox showAxesCheck win=twoPscanGraph#controlPanel, pos={392.00,94.00}, title= "Axes", proc=twoP_imGraphShowAxesProc
+	CheckBox showAxesCheck win=twoPscanGraph#controlPanel,pos={371.00,72.00},size={41.00,15.00},proc=twoP_imGraphShowAxesProc
+	CheckBox showAxesCheck win=twoPscanGraph#controlPanel,title="Axes",value=0
 	// select channel
 	GroupBox chanGroup win=twoPscanGraph#controlPanel,pos={1.00,1.00},size={505.00,32.00}
 	PopupMenu ScanChansPopmenu win=twoPscanGraph#controlPanel,pos={4.00,8.00},size={60.00,19.00},bodyWidth=60,proc=twoP_imGraphChansPopMenuProc
@@ -1270,59 +1269,27 @@ Function twoP_ImGraphNew (curScan)
 	TitleBox BlueChanTitle win=twoPscanGraph#controlPanel,pos={418.00,9.00},size={27.00,15.00},frame=0,fSize=12
 	TitleBox BlueChanTitle win=twoPscanGraph#controlPanel,variable=root:Packages:twoP:examine:RGB_BlueChan
 	// LUT
-	GroupBox LUTGroup win=twoPscanGraph#controlPanel,pos={1.00,29.00},size={364.00,136.00}
+	GroupBox LUTGroup win=twoPscanGraph#controlPanel,pos={0.00,30.00},size={364.00,63.00}
 	PopupMenu LUTchanMenu win=twoPscanGraph#controlPanel,pos={4.00,34.00},size={52.00, 20.00},bodyWidth=52, proc=twoP_LUTchanPopMenuProc
 	PopupMenu LUTchanMenu win=twoPscanGraph#controlPanel,title="LUT",fSize=12
 	PopupMenu LUTchanMenu win=twoPscanGraph#controlPanel,mode=0,value=#"twoP_imGraphListDisplayedChans()"
 	TitleBox LUTchanTitle win=twoPscanGraph#controlPanel,pos={63.00,34.00},size={23.00,19.00},fSize=14,frame=0
 	TitleBox LUTchanTitle win=twoPscanGraph#controlPanel,fStyle=1,variable=root:Packages:twoP:examine:LUTChan
-	PopupMenu LUTpopUp win=twoPscanGraph#controlPanel,pos={102.00,33.00},size={167.00,19.00},bodyWidth=167,proc=twoP_LUTPopMenuProc
-	PopupMenu LUTpopUp win=twoPscanGraph#controlPanel,fSize=12,mode=1,value=#"\"*COLORTABLEPOPNONAMES*\""
-	CheckBox LUTInvertCheck win=twoPscanGraph#controlPanel,pos={275.00,35.00},size={46.00,15.00},proc=twoP_LUTInvertCheckProc
-	CheckBox LUTInvertCheck win=twoPscanGraph#controlPanel,title="Invert",fSize=12
-	CheckBox LUTInvertCheck win=twoPscanGraph#controlPanel,variable=root:Packages:twoP:examine:Ch1LUTInvert
 	// first last
-	CheckBox LUTautoCheck win=twoPscanGraph#controlPanel,pos={6.00,59.00},size={40.00,15.00},proc=twoP_LUTAutoCheckProc
-	CheckBox LUTautoCheck win=twoPscanGraph#controlPanel,title="auto",fSize=12
-	CheckBox LUTautoCheck win=twoPscanGraph#controlPanel,variable=root:Packages:twoP:examine:ch1LUTauto
-	SetVariable LUTFirstValueSetVar win=twoPscanGraph#controlPanel,pos={55.00,57.00},size={86.00,18.00},proc=twoP_LUTValsSetVarProc
+	SetVariable LUTFirstValueSetVar win=twoPscanGraph#controlPanel,pos={100.00,35.00},size={86.00,18.00},proc=twoP_LUTValsSetVarProc
 	SetVariable LUTFirstValueSetVar win=twoPscanGraph#controlPanel,title="First",fSize=12,format="%d"
 	SetVariable LUTFirstValueSetVar win=twoPscanGraph#controlPanel,limits={1,4094,1},value=root:Packages:twoP:examine:Ch1FirstLUTColor
-	SetVariable LUTLastValueSetVar win=twoPscanGraph#controlPanel,pos={142.00,57.00},size={84.00,18.00},proc=twoP_LUTValsSetVarProc
+	SetVariable LUTLastValueSetVar win=twoPscanGraph#controlPanel,pos={187.00,35.00},size={84.00,18.00},proc=twoP_LUTValsSetVarProc
 	SetVariable LUTLastValueSetVar win=twoPscanGraph#controlPanel,title="Last",fSize=12,format="%d"
 	SetVariable LUTLastValueSetVar win=twoPscanGraph#controlPanel,limits={1,4094,1},value=root:Packages:twoP:examine:Ch1LastLUTColor
-	Button LUTtoDataButton win=twoPscanGraph#controlPanel,pos={228.00,55.00},size={50.00,23.00},proc=twoP_LUTtoDataProc
+	Button LUTtoDataButton win=twoPscanGraph#controlPanel,pos={272.00,32.00},size={50.00,23.00},proc=twoP_LUTtoDataProc
 	Button LUTtoDataButton win=twoPscanGraph#controlPanel,title="to Data",fSize=12
-	CheckBox LUT96check win=twoPscanGraph#controlPanel,pos={283.00,59.00},size={38.00,15.00},proc=twoP_LUT96CheckProc
+	CheckBox LUT96check win=twoPscanGraph#controlPanel,pos={324.00,36.00},size={38.00,15.00},proc=twoP_LUT96CheckProc
 	CheckBox LUT96check win=twoPscanGraph#controlPanel,title="96%",fSize=12
 	CheckBox LUT96check win=twoPscanGraph#controlPanel,variable=root:Packages:twoP:examine:Ch1LUTto96
-	// before first
-	TitleBox LUTBeforeFirstTitle win=twoPscanGraph#controlPanel,pos={7.00,82.00},size={84.00,15.00}
-	TitleBox LUTBeforeFirstTitle win=twoPscanGraph#controlPanel,title="Before First Use ",fSize=12,frame=0
-	CheckBox LUTBeforeUseFirstCheck win=twoPscanGraph#controlPanel,pos={95,82.00},size={38.00,15.00},proc=twoP_LUTBeforeModeCheckProc
-	CheckBox LUTBeforeUseFirstCheck win=twoPscanGraph#controlPanel,title="First",fSize=12,value=0,mode=1
-	CheckBox LUTBeforeUseColorCheck win=twoPscanGraph#controlPanel,pos={155.00,82.00},size={14.00,14.00},proc=twoP_LUTBeforeModeCheckProc
-	CheckBox LUTBeforeUseColorCheck win=twoPscanGraph#controlPanel,title="",fSize=12,value=1,mode=1
-	PopupMenu LUTBeforeColorPopUp win=twoPscanGraph#controlPanel,pos={171.00,79.00},size={50.00,19.00},proc=twoP_LUTBeforeColorPopMenuProc
-	PopupMenu LUTBeforeColorPopUp win=twoPscanGraph#controlPanel,fSize=12
-	PopupMenu LUTBeforeColorPopUp win=twoPscanGraph#controlPanel,mode=122,popColor=(0,0,65535),value=#"\"*COLORPOP*\""
-	CheckBox LUTBeforeUseTransCheck win=twoPscanGraph#controlPanel,pos={232.00,82.00},size={77.00,15.00},proc=twoP_LUTBeforeModeCheckProc
-	CheckBox LUTBeforeUseTransCheck win=twoPscanGraph#controlPanel,title="Transparent",fSize=12,value=0,mode=1
-	//after last
-	TitleBox LUTAfterLastTitle win=twoPscanGraph#controlPanel,pos={7.00,101.00},size={72.00,15.00}
-	TitleBox LUTAfterLastTitle win=twoPscanGraph#controlPanel,title="After Last Use",fSize=12,frame=0
-	CheckBox LUTAfterUseLastCheck win=twoPscanGraph#controlPanel,pos={95,101.00},size={37.00,15.00},proc=twoP_LUTAfterModeCheckProc
-	CheckBox LUTAfterUseLastCheck win=twoPscanGraph#controlPanel,title="Last",fSize=12,value=0,mode=1
-	CheckBox LUTAfterUseColorCheck win=twoPscanGraph#controlPanel,pos={155.00,101.00},size={19.00,15.00},proc=twoP_LUTAfterModeCheckProc
-	CheckBox LUTAfterUseColorCheck win=twoPscanGraph#controlPanel,title=" ",value=1,mode=1
-	PopupMenu LUTAfterColorPopUp win=twoPscanGraph#controlPanel,pos={171.00,98.00},size={50.00,19.00},proc=twoP_LUTAfterColorPopMenuProc
-	PopupMenu LUTAfterColorPopUp win=twoPscanGraph#controlPanel,fSize=12
-	PopupMenu LUTAfterColorPopUp win=twoPscanGraph#controlPanel,mode=1,popColor=(65535,0,0),value=#"\"*COLORPOP*\""
-	CheckBox LUTAfterUseTransCheck win=twoPscanGraph#controlPanel,pos={232.00,101.00},size={77.00,15.00},proc=twoP_LUTAfterModeCheckProc
-	CheckBox LUTAfterUseTransCheck win=twoPscanGraph#controlPanel,title="Transparent",fSize=12,value=0,mode=1
 	//LUT slider
-	CustomControl LUTslider win=twoPscanGraph#controlPanel,pos={3.00,129.00},size={353.00,30.00},proc=MinMaxSlider_thumbFunc
-	CustomControl LUTslider win=twoPscanGraph#controlPanel,userdata=A"!!<4n!\"&a.z7=Xe,!!`K(5t&Q$!\"&]5z!ET;'7=Xe,!!!!$"
+	CustomControl LUTslider win=twoPscanGraph#controlPanel,pos={3.00,59.00},size={356.00,33.00},proc=MinMaxSlider_thumbFunc
+	CustomControl LUTslider win=twoPscanGraph#controlPanel,userdata=A"!!<4(!\"&a1z7=Xe,!!`K(5skVP!\"&]5z!EoM-7=Xe,!!!!$"
 	CustomControl LUTslider win=twoPscanGraph#controlPanel,userdata(FUNCSTR)="twoP_LUTSliderAction",frame=0,focusRing=0
 	// Set window hook function
 	SetWindow twoPscanGraph hook (infoHook)= twoP_imGraphHookProc, hookevents = 3
@@ -1445,7 +1412,7 @@ Function twoP_ImGraphRGBCheckProc(cba) : CheckBoxControl
 End
 
 // *************************************************************************
-// sets cahnnels for layers (colours) of RGB wave
+// sets channels for layers (colours) of RGB wave
 // Last Modified 2025/080/13 by Jamie Boyd
 Function twoP_imGraphRGBPopMenuProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
@@ -2342,14 +2309,11 @@ Function twoP_LUTchanPopMenuProc(pa) : PopupMenuControl
 			checkbox LUTautoCheck win=twoP_Controls, variable = $"root:packages:twoP:examine:" + LUTChan + "LUTauto"
 			checkbox LUT96check win=twoP_Controls, variable = $"root:packages:twoP:examine:" + LUTChan + "LUTto96"
 			if (hasScanGraph)
-				popupmenu LUTpopUp win=twoPScanGraph#controlPanel, mode = CTable
-				checkbox LUTInvertCheck win=twoPScanGraph#controlPanel, variable =inVert
-				setvariable LUTFirstValueSetVar win=twoPScanGraph#controlPanel, variable = FirstLUTColor
-				setvariable LUTLastValueSetVar win=twoPScanGraph#controlPanel, variable = LastLutColor
-				MinMaxSlider_Manual ("twoPScanGraph#controlPanel", "LUTslider", kLeftThumb, FirstLUTColor)
-				MinMaxSlider_Manual ("twoPScanGraph#controlPanel", "LUTslider", kRightThumb, LastLutColor)
-				checkbox LUTautoCheck win=twoPScanGraph#controlPanel, variable = $"root:packages:twoP:examine:" + LUTChan + "LUTauto"
-				checkbox LUT96check  win=twoPScanGraph#controlPanel, variable = $"root:packages:twoP:examine:" + LUTChan + "LUTto96"
+				setvariable LUTFirstValueSetVar win=twoPscanGraph#controlPanel, variable = FirstLUTColor
+				setvariable LUTLastValueSetVar win=twoPscanGraph#controlPanel, variable = LastLutColor
+				MinMaxSlider_Manual ("twoPscanGraph#controlPanel", "LUTslider", kLeftThumb, FirstLUTColor)
+				MinMaxSlider_Manual ("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, LastLutColor)
+				checkbox LUT96check  win=twoPscanGraph#controlPanel, variable = $"root:packages:twoP:examine:" + LUTChan + "LUTto96"
 			endif
 
 			// Adjust first color radio buttons and popmenu
@@ -2358,11 +2322,6 @@ Function twoP_LUTchanPopMenuProc(pa) : PopupMenuControl
 					checkbox LUTBeforeUseFirstCheck win=twoP_Controls, value = 1
 					checkbox LUTBeforeUseColorCheck win=twoP_Controls, value = 0
 					checkBox LUTBeforeUseTransCheck  win=twoP_Controls, value = 0
-					if (hasScanGraph)
-						checkbox LUTBeforeUseFirstCheck win=twoPScanGraph#controlPanel, value = 1
-						checkbox LUTBeforeUseColorCheck win=twoPScanGraph#controlPanel, value = 0
-						checkBox LUTBeforeUseTransCheck win=twoPScanGraph#controlPanel, value = 0
-					endif
 					break
 				case 1: // Use selected color
 					checkbox LUTBeforeUseFirstCheck win=twoP_Controls, value = 0
@@ -2372,22 +2331,11 @@ Function twoP_LUTchanPopMenuProc(pa) : PopupMenuControl
 					gColor = str2num (stringFromlist (1, beforeColors, ","))
 					bColor = str2num (stringFromlist (2, beforeColors, ","))
 					popupmenu LUTBeforeColorPopUp win=twoP_Controls, popcolor = (rColor,gColor,bColor)
-					if (hasScanGraph)
-						checkbox LUTBeforeUseFirstCheck win=twoPScanGraph#controlPanel, value = 0
-						checkbox LUTBeforeUseColorCheck win=twoPScanGraph#controlPanel, value = 1
-						checkBox LUTBeforeUseTransCheck win=twoPScanGraph#controlPanel, value = 0
-						popupmenu LUTBeforeColorPopUp  win=twoPScanGraph#controlPanel, popcolor = (rColor,gColor,bColor)
-					endif
 					break
 				case 2: // Use transparent
 					checkbox LUTBeforeUseFirstCheck win=twoP_Controls, value = 0
 					checkbox LUTBeforeUseColorCheck win=twoP_Controls, value = 0
 					checkBox LUTBeforeUseTransCheck  win=twoP_Controls, value = 1
-					if (hasScanGraph)
-						checkbox LUTBeforeUseFirstCheck win=twoPScanGraph#controlPanel, value = 0
-						checkbox LUTBeforeUseColorCheck win=twoPScanGraph#controlPanel, value = 0
-						checkBox LUTBeforeUseTransCheck win=twoPScanGraph#controlPanel, value = 1
-					endif
 					break
 			endSwitch
 				// Adjust Last color radio buttons and popmenu
@@ -2396,11 +2344,6 @@ Function twoP_LUTchanPopMenuProc(pa) : PopupMenuControl
 						checkbox LUTAfterUseLastCheck win=twoP_Controls, value = 1
 						checkbox LUTAfterUseColorCheck win=twoP_Controls, value = 0
 						checkBox LUTAfterUseTransCheck  win=twoP_Controls, value = 0
-						if (hasScanGraph)
-							checkbox LUTAfterUseLastCheck win=twoPScanGraph#controlPanel, value = 1
-							checkbox LUTAfterUseColorCheck win=twoPScanGraph#controlPanel, value = 0
-							checkBox LUTAfterUseTransCheck win=twoPScanGraph#controlPanel, value = 0
-						endif
 						break
 					case 1: // Use selected color
 						checkbox LUTAfterUseLastCheck win=twoP_Controls, value = 0
@@ -2410,22 +2353,11 @@ Function twoP_LUTchanPopMenuProc(pa) : PopupMenuControl
 						gColor = str2num (stringFromlist (1, afterColors, ","))
 						bColor = str2num (stringFromlist (2, afterColors, ","))
 						popupmenu LUTAfterColorPopUp win=twoP_Controls, popcolor = (rColor,gColor,bColor)
-						if (hasScanGraph)
-							checkbox LUTAfterUseLastCheck win=twoPScanGraph#controlPanel, value = 0
-							checkbox LUTAfterUseColorCheck win=twoPScanGraph#controlPanel, value = 1
-							checkBox LUTAfterUseTransCheck  win=twoPScanGraph#controlPanel, value = 0
-							popupmenu LUTAfterColorPopUp win=twoPScanGraph#controlPanel, popcolor = (rColor,gColor,bColor)
-						endif
 						break
 					case 2: // Use transparent
 						checkbox LUTAfterUseLastCheck win=twoP_Controls, value = 0
 						checkbox LUTAfterUseColorCheck win=twoP_Controls, value = 0
 						checkBox LUTAfterUseTransCheck  win=twoP_Controls, value = 1
-						if (hasScanGraph)
-							checkbox LUTAfterUseLastCheck win=twoPScanGraph#controlPanel, value = 0
-							checkbox LUTAfterUseColorCheck win=twoPScanGraph#controlPanel, value = 0
-							checkBox LUTAfterUseTransCheck  win=twoPScanGraph#controlPanel, value = 1
-						endif
 						break
 				endswitch
 			break
@@ -2521,8 +2453,8 @@ Function twoP_LUTValsSetVarProc(sva) : SetVariableControl
 			endif
 			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kLeftThumb, FirstColor)
 			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kRightThumb, LastColor)
-			MinMaxSlider_Manual ("twoPScanGraph#controlPanel", "LUTslider", kLeftThumb, FirstColor)
-			MinMaxSlider_Manual ("twoPScanGraph#controlPanel", "LUTslider", kRightThumb, LastColor)
+			MinMaxSlider_Manual ("twoPscanGraph#controlPanel", "LUTslider", kLeftThumb, FirstColor)
+			MinMaxSlider_Manual ("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, LastColor)
 			// apply image settings
 			string SubWinList = childwindowlist ("twoPscanGraph")
 			if (WhichListItem("G"+LUTchan, SubWinList, ";", 0,0) > -1)
@@ -2679,33 +2611,18 @@ Function twoP_LUTBeforeModeCheckProc(cba) : CheckBoxControl
 					checkbox LUTBeforeUseColorCheck win=twoP_Controls, value = 0
 					checkBox LUTBeforeUseTransCheck  win=twoP_Controls, value = 0
 					beforeMode = 0
-					if (hasScanGraph)
-						checkbox LUTBeforeUseFirstCheck win=twoPScanGraph#controlPanel, value =1
-						checkbox LUTBeforeUseColorCheck win=twoPScanGraph#controlPanel, value = 0
-						checkBox LUTBeforeUseTransCheck  win=twoPScanGraph#controlPanel, value = 0
-					endif
 					break
 				case "LUTBeforeUseColorCheck":
 					checkbox LUTBeforeUseColorCheck win=twoP_Controls, value = 1
 					checkbox LUTBeforeUseFirstCheck win=twoP_Controls, value = 0
 					checkBox LUTBeforeUseTransCheck  win=twoP_Controls, value = 0
 					beforeMode = 1
-					if (hasScanGraph)
-						checkbox LUTBeforeUseColorCheck win=twoPScanGraph#controlPanel, value =1
-						checkbox LUTBeforeUseFirstCheck win=twoPScanGraph#controlPanel, value = 0
-						checkBox LUTBeforeUseTransCheck  win=twoPScanGraph#controlPanel, value = 0
-					endif
 					break
 				case "LUTBeforeUseTransCheck":
 					checkbox LUTBeforeUseTransCheck win=twoP_Controls, value = 1
 					checkbox LUTBeforeUseFirstCheck win=twoP_Controls, value = 0
 					checkbox LUTBeforeUseColorCheck win=twoP_Controls, value = 0
 					beforeMode = 2
-					if (hasScanGraph)
-						checkbox LUTBeforeUseTransCheck  win=twoPScanGraph#controlPanel, value =1
-						checkbox LUTBeforeUseFirstCheck win=twoPScanGraph#controlPanel, value = 0
-						checkbox LUTBeforeUseColorCheck win=twoPScanGraph#controlPanel, value = 0
-					endif
 					break
 			endSwitch
 			SVAR LUTChan = root:Packages:twoP:examine:LUTChan
@@ -2775,33 +2692,18 @@ Function twoP_LUTAfterModeCheckProc(cba) : CheckBoxControl
 					checkbox LUTAfterUseColorCheck win=twoP_Controls, value = 0
 					checkBox LUTAfterUseTransCheck  win=twoP_Controls, value = 0
 					afterMode = 0
-					if (hasScanGraph)
-						checkbox LUTAfterUseLastCheck win=twoPscanGraph#controlPanel, value = 1
-						checkbox LUTAfterUseColorCheck win=twoPscanGraph#controlPanel, value = 0
-						checkBox LUTAfterUseTransCheck  win=twoPscanGraph#controlPanel, value = 0
-					endif
 					break
 				case "LUTAfterUseColorCheck":
 					checkbox LUTAfterUseColorCheck win=twoP_Controls, value = 1
 					checkbox LUTAfterUseLastCheck win=twoP_Controls, value = 0
 					checkBox LUTAfterUseTransCheck  win=twoP_Controls, value = 0
 					afterMode = 1
-					if (hasScanGraph)
-						checkbox LUTAfterUseColorCheck win=twoPscanGraph#controlPanel, value = 1
-						checkbox LUTAfterUseLastCheck win=twoPscanGraph#controlPanel, value = 0
-						checkBox LUTAfterUseTransCheck  win=twoPscanGraph#controlPanel, value = 0
-					endif
 					break
 				case "LUTAfterUseTransCheck":
 					checkbox LUTAfterUseTransCheck win=twoP_Controls, value =1
 					checkbox LUTAfterUseLastCheck win=twoP_Controls, value = 0
 					checkbox LUTAfterUseColorCheck win=twoP_Controls, value = 0
 					afterMode = 2
-					if (hasScanGraph)
-						checkbox LUTAfterUseTransCheck win=twoPscanGraph#controlPanel, value = 1
-						checkbox LUTAfterUseLastCheck win=twoPscanGraph#controlPanel, value = 0
-						checkbox LUTAfterUseColorCheck win=twoPscanGraph#controlPanel, value = 0
-					endif
 					break
 			endSwitch
 			SVAR LUTchan = root:Packages:twoP:examine:LUTChan
