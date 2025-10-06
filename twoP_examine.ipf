@@ -384,11 +384,11 @@ Function twoP_ExamineAddControls (able)
 	// Show Other windows
 	GroupBox ShowOthersGroupBox win = twoP_Controls,pos={3,664},size={337,40},title="Show Other Windows", frame=0
 	GroupBox ShowOthersGroupBox win = twoP_Controls, disable=able
-	Button ShowTracesButton,win = twoP_Controls, pos={14,682},size={57,17},proc=NQ_showTracesProc,title="Traces"
+	Button ShowTracesButton,win = twoP_Controls, pos={14,679},size={57,20},proc=NQ_showTracesProc,title="Traces"
 	Button ShowTracesButton,win = twoP_Controls, disable=able
-	Button ShowMiscAnalysisButton win = twoP_Controls, pos={96,680},size={99,20},proc=MakeMiscPanel,title="Misc Analysis"
+	Button ShowMiscAnalysisButton win = twoP_Controls, pos={96,679},size={99,20},proc=MakeMiscPanel,title="Misc Analysis"
 	Button ShowMiscAnalysisButton win = twoP_Controls, disable=able
-	Button ShowScansButton win = twoP_Controls, pos={230,681},size={49,17},proc=twoP_ScanShowScan,title="Scans"
+	Button ShowScansButton win = twoP_Controls, pos={230,679},size={49,20},proc=twoP_ScanShowScan,title="Scans"
 	Button ShowScansButton win = twoP_Controls, disable=able
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine","GroupBox ShowOthersGroupBox;Button ShowTracesButton;Button ShowMiscAnalysisButton;")
 	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine","Button ShowScansButton;")
@@ -1783,19 +1783,28 @@ Function NQ_NewTracesGraph (curScan)
 		ModifyGraph /W=twoP_TracesGraph btLen=2
 		ModifyGraph /W=twoP_TracesGraph stLen=1
 		ModifyGraph /W=twoP_TracesGraph ftLen=2
+		
 		// control bar and controls
-		ControlBar 36
-		SetVariable FSetVar,pos={33,3},size={172,15},title="Set \"F \" from first n points"
-		SetVariable FSetVar,limits={1,Inf,1},value= root:packages:twoP:examine:ffordeltaf
-		CheckBox CursorCheck,pos={35,19},size={119,14},proc=NQ_cursorCheckProc,title="set \"F\" from cursors"
-		CheckBox CursorCheck,value= 0
-		PopupMenu ROIPopup,pos={208,3},size={99,20},proc=NQ_DoDeltaFProc,title="Do Delta F/F"
-		PopupMenu ROIPopup,mode=0,value= #"NQ_ListROIAvgs(root:packages:twoP:examine:curScan, 1)"
-		PopupMenu UnDoROIPopup,pos={310,3},size={113,20},proc=NQ_UnDoDeltaFProc,title="Undo Delta F/F"
-		PopupMenu UnDoROIPopup,mode=0,value= #"NQ_ListROIAvgs(root:packages:twoP:examine:curScan, 2)"
-		PopupMenu DeleteROIPopMenu,pos={426,3},size={113,20},proc=NQ_DeleteRoiProc,title="Delete ROI Avg"
-		PopupMenu DeleteROIPopMenu,mode=0,value= #"NQ_ListROIAvgs(root:packages:twoP:examine:curScan, 3)"
-		CheckBox AndROICheck,pos={542,6},size={70,14},title="and its ROI",value= 1
+		NewPanel/HOST=#/EXT=3/W=(0,50,460,0) /K=2  as "Controls"
+		SetVariable FSetVar,pos={11.00,3.00},size={202.00,18.00}
+		SetVariable FSetVar,title="Set \"F \" from first n points",fSize=12
+		SetVariable FSetVar,limits={1,inf,1},value=root:Packages:twoP:examine:ffordeltaf
+		CheckBox CursorCheck,pos={11.00,26.00},size={132.00,16.00},proc=NQ_cursorCheckProc
+		CheckBox CursorCheck,title="set \"F\" from cursors",fSize=12,value=0
+		PopupMenu ROIPopup,pos={217.00,2.00},size={105.00,20.00},proc=NQ_DoDeltaFProc
+		PopupMenu ROIPopup,title="Do Delta F/F",fSize=12
+		PopupMenu ROIPopup,mode=0,value=#"NQ_ListROIAvgs(root:packages:twoP:examine:curScan, 1)"
+		PopupMenu UnDoROIPopup,pos={330.00,2.00},size={120.00,20.00},proc=NQ_UnDoDeltaFProc
+		PopupMenu UnDoROIPopup,title="Undo Delta F/F",fSize=12
+		PopupMenu UnDoROIPopup,mode=0,value=#"NQ_ListROIAvgs(root:packages:twoP:examine:curScan, 2)"
+		PopupMenu DeleteROIPopMenu,pos={217.00,24.00},size={121.00,20.00},proc=NQ_DeleteRoiProc
+		PopupMenu DeleteROIPopMenu,title="Delete ROI Avg",fSize=12
+		PopupMenu DeleteROIPopMenu,mode=0,value=#"NQ_ListROIAvgs(root:packages:twoP:examine:curScan, 3)"
+		CheckBox AndROICheck,pos={346.00,26.00},size={79.00,16.00},title="and its ROI"
+		CheckBox AndROICheck,fSize=12,value=0
+		RenameWindow #,controlPanel
+		SetActiveSubwindow ##
+
 		// Aply saved settings for size, position
 		WC_WindowCoordinatesRestore("twoP_TracesGraph")//ApplyWinPosStr ("twoP_TracesGraph")
 		// set the hook function to save positions
