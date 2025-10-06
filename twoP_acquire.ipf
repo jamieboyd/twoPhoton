@@ -5239,7 +5239,7 @@ EndStructure
 
 //*****************************************************************************************************************************
 // background function for LineScan - non cyclical- adds some data  and does live ROI
-// Last modified 2025/09/06 by Jamie Boyd
+// Last modified 2025/10/06 by Jamie Boyd
 Function twoP_LineScanBkg  (s)
 	STRUCT LineScanBkgStruct &s
 	
@@ -5247,8 +5247,8 @@ Function twoP_LineScanBkg  (s)
 	if (s.WMS.started)
 		s.WMS.started = 0
 		s.lastChunk = -1
-		NVAR PixWidth= root:Packages:twoP:acquire:PixWidth
-		NVAR PixHeight=root:Packages:twoP:acquire:PixHeight
+		NVAR PixWidth= root:packages:twoP:acquire:LSWidth
+		NVAR PixHeight=root:packages:twoP:acquire:LSHeight
 		NVAR lScanBufferSize = root:packages:twoP:acquire:lScanBufferSize // number of lines to acquire at once
 		NVAR lineTime = root:packages:twoP:acquire:lineTime
 		NVAR flybackMode=root:Packages:twoP:acquire:FlyBackMode
@@ -5269,7 +5269,6 @@ Function twoP_LineScanBkg  (s)
 	string aChan
 	SVAR imageBoard =  root:packages:twoP:Acquire:ImageBoard
 	variable nextPt = fDAQmx_ScanGetNextIndex(imageBoard)
-	print nextPt
 	variable readyChunk = floor (nextPt/(s.chunkSize)) - 1
 	variable ticksTilNext
 	//printf "Next point=%d,readyChunk=%d\r", nextPt, readyChunk
