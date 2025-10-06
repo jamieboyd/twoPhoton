@@ -1,7 +1,7 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2025/09/29 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2025/10/03 by Jamie Boyd.
 #pragma IgorVersion = 7			//Not sure about this. Perhaps some Igor 9isms have slipped in
 
 #include "twoP_Prefs"
@@ -9,6 +9,13 @@
 #include "twoPex_export"
 #include "Stages"
 
+
+
+// define for workaround for jamie's development environment without 6110, where /ai and /ao counts disagree by one
+#define ENV_IS_DEVELOP
+
+// define for input trigger to use backaground task versus waiting in a loop
+#define TRIG_IS_BKG
 
 // Constants that are not (yet) set from peferences
 // Size of counters on NI boards. These limit size that can be aquired at one shot. Older boards are 24, mewer boards might be 32
@@ -193,6 +200,7 @@ Function twoP_AcquireMakeFolder ()
 	variable/G root:Packages:twoP:Acquire:numAverageFrames = 5
 	// Line Scan
 	string/G root:Packages:twoP:Acquire:LSLinkWaveStr = "Don't Link" 	// Line Scan "link to wave" string
+	variable/G root:packages:twoP:acquire:lScanBufferSize
 	// Z stack
 	variable/G root:packages:twoP:acquire:zStepSize=1e-06
 	variable/G root:Packages:twoP:Acquire:NumZseriesFrames = 10		// Stores Number of frames to collect in the Z dimension for Z Series Exp.
@@ -1223,15 +1231,14 @@ Function NQ_SetTimes ()
 			break
 		case kLineScan:
 			NumFrames = 1
+			NVAR bufferMult = root:packages:twoP:acquire:tSeriesBufferMult
+			NVAR bufferSize = root:packages:twoP:acquire:lScanBufferSize
 			NVAR isCyclic = root:packages:twoP:Acquire:isCyclic
 			if ( PixWidth * pixHeight >= 2^kNQImageCounterSize)
 				doAlert 1,  "Number of points is greater than the 2^24 bit counter for points/channel. You are entering the \"Cyclic Zone\". O.K.?"
 				if (V_flag == 1) // Yes was clicked
 					isCyclic =1
-					NVAR bufferMult = root:packages:twoP:acquire:tSeriesBufferMult
-					NVAR bufferSize = root:packages:twoP:acquire:lScanBufferSize
-					bufferSize = round ((minLiveFrameTime * bufferMult)/lineTime)
-					pixHeight = round (pixHeight/bufferSize) * bufferSize
+					pixHeight = round (pixHeight/bufferSize) * bufferSize // pixHeight is guaranteed to be even
 					SetVariable LineScanHeightSetVar win= twoP_Controls, limits={2,inf,(bufferSize)}
 				else
 					pixHeight = floor (2^kNQImageCounterSize / pixWidth)
@@ -1241,6 +1248,10 @@ Function NQ_SetTimes ()
 			else
 				isCyclic = 0
 				SetVariable LineScanHeightSetVar  win= twoP_Controls,limits={2,inf,2}
+			endif
+			bufferSize = round ((minLiveFrameTime * bufferMult)/lineTime)  // number of lines we acquire per period
+			if (mod (bufferSize,2))
+				bufferSize +=1
 			endif
 			break
 	endswitch
@@ -2874,7 +2885,7 @@ end
 //******************************************************************************************************
 // Makes the image waves for scanning in a new folder, for all the different scan modes.
 // Sets string for channels and paths to created waves in s.scanWavePath
-// Last Modified 2025/09/29 by Jamie Boyd
+// Last Modified 2025/10/02 by Jamie Boyd
 Function NQ_MakeImageScanWaves (s)
 	STRUCT NQ_ScanStruct &s
 
@@ -2891,24 +2902,33 @@ Function NQ_MakeImageScanWaves (s)
 	else
 		make/b/u/n = ((s.PixWidth), (s.PixHeight))  root:packages:twoP:examine:RGBwave
 		WAVE RGBWave= root:packages:twoP:examine:RGBwave
-	endif
+	endif  
 	SetScale/p x s.xScalStart, s.xPixSize, "m", RGBWave
 	SetScale/p y s.yScalStart, s.yPixSize, "m", RGBWave
 
-	// make live ROI ratio for live or time series or Lines
-	variable roiPoints
-	if ((s.liveRatio) && ((s.ScanMode == kLiveMode) || (s.ScanMode== kTimeSeries)||(s.ScanMode== kLineScan)))
-		if ((s.ScanMode == kLiveMode) || (s.ScanMode== kTimeSeries))
-			roiPoints =round(s.liveROISecs/s.FrameTime)
-		else	//line scan
-			roiPoints =round(s.liveROISecs/(s.lScanBufferSize * s.lineTime))
+	// calculate points for live roi -  we'll make the waves in the big loop for each channel
+	if ((s.liveROI) &&  ((s.ScanMode == kLiveMode) || (s.ScanMode== kTimeSeries)||(s.ScanMode== kLineScan)))
+		variable lroiPoints, ptScale
+		if (s.scanMode == kTimeSeries)
+			lroiPoints = round(s.liveROISecs/(s.FrameTime * s.nCycFrames))
+			ptScale = -s.FrameTime*s.nCycFrames
+		elseif (s.scanMode == kLiveMode)
+			lroiPoints = round(s.liveROISecs/s.FrameTime)
+			ptScale = -s.FrameTime
+		elseif (s.ScanMode == kLineScan)
+			lroiPoints =round(s.liveROISecs/(s.lScanBufferSize * s.lineTime))
+			ptScale = -s.lScanBufferSize * s.lineTime
 		endif
-		WAVE/Z LroiWave_ratio =  root:Packages:twoP:acquire:LroiWave_ratio
-		if (WaveExists(LroiWave_ratio))
-			redimension/n= (roiPoints) LroiWave_ratio
-		else
-			make/n= (roiPoints) root:Packages:twoP:acquire:LroiWave_ratio
-			WAVE LroiWave_ratio =  root:Packages:twoP:acquire:LroiWave_ratio
+		// but make live ratio wave here cause it is independent of channel
+		if (s.liveRatio)
+			WAVE/Z LroiWave_ratio =  root:Packages:twoP:acquire:LroiWave_ratio
+			if (WaveExists(LroiWave_ratio))
+				redimension/n= (lroiPoints) LroiWave_ratio
+			else
+				make/n= (lroiPoints) root:Packages:twoP:acquire:LroiWave_ratio
+				WAVE LroiWave_ratio =  root:Packages:twoP:acquire:LroiWave_ratio
+			endif
+			setscale /p x 0, (ptScale), "s", LroiWave_ratio
 		endif
 	endif
 
@@ -3038,12 +3058,13 @@ Function NQ_MakeImageScanWaves (s)
 				if (s.liveROI)
 					WAVE/Z LROIWave = $"root:Packages:twoP:acquire:LroiWave_" + chanName
 					if (WaveExists(LROIWave))
-						redimension/n= (roiPoints) LROIWave
+						redimension/n= (lroiPoints) LROIWave
 					else
-						make/n= (roiPoints) $"root:Packages:twoP:acquire:LroiWave_" + chanName
+						make/n= (lroiPoints) $"root:Packages:twoP:acquire:LroiWave_" + chanName
 						WAVE LROIWave = $"root:Packages:twoP:acquire:LroiWave_" + chanName
 					endif
-					
+					SetScale/p x 0, (ptScale), "s", LROIWave
+					LROIWave =Nan
 					threadData[5*iChan+4] = LROIWave
 					if (s.liveRatio)
 						if (cmpStr (chanName, s.liveRatioTopChan) ==0)
@@ -3055,7 +3076,7 @@ Function NQ_MakeImageScanWaves (s)
 				endif
 				break
 			case kTimeSeries:
-				// make scan wave. In non-cyclic, we acquire into it directly. In cyclic, we copy into it from repeated scan hook. Make it signed - position 0.
+				// make acqisition wave. In non-cyclic, we acquire into it directly. In cyclic, we copy into it from repeated scan hook. Make it signed - position 0.
 				WAVE/Z Acq1D= $baseName + chanName
 				if (waveExists (Acq1D))
 					redimension/w/n = (s.PixWidth * s.PixHeight * s.numFrames) Acq1D
@@ -3099,11 +3120,13 @@ Function NQ_MakeImageScanWaves (s)
 				if (s.liveROI)
 					WAVE/Z LROIWave = $"root:Packages:twoP:acquire:LroiWave_" + chanName
 					if (WaveExists(LROIWave))
-						redimension/n= (roiPoints) LROIWave
+						redimension/n= (lroiPoints) LROIWave
 					else
-						make/n= (roiPoints) $"root:Packages:twoP:acquire:LroiWave_" + chanName
+						make/n= (lroiPoints) $"root:Packages:twoP:acquire:LroiWave_" + chanName
 						WAVE LROIWave = $"root:Packages:twoP:acquire:LroiWave_" + chanName
 					endif
+					SetScale/p x 0, (ptScale), "s", LROIWave
+					LROIWave = NaN
 					threadData[numThreadWaves*iChan + 3] = LROIWave
 					if (s.liveRatio)
 						if (cmpStr (chanName, s.liveRatioTopChan) ==0)
@@ -3158,7 +3181,68 @@ Function NQ_MakeImageScanWaves (s)
 					threadData[numThreadWaves*iChan + 2] = acq2D
 				endif
 				break
+			case kLineScan:
+				// make the scan wave.
+				WAVE/Z scanWave= $baseName + chanName
+				if (waveExists (scanWave))
+					redimension/w/u/n = (s.PixWidth, s.PixHeight) scanWave
+				else
+					make/w/u/n = (s.PixWidth, s.PixHeight) $baseName + chanName
+					WAVE scanWave= $baseName + chanName
+				endif
+				SetScale/P x (s.xScalStart), (s.XPixSize), "m", scanWave
+				SetScale/P Y 0, (s.lineTime), "s", scanWave
+				fastop scanWave =0
+				threadData[numThreadWaves*iChan] = scanWave
+				// make the 1D wave we acquire into
+				variable lScanHeight
+				if (s.scanIsCyclic)
+					lscanHeight =  s.lscanBufferSize
+				else
+					lscanHeight = s.pixHeight
+				endif
+				s.scanWavePath += "root:packages:twoP:acquire:Acq1D_" + chanName
+				WAVE/Z Acq1D = $"root:packages:twoP:acquire:Acq1D_" + chanName
+				if (waveExists (Acq1D))
+					redimension/n=(s.pixWidth * lscanHeight) Acq1D
+				else
+					make/o/w/n=(s.pixWidth * lscanHeight) $"root:packages:twoP:acquire:Acq1D_" + chanName
+					WAVE/Z Acq1D = $"root:packages:twoP:acquire:Acq1D_" + chanName
+				endif
+				setscale/p x 0, s.pixTime, "s" Acq1D
+				fastop Acq1D =0
+				threadData[numThreadWaves*iChan +1] = Acq1D
+				//make a 2D wave same size as Acq1D to process data on the fly, either as scanEnd function or as background task
+				WAVE/Z Acq2D = $"root:packages:twoP:acquire:Acq2D_" + chanName
+				if (waveExists (Acq2D))
+					redimension/n=(s.pixWidth, s.lscanBufferSize) Acq2D
+				else
+					make/o/w/n=(s.pixWidth, s.lscanBufferSize) $"root:packages:twoP:acquire:Acq2D_" + chanName
+					WAVE/Z Acq2D = $"root:packages:twoP:acquire:Acq1D_" + chanName
+				endif
+				threadData[numThreadWaves*iChan + 2] = acq2D
 
+				// ROI wave - pos 3
+				if (s.liveROI)
+					WAVE/Z LROIWave = $"root:Packages:twoP:acquire:LroiWave_" + chanName
+					if (WaveExists(LROIWave))
+						redimension/n= (lroiPoints) LROIWave
+					else
+						make/n= (lroiPoints) $"root:Packages:twoP:acquire:LroiWave_" + chanName
+						WAVE LROIWave = $"root:Packages:twoP:acquire:LroiWave_" + chanName
+					endif
+					SetScale/p x 0, (ptScale), "s", LROIWave
+					LROIWave = NaN
+					threadData[numThreadWaves*iChan + 3] = LROIWave
+					if (s.liveRatio)
+						if (cmpStr (chanName, s.liveRatioTopChan) ==0)
+							s.ratioTopChanNum = numThreadWaves*iChan+3
+						elseif (cmpStr (chanName, s.liveRatioBottomChan) ==0)
+							s.ratioBottomChanNum = numThreadWaves*iChan+3
+						endif
+					endif
+				endif
+				break
 		endswitch
 
 		s.scanWavePath += ", " + ai + "/" + type + ", -" +  range + ", " + range + ", " + scaling + ", " + offset + ";"
@@ -3940,7 +4024,7 @@ Function  NQ_StartScan (ba) : ButtonControl
 				if (s.scanMode != kLineScan)
 					fDAQmx_WriteChan(s.ImageBoard, 1, VerWave [0], -10, 10)
 				endif
-				NQ_MakeImageScanWaves(s) // also fills out paths and channels in s.scanWavePath entry in scanStruct for NI-DAQ
+				NQ_MakeImageScanWaves(s) // also make waves for Live ROIs and fills out paths and channels in s.scanWavePath entry in scanStruct for NI-DAQ
 			endif
 			// make waves for ePhys
 			if (itemsInList (s.selEphysChanList, ";") > 0)
@@ -4007,7 +4091,7 @@ Function  NQ_StartScan (ba) : ButtonControl
 					Variable/G root:packages:twoP:acquire:singleImage_iFrame = 0
 					break
 				case KLineScan:
-					
+					Variable/G root:packages:twoP:acquire:LineScan_iChunk = 0	// lineScan-buffer sized chunks
 					break
 					
 				case kZseries:
@@ -4113,11 +4197,14 @@ Function NQ_ScanInit (s)
 		// mnake lineGate on ctr0, source is RTSI_5, where we will put ao signal of the waveform generator, direct the output to RTSI_6 where it is used to gate analog input
 		fDAQmx_CTR_Finished(s.ImageBoard, 0)
 		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ctr0InternalOutput", "/" + s.ImageBoard + "/RTSI6", 0), 4
+#ifdef ENV_IS_DEVELOP
 		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth), s.PixWidth} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
-		// /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth + 1), s.PixWidth -1} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
-
+#else
+		DAQmx_CTR_OutputPulse  /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth + 1), s.PixWidth -1} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
+#endif
 		// A/D scanning, we set it all up but don't start it till after waveform generator has started. This ensures we are in the high phase of the linegate when we start
 		Switch (s.ScanMode)
+			variable taskPeriod
 			case kLiveMode:		// scan repeats till stopped
 				sprintf RPTChook "twoP_LiveHook(\"%s\", %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ",")
 				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5",0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/STRT=0 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
@@ -4129,7 +4216,7 @@ Function NQ_ScanInit (s)
 				else // no repeats, scan at once, with background task to update display and end of task hook to redimension and clean up
 					sprintf EOShook,  "twoP_timeSeriesEndHook(\"%s\", \"%s\", %d, %d, %d, %d)", s.newScanName, s.onlyChansImage, s.pixWidth, s.pixHeight, s.numFrames, s.flybackMode
 					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/STRT=0/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/EOSH=EOShook /ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
-					variable taskPeriod=ceil(s.nCycFrames * s.frameTime * 60)
+					taskPeriod=ceil(s.nCycFrames * s.frameTime * 60)
 					CtrlNamedBackground tSeriesTask, period =  taskPeriod, burst =0, proc= twoP_tSeriesBkg, start=(ticks + taskPeriod)
 				endif
 				break
@@ -4144,10 +4231,13 @@ Function NQ_ScanInit (s)
 				break
 			case kLineScan:
 				if (s.ScanIsCyclic) // scan repeats till scan Wave is full
-					sprintf RPTChook, "twoP_lineScanCyclicHook (\"%s\", %d, %d, %d, %d, %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ","), s.nCycFrames, s.PixWidth, s.PixHeight, s.flyBackMode
+					sprintf RPTChook, "twoP_lineScanCyclicHook (\"%s\", %d, %d, %d, %d, %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ","), s.lScanBufferSize, s.PixWidth, s.PixHeight, s.flyBackMode
 					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/STRT=0 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
-				else
-				
+				else // no repeats, scan at once, with background task to update display and end of task hook
+					sprintf EOShook,  "twoP_LineScanEndHook(\"%s\", \"%s\", %d, %d, %d)", s.newScanName, s.onlyChansImage, s.pixWidth, s.pixHeight, s.flybackMode
+					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/STRT=0/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/EOSH=EOShook /ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+					taskPeriod=ceil(s.lScanBufferSize * s.lineTime * 60)
+					CtrlNamedBackground LineScanTask, period =  taskPeriod, burst =0, proc= twoP_LineScanBkg, start=(ticks + taskPeriod)
 				endif
 				break
 		endSwitch		
@@ -4162,8 +4252,11 @@ Function NQ_ScanInit (s)
 		endif
 		// if input trigger, setup waveform generator then wait for trigger low-to-high to open shutter and for trigger-high-to low to progress to starting A/D scan
 		if ((s.inPutTrigger) && (s.scanMode != kLiveMode))
-			//CtrlNamedBackground shutterTask, period = 1, burst =0, proc= twoP_WaitForShutter, start
 			DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/TRIG={"/" + s.ImageBoard + "/PFI6", 1, 0}/Strt=1  scanWavesList; ABORTONRTE
+#ifdef TRIG_IS_BKG
+			CtrlNamedBackground shutterTask, period = 1, burst =0, proc= twoP_WaitForShutter, start
+			fDAQmx_ScanStart(s.imageBoard,1)
+#else
 			variable shutterIsOpen=0
 			for (;;)
 				if (!(shutterIsOpen))
@@ -4180,6 +4273,7 @@ Function NQ_ScanInit (s)
 					endif
 				endif
 			endfor
+#endif
 		else // if not triggered, open shutter and wait shutter open time before starting waveform generator
 			abortonvalue fDAQmx_DIO_Write (s.ImageBoard, shutterTaskNum, (shutterOpen)), 6
 			// wait a few milliseconds while shutter opens before continuing
@@ -4187,7 +4281,7 @@ Function NQ_ScanInit (s)
 				Sleep/c=-1/S shutterDelay
 			endif
 			DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/Strt=1  scanWavesList; ABORTONRTE
-			Sleep/c=-1/S s.pixTime	// 
+			Sleep/c=-1/S s.pixTime	// to make sure waveform is started before scan starts
 			fDAQmx_ScanStart(s.imageBoard, 1)
 		endif
 	catch
@@ -4199,53 +4293,53 @@ Function NQ_ScanInit (s)
 end
 
 
+#ifdef TRIG_IS_BKG	// if defined, use background task for opening shutter when triggered. Else we wait in a loop in scan_Init function
+//*****************************************************************************************************************************
+// structure for background function for shutter/trigger 
+// Last modified 2025/09/03 by Jamie Boyd
+STRUCTURE shutterBkgStruct
+	STRUCT WMBackgroundStruct WMS
+	uint32 shutterIsOpen
+	uint32 shutterTaskNum
+	uint32 triggerTaskNum
+	uint32 shutterOpenLevel
+EndStructure
 
 
-////*****************************************************************************************************************************
-//// structure for background function for shutter/trigger
-//// Last modified 2025/09/03 by Jamie Boyd
-//STRUCTURE shutterBkgStruct
-//	STRUCT WMBackgroundStruct WMS
-//	uint32 shutterIsOpen
-//	uint32 shutterTaskNum
-//	uint32 triggerTaskNum
-//	uint32 shutterOpenLevel
-//EndStructure
-//
-//
-////*****************************************************************************************************************************
-//// background function for shutter/trigger-opens the shutter when trigger line goes high. Scan starts on high-to-low, 
-//// so width of pulse determines how long we wait for shutter to open, give or take the 16.7 ms period of the bkg task.
-//// Last modified 2025/09/03 by Jamie Boyd
-//Function twoP_WaitForShutter (s)
-//	STRUCT shutterBkgStruct &s 
-//	
-//	if (s.WMS.started)
-//		s.WMS.started = 0
-//		NVAR shutterTaskNum = root:packages:twoP:Acquire:shutterTaskNum
-//		NVAR shutterOpenLevel = root:Packages:twoP:acquire:shutterOpenLevel
-//		NVAR triggerTaskNum =  root:packages:twoP:Acquire:triggerTaskNum
-//		s.shutterTaskNum =shutterTaskNum
-//		s.triggerTaskNum = triggerTaskNum
-//		s.shutterOpenLevel = shutterOpenLevel
-//		s.shutterIsOpen =0
-//	else
-//		SVAR imageBoard =  root:packages:twoP:Acquire:ImageBoard
-//		if (!(s.shutterIsOpen))
-//			if ((fDAQmx_DIO_Read(imageBoard, s.triggerTaskNum)) ||(fDAQmx_ScanGetNextIndex(imageBoard) > 0))
-//				fDAQmx_DIO_Write(imageBoard, s.shutterTaskNum, s.shutterOpenLevel)
-//				s.shutterIsOpen = 1
-//				print "Shutter open"
-//			endif	
-//		else
-//			if (fDAQmx_ScanGetNextIndex(imageBoard) > 0)
-//				Button AqStartButton  win = twoP_Controls,title="Abort", fColor=(65280,0,0)
-//				return 1
-//			endif
-//		endif
-//	endif
-//	return 0
-//end
+//*****************************************************************************************************************************
+// background function for shutter/trigger-opens the shutter when trigger line goes high. Scan starts on high-to-low, 
+// so width of pulse determines how long we wait for shutter to open, give or take the 16.7 ms period of the bkg task.
+// Last modified 2025/09/03 by Jamie Boyd
+Function twoP_WaitForShutter (s)
+	STRUCT shutterBkgStruct &s 
+	
+	if (s.WMS.started)
+		s.WMS.started = 0
+		NVAR shutterTaskNum = root:packages:twoP:Acquire:shutterTaskNum
+		NVAR shutterOpenLevel = root:Packages:twoP:acquire:shutterOpenLevel
+		NVAR triggerTaskNum =  root:packages:twoP:Acquire:triggerTaskNum
+		s.shutterTaskNum =shutterTaskNum
+		s.triggerTaskNum = triggerTaskNum
+		s.shutterOpenLevel = shutterOpenLevel
+		s.shutterIsOpen =0
+	else
+		SVAR imageBoard =  root:packages:twoP:Acquire:ImageBoard
+		if (!(s.shutterIsOpen))
+			if ((fDAQmx_DIO_Read(imageBoard, s.triggerTaskNum)) ||(fDAQmx_ScanGetNextIndex(imageBoard) > 0))
+				fDAQmx_DIO_Write(imageBoard, s.shutterTaskNum, s.shutterOpenLevel)
+				s.shutterIsOpen = 1
+				print "Shutter open"
+			endif	
+		else
+			if (fDAQmx_ScanGetNextIndex(imageBoard) > 0)
+				Button AqStartButton  win = twoP_Controls,title="Abort", fColor=(65280,0,0)
+				return 1		// stops the background task
+			endif
+		endif
+	endif
+	return 0
+end
+#endif
 
 // **************************************************************************************************
 // Generic stuff done whenever a live scan is stopped, or a scan finishes, or is aborted
@@ -4268,9 +4362,9 @@ Function twoP_scanStop()
 		fDAQmx_WaveformStop(imageBoard)
 		// stop the counters
 		fDAQmx_CTR_Finished(imageBoard, 0)
-		// stop background tasks - no error stopping a task that is not currently running
+		// stop background tasks - no error stopping a task that is not currently running, so don't check which are running
 		CtrlNamedBackground tSeriesTask stop
-		CtrlNamedBackground shutterTask stop  
+		CtrlNamedBackground shutterTask stop 
 	endif
 	SVAR ePhysBoard = root:packages:twoP:Acquire:ePhysBoard
 	if (cmpStr (ePhysBoard, "") != 0)
@@ -4305,7 +4399,7 @@ end
 
 //**********************************************************************************************************************
 // sets a global variable the hook function or background task looks for so it can quit gracefully at the end of a frame
-// if shift is held down, we don't mess around, just quit the threads
+// if shift is held down, we don't mess around, just quit everything right away with twoP_scanStop
 // Lat Modified 2025/08/12 by Jamie boyd
 function twoP_StopOrAbort  (ba) : ButtonControl
 	STRUCT WMButtonAction &ba
@@ -4326,7 +4420,7 @@ end
 
 //**************************************************************************************************
 // Starts threads for processing various scan modes
-// Last modified 2025/08/26 by Jamie Boyd
+// Last modified 2025/10/06 by Jamie Boyd
 Function twoP_AcquireStartThreads(s)
 	STRUCT NQ_ScanStruct &s
 	WAVE/WAVE threadData = root:packages:twoP:acquire:threadData
@@ -4345,7 +4439,7 @@ Function twoP_AcquireStartThreads(s)
 				if (s.scanIsCyclic)
 					ThreadStart gThreadGroupID, iChan, twoP_timeCyclicThread(threadData, nChans, gThreadGroupID, s.nCycFrames, s.pixWidth, s.pixHeight, s.flybackMode, s.LiveROI, s.LROIleft, s.LROItop, s.LROIright, s.LROIbottom, s.liveRatio, s.ratioTopChanNum, s.ratioBottomChanNum)
 				else
-					ThreadStart gThreadGroupID, iChan, twoP_timeSeriesThread(threadData, nChans, gThreadGroupID, s.pixWidth, s.pixHeight, s.flybackMode, s.LiveROI, s.LROIleft, s.LROItop, s.LROIright, s.LROIbottom, s.liveRatio, s.ratioTopChanNum, s.ratioBottomChanNum)
+					ThreadStart gThreadGroupID, iChan, twoP_timeSeriesBkgThread(threadData, nChans, gThreadGroupID, s.pixWidth, s.pixHeight, s.flybackMode, s.LiveROI, s.LROIleft, s.LROItop, s.LROIright, s.LROIbottom, s.liveRatio, s.ratioTopChanNum, s.ratioBottomChanNum)
 				endif
 				break
 			case kSingleImage:
@@ -4353,9 +4447,21 @@ Function twoP_AcquireStartThreads(s)
 					ThreadStart gThreadGroupID, iChan, twoP_AvgFramesThread(threadData, nChans, gThreadGroupID, s.pixWidth, s.pixHeight, s.flybackMode, s.numFrames)
 				endif
 				break
+			case kLineScan:
+				if (s.scanIsCyclic)
+					ThreadStart gThreadGroupID, iChan, twoP_LineScanCyclicThread(threadData, nChans, gThreadGroupID, s.lScanBufferSize, s.pixWidth, s.pixHeight, s.flybackMode, s.LiveROI, s.LROIleft, s.LROIright, s.xScalStart, s.xPixSize, s.liveRatio, s.ratioTopChanNum, s.ratioBottomChanNum)
+				else
+					ThreadStart gThreadGroupID, iChan, twoP_LineScanBkgThread(threadData, nChans, gThreadGroupID, s.lScanBufferSize, s.pixWidth, s.pixHeight, s.flybackMode, s.LiveROI, s.LROIleft, s.LROIright, s.xScalStart, s.xPixSize, s.liveRatio, s.ratioTopChanNum, s.ratioBottomChanNum)
+				endif
+				break
 		endSwitch
 	endfor
 end
+
+
+// ************************************************************************************************
+// ************************** Live Mode Hook and Thread Functions *********************************
+// ************************************************************************************************
 
 //**************************************************************************************************
 // Hook for live mode
@@ -4478,6 +4584,11 @@ ThreadSafe Function twoP_LiveThread(threadfWaves, nChans,threadGroupID, isByFram
 	endfor
 	return 0
 end
+
+
+// ************************************************************************************************
+// *********************** Time Series Hook, Thread and Bkg Functions *****************************
+// ************************************************************************************************
 
 //**************************************************************************************************
 // Hook for time series cyclic mode
@@ -4759,7 +4870,7 @@ end
 //**************************************************************************************************
 // Thread function for time series non-cyclic mode - is called by background function
 // Last modified 2025/09/03 by Jamie Boyd
-ThreadSafe Function twoP_timeSeriesThread(threadfWaves, nChans, threadGroupID, pixWidth, pixHeight, flybackMode, LiveROI, LROIleft, LROItop, LROIright, LROIbottom, liveRatio, TopChan, BottomChan)
+ThreadSafe Function twoP_timeSeriesBkgThread(threadfWaves, nChans, threadGroupID, pixWidth, pixHeight, flybackMode, LiveROI, LROIleft, LROItop, LROIright, LROIbottom, liveRatio, TopChan, BottomChan)
 	WAVE/WAVE threadfWaves
 	variable nChans
 	variable threadGroupID
@@ -4849,19 +4960,13 @@ function twoP_timeSeriesEndHook(scanName, chanList, pixWidth, pixHeight, numFram
 		setscale/p y yOffset, yScal, "m", chanWave
 		setscale/p z 0, zScal, "s", chanWave
 	endfor
-	// Make sure controls will be set properly when user switches to examine side of things
-	GUIPTabClick ("twoP_Controls", "AcquireExamineTab", "Examine")
-	SVAR NewScanName =  root:packages:twoP:Acquire:NewScanName
-	twoP_ScanAdjustExamineControls (NewScanName)
-	NVAR autincCheck = root:packages:twoP:Acquire:autIncCheck
-	if (autIncCheck)
-		NewScanName = twoP_autinc (NewScanName, 1)
-	endif
-	NVAR toDo =root:packages:twoP:acquire:exportAfterScan
-	if (toDo)
-		NQ_ExportAfterScan(toDo)
-	endif
 end
+
+
+// ************************************************************************************************
+// ************************* Average Mode Hook and Thread Functions *******************************
+// ************************************************************************************************
+
 
 //**************************************************************************************************
 // Hook for average frames mode
@@ -4972,6 +5077,377 @@ Function twoP_AvgFramesEndHook (scanName, chanList, pixWidth, pixHeight, numFram
 		KalmanSpecFrames (chanWave, 0, numFrames-1, scanWave, 0, 16)
 	endfor
 end
+
+
+// ************************************************************************************************
+// ************************ Line Scan Hook, Thread and Bkg Functions ******************************
+// ************************************************************************************************
+
+
+// ************************************************************************************************
+// function that runs at end of linescan cycle in cyclic mode. Calls the threads, shuts down if done
+// Last Modified: 2025/10/03 by Jamie Boyd
+Function twoP_lineScanCyclicHook (imageChans, numChans, lScanBufferSize, PixWidth, PixHeight, flyBackMode)
+	string imageChans
+	variable numChans
+	variable lScanBufferSize
+	variable pixWidth, pixHeight, flybackMode
+	
+	String aChan
+	variable iChan
+	
+	NVAR gThreadGroupID =  root:Packages:twoP:Acquire:gThreadGroupID
+	NVAR LineScan_iChunk = root:packages:twoP:acquire:LineScan_iChunk
+
+	for (ichan =0; iChan < numChans; iChan +=1)
+		newdatafolder/s :tdata
+		variable/G LineScan_iChunkG = LineScan_iChunk
+		variable/G iChanG = iChan
+		string/G aChanG = stringFromList(iChan, imageChans, ",")
+		ThreadGroupPutDF gThreadGroupID, :
+	endfor
+	
+	// to update the RGB wave dependency formula, one of the waves has to be modified outside the thread
+	// TODO: update RGB wave directly from thread
+	NVAR hasRGB = root:Packages:twoP:examine:RGB_hasRGB
+	if (hasRGB)
+		wave touchMe = $"root:twoP_scans:LiveScan:liveScan_" +stringFromList (0, stringFromList(0, imageChans,";"),":")
+		touchMe [0] [0] +=1
+	endif
+	
+	LineScan_iChunk +=1
+	variable numChunks = PixHeight/lScanBufferSize
+	NVAR PercentComplete=root:packages:twoP:Acquire:PercentComplete
+	PercentComplete = 100*(LineScan_iChunk/numChunks)
+	NVAR liveStop = root:Packages:twoP:Acquire:ScanStopOrAbort
+	if ((LineScan_iChunk > numChunks) || (liveStop))
+		sleep /S 10e-03		// gives some time for threads to grab the last frame of data and insert it
+		twoP_scanStop()
+		SVAR scanName = root:Packages:twoP:acquire:NewScanName
+		SVAR infoStr= $"root:twoP_Scans:" + scanName +  ":" + scanName + "_info"
+		variable xOffset = NumberByKey("Xoffset", infoStr, ":", "\r")
+		variable yOffset = NumberByKey("Yoffset", infoStr, ":", "\r")
+		variable xScal= NumberByKey("XPixSize", infoStr, ":", "\r")
+		variable yScal= NumberByKey("YPixSize", infoStr, ":", "\r")
+		variable zScal= NumberByKey("FrameTime", infoStr, ":", "\r")
+		for (ichan =0; iChan < numChans; iChan +=1)
+			WAVE scanWave= $"root:twoP_Scans:" + scanName +  ":" + scanName + "_" +  stringFromList(iChan, imageChans, ",")
+			if (liveStop)
+				redimension/w/u/n=(pixWidth, LineScan_iChunk * lScanBufferSize) scanWave
+			endif
+		endfor
+			
+		if (liveStop)
+			string ephyChans=StringByKey("ePhysChanDesc", infoStr, ":", "\r")
+			numChans=ItemsInList (ephyChans, ",")
+			NVAR LineTime = root:packages:twoP:acquire:LineTime
+			NVAR ephysFreq =root:packages:twoP:acquire:ePhysSampFreq
+			variable ephysPnts= round(LineTime * LineScan_iChunk * lScanBufferSize * ephysFreq)
+			for (ichan=0; iChan < numChans; iChan +=1)
+				wave ephysWave=  $"root:twoP_Scans:" + scanName +  ":" + scanName + "_" +  stringFromList(iChan, ephyChans, ",")
+				redimension/n=(ephysPnts) ephysWave
+			endfor
+			liveStop  =0
+			
+		endif
+	endif
+end
+
+
+//**************************************************************************************************
+// Thread function for line scan cyclic mode
+// Last modified 2025/10/03 by Jamie Boyd
+ThreadSafe Function twoP_lineScanCyclicThread(threadfWaves, nChans, threadGroupID, lScanBufferSize, pixWidth, pixHeight, flybackMode, LiveROI, LROIleft, LROIright, xOffset, xPixSize, liveRatio, topChan, bottomChan)
+	WAVE/WAVE threadfWaves
+	variable nChans
+	variable threadGroupID
+	variable lScanBufferSize
+	variable pixWidth
+	variable pixHeight
+	variable flybackMode
+	variable liveROI
+	variable LROIleft
+	variable LROIright
+	variable xOffset
+	variable xPixSize
+	variable liveRatio
+	variable topChan
+	variable bottomChan
+
+	variable numChunks = PixHeight/lScanBufferSize
+	variable chunkSize = lScanBufferSize * pixWidth
+	
+	if (liveROI)
+		variable LROILeftPt = (LROIleft - xOffset)/xPixSize
+		variable LROIrightPt= (LROIright - xOffset)/xPixSize
+	endif
+	
+	if (liveRatio)
+		WAVE LROIRatio = threadfWaves [3*nChans + 3]
+		WAVE topWave =  threadfWaves [topChan]
+		WAVE bottomWave =  threadfWaves [bottomChan]
+	endif
+		
+	variable startQ
+	for (;;)
+		DFREF dfr = ThreadGroupGetDFR(threadGroupID,inf)
+		NVAR LineScan_iChunk = dfr:LineScan_iChunkG
+		NVAR iChan = dfr:iChanG
+		SVAR aChan = dfr:aChanG
+		WAVE scanWave = threadfWaves [iChan *3]
+		WAVE acq1D = threadfWaves [iChan *3 + 1]
+		WAVE acq2D = threadfWaves [iChan *3 + 2]
+		acq2D = acq1d
+		acq2D = acq2D > 32767 ? 0: acq2D
+		if (flybackMode)
+			SwapEven (acq2D)
+		endif
+		// insert this chunk into ScanWave
+		startQ = LineScan_iChunk * lScanBufferSize
+		scanWave[*] [startQ, startQ + lScanBufferSize -1]= acq2D [p] [q-startQ]
+		if (liveROI)
+			WAVE LROIWave = threadfWaves [iChan*3 + 3]
+			ImageStats/M=1/G={ LROILeftPt, LROIrightPt, 0,  lScanBufferSize } acq2D
+			Rotate 1, LROIWave
+			LROIWave [0] = V_avg
+			if ((liveRatio) && (iChan == nChans-1))
+				Rotate 1, LROIRatio
+				LROIRatio [0] = topWave[0]/bottomWave[0]
+			endif
+		endif
+	endfor
+end
+
+
+//*****************************************************************************************************************************
+// structure for background function for LineScan non-cyclic mode
+// Last modified 2025/10/03 by Jamie Boyd
+STRUCTURE LineScanBkgStruct
+	STRUCT WMBackgroundStruct WMS
+	uint32 pixWidth
+	uint32 pixHeight
+	uint32 lScanBufferSize
+	float lineTime
+	uint32 chunkSize
+	uint32 numChunks
+	uint32 nChans
+	uint32 flybackMode
+	uint32 taskTicks
+	int32 lastChunk
+EndStructure
+
+
+//*****************************************************************************************************************************
+// background function for LineScan - non cyclical- adds some data  and does live ROI
+// Last modified 2025/09/06 by Jamie Boyd
+Function twoP_LineScanBkg  (s)
+	STRUCT LineScanBkgStruct &s
+	
+	SVAR chanList=root:Packages:twoP:acquire:selImageChanList
+	if (s.WMS.started)
+		s.WMS.started = 0
+		s.lastChunk = -1
+		NVAR PixWidth= root:Packages:twoP:acquire:PixWidth
+		NVAR PixHeight=root:Packages:twoP:acquire:PixHeight
+		NVAR lScanBufferSize = root:packages:twoP:acquire:lScanBufferSize // number of lines to acquire at once
+		NVAR lineTime = root:packages:twoP:acquire:lineTime
+		NVAR flybackMode=root:Packages:twoP:acquire:FlyBackMode
+		SVAR chanList=root:Packages:twoP:acquire:selImageChanList
+		s.PixWidth= PixWidth
+		s.PixHeight=PixHeight
+		s.lScanBufferSize = lScanBufferSize
+		s.lineTime= lineTime
+		s.nChans=itemsInList (chanList, ";")
+		s.flybackMode = flybackMode
+		s.taskTicks = ceil (60 * lineTime * lScanBufferSize)
+		s.chunkSize =lScanBufferSize * PixWidth
+		s.numChunks=floor ( PixHeight/lScanBufferSize) // floored, but last chunk, or part therof, is handled by end of scan function anyways
+	endif
+	
+	
+	variable iChan
+	string aChan
+	SVAR imageBoard =  root:packages:twoP:Acquire:ImageBoard
+	variable nextPt = fDAQmx_ScanGetNextIndex(imageBoard)
+	print nextPt
+	variable readyChunk = floor (nextPt/(s.chunkSize)) - 1
+	variable ticksTilNext
+	//printf "Next point=%d,readyChunk=%d\r", nextPt, readyChunk
+	if (readyChunk > s.lastChunk)
+		s.lastChunk = readyChunk
+		NVAR gThreadGroupID =  root:Packages:twoP:Acquire:gThreadGroupID
+		for (ichan =0; iChan < s.nChans; iChan +=1)
+			newdatafolder/s :tdata
+			variable/G LineScan_iChunkG = readyChunk
+			variable/G iChanG = iChan
+			string/G aChanG = stringFromList (0, stringFromList(iChan, chanList,";"),":")
+			ThreadGroupPutDF gThreadGroupID, :
+		endfor
+	else
+		ticksTilNext = ((s.chunkSize - mod (nextPt, s.chunkSize)) / s.chunkSize)* s.taskTicks
+		//printf "added ticks = %d\r", ticksTilNext
+		s.WMS.nextRunTicks = ticks + ticksTilNext
+		return 0
+	endif
+	
+	// to update the RGB wave dependency formula, one of the waves has to be modified outside the thread
+	// TODO: update RGB wave directly from thread
+	NVAR hasRGB = root:Packages:twoP:examine:RGB_hasRGB
+	if (hasRGB)
+		wave touchMe = $"root:twoP_scans:LiveScan:liveScan_" +stringFromList (0, stringFromList(0, chanList,";"),":")
+		touchMe [0] [0] +=1
+	endif
+	
+	NVAR PercentComplete=root:packages:twoP:Acquire:PercentComplete
+	PercentComplete = 100*(readyChunk/s.numChunks)
+		
+	NVAR liveStop = root:Packages:twoP:Acquire:ScanStopOrAbort
+	if (liveStop)
+		sleep /S 10e-03		// gives some time for threads to grab the last chunk of data and display it
+		twoP_scanStop()
+		liveStop =0
+		SVAR scanName = root:Packages:twoP:acquire:NewScanName
+		SVAR infoStr= $"root:twoP_Scans:" + scanName +  ":" + scanName + "_info"
+		variable xOffset = NumberByKey("Xoffset", infoStr, ":", "\r")
+		variable yOffset = NumberByKey("Yoffset", infoStr, ":", "\r")
+		variable xScal= NumberByKey("XPixSize", infoStr, ":", "\r")
+		variable yScal= NumberByKey("YPixSize", infoStr, ":", "\r")
+		for (ichan =0; iChan < s.nChans; iChan +=1)
+			aChan=stringFromList (0, stringFromList(iChan, chanList, ";"), ":")
+			WAVE scanWave= $"root:twoP_Scans:" + scanName +  ":" + scanName + "_" +  aChan
+			WAVE acq1D = $"root:packages:twoP:acquire:Acq1D" + "_" + aChan
+			redimension/w/u/n=(s.pixWidth, (readyChunk * s.lScanBufferSize)/s.pixWidth) scanWave
+			scanWave = acq1D
+			scanWave = scanWave > 32767 ? 0: scanWave
+			if (s.flybackMode)
+				SwapEven (scanWave)
+			endif
+		endfor
+		
+		// truncate ephys waves
+		string ephyChans=StringByKey("ePhysChanDesc", infoStr, ":", "\r")
+		variable numChans=ItemsInList (ephyChans, ",")
+		NVAR frameTime = root:packages:twoP:acquire:FrameTime
+		NVAR ephysFreq =root:packages:twoP:acquire:ePhysSampFreq
+		variable ephysPnts =  round(lineTime * readyChunk * s.lScanBufferSize * ephysFreq)
+		for (ichan=0; iChan < numChans; iChan +=1)
+			wave ephysWave=  $"root:twoP_Scans:" + scanName +  ":" + scanName + "_" +  stringFromList(iChan, ephyChans, ",")
+			redimension/n=(ephysPnts) ephysWave
+		endfor
+		return 1
+	else
+		if (readyChunk >= s.numChunks -1)
+			return 1
+		else
+			return 0
+		endif
+	endif
+end
+
+
+//*****************************************************************************************************************************
+// thread function for LineScan - non cyclical- adds some data  and does live ROI
+// Last modified 2025/09/06 by Jamie Boyd
+ThreadSafe function twoP_LineScanBkgThread (threadfWaves, nChans, threadGroupID, lScanBufferSize, pixWidth, pixHeight, flybackMode, LiveROI, LROIleft, LROIright, xOffset, xPixSize, liveRatio, topChan, bottomChan)
+	WAVE/WAVE threadfWaves
+	variable nChans
+	variable threadGroupID
+	variable lScanBufferSize
+	variable pixWidth
+	variable pixHeight
+	variable flybackMode
+	variable liveROI
+	variable LROIleft
+	variable LROIright
+	variable xOffset
+	variable xPixSize
+	variable liveRatio
+	variable topChan
+	variable bottomChan
+	
+	variable numChunks = PixHeight/lScanBufferSize
+	variable chunkSize = lScanBufferSize * pixWidth
+	
+	if (liveROI)
+		variable LROILeftPt = (LROIleft - xOffset)/xPixSize
+		variable LROIrightPt= (LROIright - xOffset)/xPixSize
+	endif
+	
+	if (liveRatio)
+		WAVE LROIRatio = threadfWaves [3*nChans + 3]
+		WAVE topWave =  threadfWaves [topChan]
+		WAVE bottomWave =  threadfWaves [bottomChan]
+	endif
+	
+	variable startQ
+	for (;;)
+		DFREF dfr = ThreadGroupGetDFR(threadGroupID,inf)
+		NVAR LineScan_iChunk = dfr:LineScan_iChunkG
+		NVAR iChan = dfr:iChanG
+		SVAR aChan = dfr:aChanG
+		WAVE scanWave = threadfWaves [iChan *3]
+		WAVE acq1D = threadfWaves [iChan *3 + 1]
+		WAVE acq2D = threadfWaves [iChan *3 + 2]
+		startQ = LineScan_iChunk * lScanBufferSize
+		acq2D = acq1d [(q-startQ)*pixWidth + p]
+		acq2D = acq2D > 32767 ? 0: acq2D
+		if (flybackMode)
+			SwapEven (acq2D)
+		endif
+		// insert this chunk into ScanWave
+		startQ = LineScan_iChunk * lScanBufferSize
+		scanWave[*] [startQ, startQ + lScanBufferSize -1]= acq2D [p] [q-startQ]
+		if (liveROI)
+			WAVE LROIWave = threadfWaves [iChan*3 + 3]
+			ImageStats/M=1/G={ LROILeftPt, LROIrightPt, 0,  lScanBufferSize } acq2D
+			Rotate 1, LROIWave
+			LROIWave [0] = V_avg
+			if ((liveRatio) && (iChan == nChans-1))
+				Rotate 1, LROIRatio
+				LROIRatio [0] = topWave[0]/bottomWave[0]
+			endif
+		endif
+	endfor
+end
+
+
+
+//**************************************************************************************************
+// End Hook function for line scan non-cyclical mode
+// Last modified 2025/10/29 by Jamie Boyd 
+Function twoP_LineScanEndHook (scanName, chanList, pixWidth, pixHeight, flybackMode)
+	string scanName
+	string chanList
+	variable pixWidth
+	variable pixHeight
+	variable flybackMode
+	
+	twoP_scanStop()
+	NVAR liveStop = root:packages:twoP:acquire:scanStopOrAbort
+	liveStop = 0
+	//redimension the waves
+	SVAR infoStr= $"root:twoP_Scans:" + scanName +  ":" + scanName + "_info"
+	variable xOffset = NumberByKey("Xoffset", infoStr, ":", "\r")
+	variable yOffset = NumberByKey("Yoffset", infoStr, ":", "\r")
+	variable xScal= NumberByKey("XPixSize", infoStr, ":", "\r")
+	variable yScal= NumberByKey("YPixSize", infoStr, ":", "\r")
+
+	variable nChans = itemsInlist (chanList, ",")
+	String aChan
+	variable iChan
+	for (ichan =0; iChan < nChans; iChan +=1)
+		aChan = stringFromList (iChan, chanList, ",")
+		WAVE chanWave = $"root:packages:twoP:acquire:Acq1D_" + aChan
+		WAVE scanWave = $"root:twoP_Scans:" + scanName + ":" + scanName + "_" + aChan
+		scanWave = chanWave
+		scanWave = scanWave > 32767 ? 0: scanWave
+		if (flybackMode)
+			SwapEven (scanWave)
+		endif
+	endfor
+end
+
+
 
 
 
@@ -5631,51 +6107,25 @@ end
 
 
 //******************************************************************************************************
-// Makes a new graph for live ROI display
-// Last Modified 2025/08/08 by Jamie Boyd 
+// Makes a new graph for live ROI display. Make sure LROI waves are already made before calling this function
+// Last Modified 2025/09/30 by Jamie Boyd 
 Function twoP_MakeLROIGraph (s)
 	STRUCT NQ_ScanStruct &s
 	
 	// Kill old lROI graph
 	DoWindow/K twoPLROIGraph
-	// check for new graph
 	if (s.liveROISecs == 0)
 		return 0
 	endif
 	variable iChan, nChans= itemsInList (s.onlyChansImage, ",")
 	string aChan
 	string axisStr = ""
-	variable lroiPoints, ptScale
-	if (s.scanMode == kTimeSeries)
-		lroiPoints = round(s.liveROISecs/(s.FrameTime * s.nCycFrames))
-		ptScale = (-s.FrameTime*s.nCycFrames)
-	elseif (s.scanMode == kLiveMode)
-		lroiPoints = round(s.liveROISecs/s.FrameTime)
-		ptScale = (-s.FrameTime)
-	endif
+
 	for (ichan= 0; iChan < nChans; iChan +=1)
 		aChan = stringFromList(iChan, s.onlyChansImage, ",")
-		WAVE/Z LROIWave = $"root:Packages:twoP:acquire:LroiWave_" +aChan
-		if (!(WaveExists(LROIWave)))
-			make/n= (lroiPoints) $"root:Packages:twoP:acquire:LroiWave_" +aChan
-			WAVE LROIWave = $"root:Packages:twoP:acquire:LroiWave_" +aChan
-		else
-			redimension/n= (lroiPoints) LROIWave
-		endif
-		LROIWave = NaN
-		SetScale /p x, 0, (ptScale),  "s",  LROIWave
 		axisStr = AddListItem(aChan, axisStr, ";")
 	endfor
 	if (s.liveRatio)
-		WAVE/Z LroiWave_ratio =  root:Packages:twoP:acquire:LroiWave_ratio
-		if (WaveExists(LroiWave_ratio))
-			redimension/n= (lroiPoints) LroiWave_ratio
-		else
-			make/n= (lroiPoints) root:Packages:twoP:acquire:LroiWave_ratio
-			WAVE LroiWave_ratio =  root:Packages:twoP:acquire:LroiWave_ratio
-		endif
-		SetScale /p x, 0, (ptScale),  "",  LroiWave_ratio
-		LroiWave_ratio = NaN
 		axisStr = AddListItem("ratio", axisStr, ";")
 	endif
 	variable nAxes=Itemsinlist(axisStr, ";")
@@ -5698,7 +6148,6 @@ Function twoP_MakeLROIGraph (s)
 	// Hook to save window position
 	WC_WindowCoordinatesRestore("twoPLROIGraph")
 	SetWindow twoPLROIGraph hook (saveHook)= twoP_UtilSaveWinPosHook, hookevents = 2
-	return lroiPoints
 end
 
 
