@@ -1,6 +1,6 @@
 #pragma rtGlobals=3
 #pragma IgorVersion = 6.2
-#pragma version = 2.1  // Last Modified: 2025/09/29 by Jamie Boyd
+#pragma version = 2.1  // Last Modified: 2025/10/07 by Jamie Boyd
 
 #include <SaveRestoreWindowCoords>
 #include "twoP_ExConstants"
@@ -682,7 +682,7 @@ End
 
 // ******************************************************************************************************
 // When a new scan is selected, either new scangraph or updates the subwindows in scanGraph
-// Last Modified 2025/07/27 by Jamie Boyd
+// Last Modified 2025/10/07 by Jamie Boyd
 Function twoP_ScanUpdateScanGraph (curScan)
 	string curScan
 
@@ -732,7 +732,7 @@ Function twoP_ScanUpdateScanGraph (curScan)
 			twoP_ImGraphFillcs (cs, curScan, aChan)
 			GUIPSubWin_Add (cs)
 		endfor
-		GUIPSubWin_FullScale("twoPscanGraph")
+		//GUIPSubWin_FullScale("twoPscanGraph")
 		//GUIPSubWin_ReapportionSubWins ("twoPscanGraph")
 	else // new window from scratch
 		twoP_ImGraphNew (CurScan)
@@ -998,6 +998,7 @@ Function twoP_ImGraphFillcs (cs, curScan, aChan)
 	// info from scan info
 	SVAR ScanInfo = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 	variable mode = NumberByKey("mode",ScanInfo, ":", "\r")
+	
 	variable xSize = NumberByKey("PixWidth", ScanInfo, ":", "\r")
 	variable ySize = NumberByKey("PixHeight", ScanInfo, ":", "\r")
 	variable xPixSize =  NumberByKey("xPixSize", ScanInfo, ":", "\r")
@@ -1063,17 +1064,21 @@ Function twoP_ImGraphFillcs (cs, curScan, aChan)
 			WAVE channelWave = root:packages:twoP:examine:RGBwave
 		endif
 		SetScale/P X, xOffset, xPixSize, "m", channelWave
-		SetScale/P Y yOffset, yPixSize, "m", channelWave
+		if (mode == kLineScan)
+			SetScale/P Y yOffset, yPixSize, "s", channelWave
+		else
+			SetScale/P Y yOffset, yPixSize, "m", channelWave
+		endif
 		sprintf cs.UserStrings[2], "%s", aChan
 		WAVE cs.userWaves[0] = channelWave
 	else
-		
-			WAVE/Z ScanWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
-			if (!(isAcquire ||(waveExists (ScanWave))))
-				doAlert 0, "Channel " + aChan + " does not exist for " + curScan
-				return 1
-			endif
-		
+
+		WAVE/Z ScanWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
+		if (!(isAcquire ||(waveExists (ScanWave))))
+			doAlert 0, "Channel " + aChan + " does not exist for " + curScan
+			return 1
+		endif
+
 		if ((mode == kTimeSeries) || (mode == kZSeries))  // make a separate 2D image to display a frame of 3D stack
 			// make or redimension 2D waves for scanGraph
 			WAVE/Z channelWave = $"root:packages:twoP:examine:scanGraph_" + aChan
