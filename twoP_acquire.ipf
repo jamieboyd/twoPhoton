@@ -7,9 +7,8 @@
 #include "twoP_Prefs"
 #include "twoP_examine"
 #include "twoPex_export"
+
 #include "Stages"
-
-
 
 // define for workaround for jamie's development environment without 6110, where /ai and /ao counts disagree by one
 #define ENV_IS_DEVELOP
@@ -1033,11 +1032,10 @@ Function NQ_ZfirstLastButtonProc(ba) : ButtonControl
 	switch( ba.eventCode )
 		case 2: // mouse up
 			// Update stage for Z
-			variable xS=0, yS=0, zS=1, axS=NaN
-			SVAR StageProc = root:packages:twoP:Acquire:StageProc
-			SVAR thePort = root:packages:twoP:acquire:StagePort
-			funcref  StageUpdate_Template UpdateStage=$"StageUpDate_" + StageProc
-			UpdateStage (xS, yS, zS, axS) 
+			
+			SVAR theStageEncoder = root:packages:twoP:Acquire:StageProc
+			StageUpdate(theStageEncoder, kZBit, 1)
+			variable zS = StageGetAxisPos (theStageEncoder, "Z")
 			// Put z-Value in proper global for the button that was clicked
 			if (cmpstr (ba.ctrlname, "FirstZButton") == 0)
 				NVAR FirstZ = root:packages:twoP:Acquire:ZFirstZ
@@ -3243,6 +3241,9 @@ Function NQ_MakeImageScanWaves (s)
 					endif
 				endif
 				break
+			case kZseries:
+				
+				break
 		endswitch
 
 		s.scanWavePath += ", " + ai + "/" + type + ", -" +  range + ", " + range + ", " + scaling + ", " + offset + ";"
@@ -3942,7 +3943,7 @@ end
 
 //******************************************************************************************************
 // Function called by the "Start Scan" Button.
-// Last Modified: 2025/09/29 by Jamie Boyd
+// Last Modified: 2025/12/22 by Jamie Boyd
 Function  NQ_StartScan (ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 
@@ -3972,39 +3973,33 @@ Function  NQ_StartScan (ba) : ButtonControl
 					return 1
 				endif
 			endif
-			variable xS=1, yS=1, zS=1, axS=NaN
-			// if Z-stack, move to start of stack
+			// Stage reading and Z positioning
+			WAVE distFromZero = $"root:packages:" + s.StageProc + ":DistanceFromZero"
+			// position z axis to start of scan
 			if (s.ScanMode == kzSeries)
-				xS=NaN; yS=NaN; zS=s.zPos; axS =NaN
-				funcref StageMove_Template stageMove = $"StageMove_" + s.stageProc
-				stageMove (0, 1, xS, yS, zS, axS)
-				// Set focus increment to zStepsize
-				funcref StageSetInc_Template SetInc= $"StageSetInc_" + s.stageProc
-				SetInc (zVal=s.zStepSize)
-			endif
-			// Update stage and X,Y position unless repeated multiAq
-			if (!(s.isMulti && (s.multiAqiAq > 0)))
-				funcref  StageUpdate_Template UpdateStage=$"StageUpDate_" + s.StageProc
-				UpdateStage (xS, yS, zS, axS)
-				// if reading stage fails, set stage values to 0
-				if (((numtype (xS) != 0) ||  (numtype (yS) != 0)) ||(numtype (zS) != 0))
-					s.xPos = 0
-					s.yPos =0
-					s.zPos =0
-					print "Stage reading failed; XYZ positions for " + s.newScanName + " set arbitrarily to 0"
-				else
-					s.xPos=xS
-					s.yPos = yS
-					s.zPos =zS
+				WAVE moveToWave =  $"root:packages:" + s.StageProc + ":MoveTo"
+				moveToWave [%Z] = s.zPos
+			 	StagesSetAbs(s.stageProc, kZbit, moveToWave, kStagesReturnAfter)
+			 	if ((!s.isMulti) || (s.multiAqiAq == 0))
+			 		StageUpdate(s.StageProc, (kXbit + kYbit), 1)
+			 		StageSetIncrement(s.stageProc, "Z", s.zStepSize, 1)
+			 	endif
+			else
+				// Update stage and X,Y position unless repeated multiAq
+				if ((!s.isMulti) || (s.multiAqiAq == 0))
+					StageUpdate(s.StageProc, (kXbit + kYbit + kZbit), 1)
 				endif
-				WAVE/T objWave = root:packages:twoP:acquire:ObjWave
-				variable xScaling= str2num (objWave [s.objNum] [1])
-				variable yScaling= str2num (objWave [s.objNum] [2])
-				variable xOffset = str2num (objWave [s.objNum] [3])
-				variable yOffset = str2num (objWave [s.objNum] [4])
-				s.xScalStart = s.xPos - xOffset + s.xSV * xScaling
-				s.yScalStart = s.yPos - yOffset + s.ySV * yScaling
 			endif
+			s.xPos=distFromZero [%X]
+			s.yPos = distFromZero [%Y]
+			s.zPos = distFromZero [%Z]
+			WAVE/T objWave = root:packages:twoP:acquire:ObjWave
+			variable xScaling= str2num (objWave [s.objNum] [1])
+			variable yScaling= str2num (objWave [s.objNum] [2])
+			variable xOffset = str2num (objWave [s.objNum] [3])
+			variable yOffset = str2num (objWave [s.objNum] [4])
+			s.xScalStart = s.xPos - xOffset + s.xSV * xScaling
+			s.yScalStart = s.yPos - yOffset + s.ySV * yScaling
 			// make a folder for this scan
 			newDataFolder/O $"root:twoP_Scans:" + s.newScanName
 			// Make info string
@@ -6291,7 +6286,7 @@ Function  NQ_ScanEnd (scanMode, ScanIsAbort)
 		SVAR stageProc = root:Packages:twoP:Acquire:StageProc
 		SVAR stagePort = root:packages:twoP:acquire:StagePort
 		funcref StageSetManual_Template setManual = $"StageSetManual_" + stageProc
-		setManual (0)
+		//setManual (0)
 		// Post-scan processing of data
 		NVAR flybackMode = root:packages:twoP:Acquire:flybackMode
 		NVAR scanChans = root:packages:twoP:Acquire:ScanChans
@@ -6391,8 +6386,8 @@ Function  NQ_ScanEnd (scanMode, ScanIsAbort)
 				variable xS=Nan, yS=Nan, zS =zSeriesStart, axS=Nan
 				SVAR stageProc =root:Packages:twoP:Acquire:StageProc
 				SVAR stagePort = root:packages:twoP:acquire:StagePort
-				funcref StageMove_Template stageMove = $"StageMove_" + stageProc
-				stageMove (0, 0, xS, yS, zS, axS)
+				funcref StageMoveAbs_Template stageMove = $"StageMove_" + stageProc
+				//&&&&&&stageMove (0, 0, xS, yS, zS, axS)
 				
 				break
 			case kLineScan:
@@ -7300,8 +7295,8 @@ function NQ_RepeatHook (scanMode)
 					SVAR stagePort = root:packages:twoP:acquire:StagePort
 					NVAR zDist = $"root:packages:" + FocusProc + ":zdistancefromZero"
 					variable xS=NaN, yS=NaN, zS=zDist + zStepSize, axS=NaN
-					funcref StageMove_Template stageMove = $"StageMove_" + FocusProc
-					stageMove (kStagesIsAbs, kStagesReturnNow, xS, yS, zS, axS)
+					funcref StageMoveAbs_Template stageMove = $"StageMove_" + FocusProc
+					//&&&&&stageMove (kStagesIsAbs, kStagesReturnNow, xS, yS, zS, axS)
 					string valueStr
 					sprintf valueStr, "%.1W1Pm",zS
 					TextBox/W =twoPScanGraph/C/N=PosText/F=0/A=LT/X=0.00/Y=0.00 valueStr
