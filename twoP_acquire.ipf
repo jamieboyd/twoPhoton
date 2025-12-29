@@ -49,7 +49,7 @@ CONSTANT kMultiUseTrigger =2
 Menu "Macros"
 	Submenu "twoP"
 		submenu "Acquire"
-			"Reset the NI Boards",/Q,  twoP_ResetBoards ()
+			"Reset the NI Boards",/Q,  twoP_ResetBoards()
 			"Zero the Galvos", /Q, twoP_ZeroGalvos()
 		end
 	end
@@ -60,7 +60,7 @@ Menu "GraphMarquee"
 		"Zoom Scan", /Q,NQ_SetScanSize(0)
 		"Crop Scan", /Q, NQ_SetScanSize(1)
 		"Set Line Scan", /Q, NQ_SetScanSize(2)
-		"Set Live ROI", /Q, NQ_SetLiveROI ()
+		"Set Live ROI", /Q, NQ_SetLiveROI()
 	end
 End
 
@@ -76,16 +76,16 @@ end
 // Start up stuff for initializiing global variables, controls on panel, setting up NI boards
 // Last Modified: 2025/08/11 by Jamie Boyd
 function twoP_AcquireInit()
-	twoP_AcquireMakeFolder ()
-	twoP_AcquireAddControls ()
-	twoP_reSetBoards ()
+	twoP_AcquireMakeFolder()
+	twoP_AcquireAddControls()
+	twoP_reSetBoards()
 end
 
 
 //******************************************************************************************************
 // Makes globals for acquire tab functions of the Nidaq Controls panel. 
 // Last Modified 2025/08/11 by Jamie Boyd - Preferences loading will make some of the variables
-Function twoP_AcquireMakeFolder ()
+Function twoP_AcquireMakeFolder()
 	
 	if (!(DataFolderExists ("root:packages:twoP:acquire")))
 		pathinfo twoPPrefsPath
@@ -96,7 +96,7 @@ Function twoP_AcquireMakeFolder ()
 				DoAlert 0, "Igor could not find twoPhoton folder in User Procedures folder."
 				return 1
 			endif
-			if (twoP_PrefsLoad ("twoPPrefs_default"))
+			if (twoP_PrefsLoad("twoPPrefs_default"))
 				return 1
 			endif
 		endif
@@ -204,9 +204,10 @@ Function twoP_AcquireMakeFolder ()
 	variable/G root:packages:twoP:acquire:zStepSize=1e-06
 	variable/G root:Packages:twoP:Acquire:NumZseriesFrames = 10		// Stores Number of frames to collect in the Z dimension for Z Series Exp.
 	variable/G root:Packages:twoP:Acquire:NumZseriesAvg = 3			// Number of frames to average for each z-position, i.e, Kalman averaging
-	variable/g root:Packages:twoP:Acquire:ZFirstZ =0
-	variable/g root:Packages:twoP:Acquire:ZLastZ =10e-6
-	variable/g root:Packages:twoP:Acquire:iiZseriesFrames// a global variable for counting z-series frames
+	variable/G root:Packages:twoP:Acquire:ZFirstZ =0
+	variable/G root:Packages:twoP:Acquire:ZLastZ =10e-6
+	variable/G root:Packages:twoP:Acquire:iiZseriesFrames// a global variable for counting z-series frames
+	variable/G root:Packages:twoP:Acquire:zAvgStackAtOnce = 1 // if frames are small, we collect Zavg frames at a time, else one frame at a time
 	// ePhys
 	variable/G root:Packages:twoP:Acquire:ePhysOnlyTime = 30
 	// multiAq
@@ -272,7 +273,7 @@ end
 //******************************************************************************************************
 // Adds controls for the acquire functions to the Nidaq Controls panel
 // Last Modified 2025/09/29 by Jamie Boyd
-Function twoP_AcquireAddControls ()
+Function twoP_AcquireAddControls()
 	DoWindow/F twoP_Controls
 	if (!(V_Flag))
 		return 1
@@ -719,19 +720,19 @@ Function twoP_AcquireAddControls ()
 	Button MultiStartButton,help={"Starts or Aborts a series of multiple scans"}
 	Button MultiStartButton,userdata="Start Multi",fSize=16,fStyle=1
 	Button MultiStartButton,fColor=(0,65280,0)
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Multi", "PopupMenu multiAqDataModePopUp;GroupBox MultModePeriodGrp;CheckBox MultiPeriodCheck;SetVariable MultiAqPeriodNumSetVar;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Multi", "SetVariable MultAqPeriodPeriodSetVar;SetVariable MultiAqPeriodDelaySetVar;GroupBox MultModeWaveGrp;CheckBox MultiWaveCheck;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Multi", "Button MultiAqWaveEditButton;PopupMenu MultiAqWavePopup;TitleBox MultiAqWaveTitleBox;GroupBox MultModeTriggerGrp;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Multi", "CheckBox MultiTriggerCheck;SetVariable MultiAqTriggerNumSetVar;TitleBox MultiAqTimeToNextTitle;ValDisplay multiAqProgressDisplay;")
-	GUIPTabAddCtrls ("twoP_Controls", "SmodeTabControl", "Multi", "Button MultiPreMakeButton;Button MultiStartButton;")
+	GUIPTabAddCtrls("twoP_Controls", "SmodeTabControl", "Multi", "PopupMenu multiAqDataModePopUp;GroupBox MultModePeriodGrp;CheckBox MultiPeriodCheck;SetVariable MultiAqPeriodNumSetVar;")
+	GUIPTabAddCtrls("twoP_Controls", "SmodeTabControl", "Multi", "SetVariable MultAqPeriodPeriodSetVar;SetVariable MultiAqPeriodDelaySetVar;GroupBox MultModeWaveGrp;CheckBox MultiWaveCheck;")
+	GUIPTabAddCtrls("twoP_Controls", "SmodeTabControl", "Multi", "Button MultiAqWaveEditButton;PopupMenu MultiAqWavePopup;TitleBox MultiAqWaveTitleBox;GroupBox MultModeTriggerGrp;")
+	GUIPTabAddCtrls("twoP_Controls", "SmodeTabControl", "Multi", "CheckBox MultiTriggerCheck;SetVariable MultiAqTriggerNumSetVar;TitleBox MultiAqTimeToNextTitle;ValDisplay multiAqProgressDisplay;")
+	GUIPTabAddCtrls("twoP_Controls", "SmodeTabControl", "Multi", "Button MultiPreMakeButton;Button MultiStartButton;")
 	// set times
-	NQ_SetTimes ()
+	NQ_SetTimes()
 end
  
  // ***************************************************************************************
 // Lists channels that can be selected for scanning, marking already selected ones with checks
 // last modified 2025/07/25 by Jamie Boyd
-function/S twoP_listActiveChans (type)
+function/S twoP_listActiveChans(type)
 	variable type
 	switch (type)
 	case 1:  //1 for images
@@ -798,7 +799,7 @@ end
 // Function for the checkbox to autoincrement wavenames.  It runs when you first check the box and calls cleanupName and
 // NQ_autinc on whatever is already in the New Wave Name setvariable
 // Last Modified 2014/08/13 by Jamie Boyd
-Function twoP_autincCheckProc (cba) : CheckBoxControl
+Function twoP_autincCheckProc(cba) : CheckBoxControl
 	STRUCT WMCheckboxAction &cba
 
 	switch( cba.eventCode )
@@ -809,7 +810,7 @@ Function twoP_autincCheckProc (cba) : CheckBoxControl
 				// Clean up scan name
 				NewScanName = cleanupname(NewScanName, 0)
 				// autoincrement scan name  til there is no conflict
-				For (NewScanName = twoP_autinc (NewScanName, 0);DataFolderExists("root:twoP_Scans:" + NewScanName);NewScanName = twoP_autinc (NewScanName, 1))
+				For (NewScanName = twoP_autinc(NewScanName, 0);DataFolderExists("root:twoP_Scans:" + NewScanName);NewScanName = twoP_autinc(NewScanName, 1))
 				endfor
 			endif
 			break
@@ -821,7 +822,7 @@ End
 // Checks to see if a string is autoincrement compatable and, optionally, increments it.
 // Used when the autoincrement  wavenames checkbox is on.
 // Last modified 2025/07/25 by Jamie Boyd - use sscanf
-Function/s twoP_autinc (NewWaveName, inc)
+Function/s twoP_autinc(NewWaveName, inc)
 	string NewWaveName
 	variable inc		// if 0, don't increment., just check for compatibility. if 1, increment
 	
@@ -902,8 +903,8 @@ End
 
 //******************************************************************************************************
 // Opens the microscope stage and focus panel using the chosen focus procedure
-// Last Modified2009/05/31 by Jamie Boyd
-Function twoP_OpenFocusPanel (ba) : ButtonControl
+// Last Modified 2009/05/31 by Jamie Boyd
+Function twoP_OpenFocusPanel(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 
 	switch( ba.eventCode )
@@ -953,12 +954,12 @@ Function NQ_ZAdjustPopMenuProc(pa) : PopupMenuControl
 			String popStr = pa.popStr
 			// DIsable controls based on selection
 			// ZSLices;Step Size;First Z;Last Z
-			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Zser", "NumZframesSetvar;",  ((popNum == 1)*2), 1)
-			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Zser", "zStepSizeSetvar;",  ((popNum == 2)*2), 1)
-			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Zser", "FirstZButton;",  ((popNum == 3)*2), 1)
-			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Zser", "zFirstZSetVar;",  ((popNum == 3)*2), 1)
-			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Zser", "LastZButton;",  ((popNum == 4)*2), 1)
-			GUIPTabSetAbleState ("twoP_Controls", "SmodeTabControl", "Zser", "ZLastZSetVar;",  ((popNum == 4)*2), 1)
+			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "NumZframesSetvar;",  ((popNum == 1)*2), 1)
+			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "zStepSizeSetvar;",  ((popNum == 2)*2), 1)
+			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "FirstZButton;",  ((popNum == 3)*2), 1)
+			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "zFirstZSetVar;",  ((popNum == 3)*2), 1)
+			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "LastZButton;",  ((popNum == 4)*2), 1)
+			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "ZLastZSetVar;",  ((popNum == 4)*2), 1)
 			break
 	endswitch
 	return 0
@@ -1019,13 +1020,13 @@ Function NQ_zSetVarProc(sva) : SetVariableControl
 		setvariable zLastZSetVar win = twoP_Controls, limits = {-INF, INF, ZStepSize}
 	endif
 	// Adjust frame time/exp time
-	NQ_SetTimes ()
+	NQ_SetTimes()
 	return 0
 End
 
 //******************************************************************************************************
 // Grabs value from stage/focus, puts it into firstZ or lastZ, and adjusts Z variables based on selection in ZdjustPopMenu
-// Last Modified 2009/06/01 by Jamie Boyd
+// Last Modified 2025/12/21 by Jamie Boyd
 Function NQ_ZfirstLastButtonProc(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 
@@ -1057,7 +1058,7 @@ End
 // Returns the physical memory usage of Igor,not the same as the experiment size, but proabbly more helpful
 // Last Modified 2025/07/22 by Jamie Boyd - divided by 2^30 to return value in  GigaBytes
 // Last Modified 2025/07/15 by Jamie Boyd - use Igor's memory usage from get info
-Function twoP_GetExpSize ()
+Function twoP_GetExpSize()
 	
 	return numberbykey("USEDPHYSMEM", IgorInfo(0), ":", ";")/2^30
 end
@@ -1066,7 +1067,7 @@ end
 //*************************************************************************************************************************************
 // Puts updated memory usage in the global variable used for the setvariable on the twoP control panel
 // Last Modified 2025/07/22 by Jamie Boyd - divided by 2^30 to return value in  GigaBytes
-function NQ_UpdateExpSize ()
+function NQ_UpdateExpSize()
 	NVAR expSize= root:packages:twoP:acquire:expSize
 	expSize =  numberbykey("USEDPHYSMEM", IgorInfo(0), ":", ";")/2^30
 end
@@ -1075,7 +1076,7 @@ end
 //*************************************************************************************************************************************
 // Sets the scanMode variable and various options in the control panel
 // Last Modified 2025/07/13 by Jamie Boyd
-Function NQ_SModeTabControlproc (TC_Struct) : TabControl
+Function NQ_SModeTabControlproc(TC_Struct) : TabControl
 	STRUCT WMTabControlAction &tc_Struct
 	
 	if (TC_Struct.eventCode != 2)
@@ -1115,7 +1116,7 @@ Function NQ_SModeTabControlproc (TC_Struct) : TabControl
 		isMulti  = 0
 	endif
 	//Set Times
-	NQ_SetTimes ()
+	NQ_SetTimes()
 	return 0
 end
 
@@ -1124,14 +1125,14 @@ end
 // Sets the calculated pixel, line, frame, and experiment times based on the settings in the control panel
 // by calling NQ_SetTimes. It is called  by many setvariable controls which  set those things
 // Last Modified 2015/04/12 by Jamie Boyd
-Function NQ_SetTimesProc (sva) : SetVariableControl
+Function NQ_SetTimesProc(sva) : SetVariableControl
 	STRUCT WMSetVariableAction &sva
 		
 	switch( sva.eventCode )
 		case 1: // mouse up
 		case 2: // Enter key
 		case 3: // Live update
-			NQ_SetTimes ()
+			NQ_SetTimes()
 			break
 	endswitch
 	return 0
@@ -1140,8 +1141,8 @@ End
 //*************************************************************************************************************************************
 // This function directly sets the calculated pixel, line, frame, and experiment times based on the settings in the control panel.
 // Called in lots of places other than from setvariable controls, so it makes sense to put the code in a dedicated function
-// Last Modified 2025/08/08 by Jamie Boyd
-Function NQ_SetTimes ()
+// Last Modified 2025/12/22 by Jamie Boyd
+Function NQ_SetTimes()
 	
 	// Globals for scan timing
 	variable scanMode
@@ -1223,7 +1224,17 @@ Function NQ_SetTimes ()
 			break
 		case kZseries:
 			NVAR NumZSeriesAvg = root:Packages:twoP:Acquire:NumZseriesAvg
-			numZseriesAvg = max (numZseriesAvg, ceil (minLiveFrameTime/frametime))
+			NVAR zAvgStackAtOnce =  root:Packages:twoP:Acquire:zAvgStackAtOnce
+			if ((PixWidth * pixHeight  * NumZSeriesAvg) >= 2^kNQImageCounterSize)	// overflow 24 bit counter with averaging
+				zAvgStackAtOnce = 0
+				if ( PixWidth * pixHeight >= 2^kNQImageCounterSize)					// // overflow 24 bit counter with averaging for a single frame
+					doAlert 0,  "Number of points in each image is greater than the 2^24 bit counter for points/channel! Image Size reduced"
+					pixHeight =  2^kNQImageCounterSize/PixWidth
+				endif
+			else
+				zAvgStackAtOnce = 1
+				numZseriesAvg = max (numZseriesAvg, ceil (minLiveFrameTime/frametime))
+			endif
 			SetVariable zKalmanAvgSetvar win=twoP_Controls, limits={minLiveFrames,inf,1}
 			NumFrames = NumZSeriesAvg
 			break
@@ -2496,6 +2507,8 @@ Function NQ_LoadScanStruct (s)
 			NVAR zFirstZ = root:Packages:twoP:Acquire:ZFirstZ 
 			NVAR zstepSize = root:Packages:twoP:Acquire:ZStepSize
 			NVAR zAvg = root:Packages:twoP:Acquire:NumZseriesAvg
+			NVAR zAvgStackAtOnce = root:Packages:twoP:Acquire:zAvgStackAtOnce
+			s.zAvgStackAtOnce = zAvgStackAtOnce
 			s.zpos = zFirstZ
 			s.zStepSize = zStepSize
 			s.zAvg = zAvg
@@ -2884,7 +2897,7 @@ end
 // Makes the image waves for scanning in a new folder, for all the different scan modes.
 // Sets string for channels and paths to created waves in s.scanWavePath
 // Last Modified 2025/10/02 by Jamie Boyd
-Function NQ_MakeImageScanWaves (s)
+Function NQ_MakeImageScanWaves(s)
 	STRUCT NQ_ScanStruct &s
 
 	string baseName = "root:twoP_Scans:" + s.newScanName +":" +  s.newScanName + "_"
@@ -2955,6 +2968,9 @@ Function NQ_MakeImageScanWaves (s)
 		case kLineScan:
 			numThreadWaves = 3
 			break
+		case kZseries:
+			numThreadWaves = 4
+			break
 	endswitch
 
 
@@ -2980,6 +2996,8 @@ Function NQ_MakeImageScanWaves (s)
 		endif
 		s.numFrames = round (s.numFrames / s.nCycFrames) * s.nCycFrames
 	endif
+	
+	// adjust sizes for Zseries - 2 options. If 
 
 	// fillout NI-DAQ info for scan command, and make waves according to scan mode
 	for (iChan=0; iChan < nChans; iChan +=1)
@@ -3219,7 +3237,6 @@ Function NQ_MakeImageScanWaves (s)
 					WAVE/Z Acq2D = $"root:packages:twoP:acquire:Acq1D_" + chanName
 				endif
 				threadData[numThreadWaves*iChan + 2] = acq2D
-
 				// ROI wave - pos 3
 				if (s.liveROI)
 					WAVE/Z LROIWave = $"root:Packages:twoP:acquire:LroiWave_" + chanName
@@ -3242,7 +3259,20 @@ Function NQ_MakeImageScanWaves (s)
 				endif
 				break
 			case kZseries:
-				
+				// make the ScanWave
+				WAVE/Z scanWave= $baseName + chanName
+				if (waveExists (scanWave))
+					redimension/w/u/n = ((s.PixWidth), (s.PixHeight), (s.numFrames)) scanWave
+				else
+					make/w/u/n = ((s.PixWidth), (s.PixHeight)) $baseName + chanName
+					WAVE scanWave= $baseName + chanName
+				endif
+				SetScale/P x s.xScalStart, s.XPixSize, "m", scanWave
+				SetScale/P Y s.yScalStart, s.YPixSize, "m", scanWave
+				fastop scanWave =0
+				// make the 1D wave that we directly scan into
+				s.scanWavePath += "root:packages:twoP:acquire:Acq1D_" + chanName
+				WAVE/Z Acq1D = $"root:packages:twoP:acquire:Acq1D_" + chanName
 				break
 		endswitch
 
@@ -4003,7 +4033,7 @@ Function  NQ_StartScan (ba) : ButtonControl
 			// make a folder for this scan
 			newDataFolder/O $"root:twoP_Scans:" + s.newScanName
 			// Make info string
-			if (NQ_ScanNoter (s))
+			if (NQ_ScanNoter(s))
 				doAlert 0,"Scan not created"
 				return 0
 			endif
@@ -4023,10 +4053,10 @@ Function  NQ_StartScan (ba) : ButtonControl
 			endif
 			// make waves for ePhys
 			if (itemsInList (s.selEphysChanList, ";") > 0)
-				NQ_MakeEphysWaves (s)
+				NQ_MakeEphysWaves(s)
 			endif
 			//update experiment size after making waves
-			NQ_UpdateExpSize ()
+			NQ_UpdateExpSize()
 			// Select our new scan as current scan, with selected channels on scanGraph to match channels being acquired
 			if (s.scanMode != kephysOnly)
 				SVAR selChans = root:packages:twoP:examine:scanGraphSelChans
@@ -4234,6 +4264,9 @@ Function NQ_ScanInit (s)
 					taskPeriod=ceil(s.lScanBufferSize * s.lineTime * 60)
 					CtrlNamedBackground LineScanTask, period =  taskPeriod, burst =0, proc= twoP_LineScanBkg, start=(ticks + taskPeriod)
 				endif
+				break
+			case kZseries:
+				
 				break
 		endSwitch		
 		
