@@ -19,7 +19,7 @@ Function NQexExport_add (able)
 	variable/G root:packages:twoP:examine:ExportCurOrAll = 0
 	string/G root:packages:twoP:examine:exportPxp = "no .pxp selected"
 	// Export controls
-	Button  pathbutton, win =twoP_Controls, disable=able, pos={7,458},size={56,16},proc=NQ_SetExPathProc,title="Set Folder", fSize=10
+	Button  pathbutton, win =twoP_Controls, disable=able, pos={7,458},size={56,16},proc=twoP_SetExPathProc,title="Set Folder", fSize=10
 	TitleBox Expathtitle, win =twoP_Controls ,disable=able,pos={65,458},size={197,20}
 	TitleBox Expathtitle, win =twoP_Controls,variable= root:Packages:twoP:examine:ExportPath
 	CheckBox exportCurScanCheck, win =twoP_Controls,disable=able,pos={8,482},size={80,14},proc=GUIPRadioButtonProcSetGlobal,title="Current Scan"
@@ -36,16 +36,16 @@ Function NQexExport_add (able)
 	CheckBox exportNewFolderCheck, win =twoP_Controls,value= 0
 	CheckBox exportOverWriteCheck, win =twoP_Controls,disable=able,pos={156,501},size={93,14},title="Auto OverWrite"
 	CheckBox exportOverWriteCheck, win =twoP_Controls,fSize=10,value= 0
-	PopupMenu exportpopup, win =twoP_Controls,disable=able,pos={8,520},size={80,20},proc=NQ_ExportPopMenuProc,title="Mode"
+	PopupMenu exportpopup, win =twoP_Controls,disable=able,pos={8,520},size={80,20},proc=twoP_ExportPopMenuProc,title="Mode"
 	PopupMenu exportpopup, win =twoP_Controls,fSize=10
 	PopupMenu exportpopup, win =twoP_Controls,mode=3,popvalue="TIFF",value= #"\"Igor binary;PXP;TIFF;TIFF current Frame;QuickTime Movie;Note Only\""
 	PopupMenu ReScalePopup, win =twoP_Controls,disable=able,pos={8,546},size={117,20},title="Scaling:"
 	PopupMenu ReScalePopup, win =twoP_Controls,mode=1,popvalue="Full Scale",value= #"\"Full Scale;Data Range;Min/Max\""
 	PopupMenu expDimPopUp, win =twoP_Controls,disable=able,pos={141,546},size={142,20},title="type"
 	PopupMenu expDimPopUp, win =twoP_Controls,mode=2,popvalue="signed 16",value= #"\"signed 16;unsigned 16;unsigned 8;float;\""
-	Button SaveButton, win =twoP_Controls,disable=able,pos={8,630},size={96,20},proc=NQ_SaveAndOrDeleteButtonProc,title="Save Scan to Disk",fSize=10
-	Button SaveKillButton, win =twoP_Controls,disable=able,pos={107,630},size={135,20},proc=NQ_SaveAndOrDeleteButtonProc,title="Save and Delete  from Exp",fSize=10
-	Button KillButton, win =twoP_Controls,disable=able,pos={245,630},size={37,20},proc=NQ_SaveAndOrDeleteButtonProc,title="Delete",fSize=10
+	Button SaveButton, win =twoP_Controls,disable=able,pos={8,630},size={96,20},proc=twoP_SaveAndOrDeleteButtonProc,title="Save Scan to Disk",fSize=10
+	Button SaveKillButton, win =twoP_Controls,disable=able,pos={107,630},size={135,20},proc=twoP_SaveAndOrDeleteButtonProc,title="Save and Delete  from Exp",fSize=10
+	Button KillButton, win =twoP_Controls,disable=able,pos={245,630},size={37,20},proc=twoP_SaveAndOrDeleteButtonProc,title="Delete",fSize=10
 	// Add "Export" controls  to database for Examine tabControl
 	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "export","Button pathbutton 0;Titlebox Expathtitle 0;Checkbox exportCurScanCheck 0;Checkbox exportAllScansCheck 0;",applyAbleState=0)
 	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "export","Setvariable ExportMatchSetVar 0;Checkbox exportNewFolderCheck 0;Checkbox exportOverWriteCheck 0;",applyAbleState=0)
@@ -56,7 +56,7 @@ end
 //*******************************************************************************
 //Sets a new Igor symbolic path, by letting the user choose a folder on the disk
 // Last Modified 2010/08/03 by Jamie Boyd
-Function NQ_SetExPathProc(ctrlName) : ButtonControl
+Function twoP_SetExPathProc(ctrlName) : ButtonControl
 	String ctrlName
 	
 	SVAR PathStr =root:Packages:twoP:examine:ExportPath		// the global string were we store the path
@@ -70,7 +70,7 @@ End
 //******************************************************************************************************
 //Shows or hides some controls depending on the export method chosen
 // Last Modified 2015/04/14 by Jamie Boyd
-Function NQ_ExportPopMenuProc(pa) : PopupMenuControl
+Function twoP_ExportPopMenuProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 
 	switch( pa.eventCode )
@@ -94,7 +94,7 @@ End
 //******************************************************************************************************
 //Saves to disk and/or deletes selected scans. including all waves in the folder
 // Last Modified 2025/09/19 by Jamie Boyd
-Function NQ_SaveAndOrDeleteButtonProc(ba) : ButtonControl
+Function twoP_SaveAndOrDeleteButtonProc(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 
 	switch( ba.eventCode )
@@ -105,7 +105,7 @@ Function NQ_SaveAndOrDeleteButtonProc(ba) : ButtonControl
 			NVAR expCurOrAll = root:packages:twoP:examine:ExportCurOrAll 
 			if (expCurOrAll==1)
 				SVAR exportMatchStr = root:packages:twoP:examine:exportMatchStr
-				scanList = GUIPListObjs("root:twoP_Scans", 4, exportMatchStr, 0, "") 
+				scanList = GUIPListObjs("root:twoP_Scans", 4, exportMatchStr, 0, "", sepStr = ";") 
 				nScans = itemsinList (scanList)
 			else
 				SVAR curScanG = root:packages:twoP:examine:curScan
@@ -144,9 +144,9 @@ Function NQ_SaveAndOrDeleteButtonProc(ba) : ButtonControl
 				// PXPs are exported differently, not scan by scan, so do separately
 				if (saveMode ==2) // PXP
 					if (expCurOrAll ==0)
-						NQ_ExportScan_PXP (expCurOrAll, curScanG, OverWrite, makeNewFolder)
+						twoP_ExportScan_PXP (expCurOrAll, curScanG, OverWrite, makeNewFolder)
 					else
-						NQ_ExportScan_PXP (expCurOrAll, exportMatchStr, OverWrite, makeNewFolder)
+						twoP_ExportScan_PXP (expCurOrAll, exportMatchStr, OverWrite, makeNewFolder)
 					endif
 				endif
 				// get options specific to TIFF save modes	
@@ -183,19 +183,19 @@ Function NQ_SaveAndOrDeleteButtonProc(ba) : ButtonControl
 				//Now save the wave (.pxp mode will already have been exported, so is not shown in switch)
 				SWITCH (saveMode)
 					case 1://igor binary
-						errVal = NQ_ExportScan_ibw (curScan, OverWrite, makeNewFolder)
+						errVal = twoP_ExportScan_ibw (curScan, OverWrite, makeNewFolder)
 						break
 					Case 3: //TIFF
-						errVal =NQ_ExportScan_tif (curScan, overWrite, makeNewFolder,TiffScaleMode, tiffExpType)
+						errVal =twoP_ExportScan_tif (curScan, overWrite, makeNewFolder,TiffScaleMode, tiffExpType)
 						break
 					Case 4: // TIFF Current Frame only
-						errVal =NQ_ExportScan_tifCurFrame (curScan, overWrite, makeNewFolder,TiffScaleMode, tiffExpType, CurFramePos)
+						errVal =twoP_ExportScan_tifCurFrame (curScan, overWrite, makeNewFolder,TiffScaleMode, tiffExpType, CurFramePos)
 						break
 					case 5: //QT movie
-						errval =NQ_ExportScan_QTMovie (curScan, overWrite, makeNewFolder)
+						errval =twoP_ExportScan_QTMovie (curScan, overWrite, makeNewFolder)
 						break
 					case 6: // note only
-						errval = NQ_ExportScan_Note (curScan, OverWrite, makeNewFolder)
+						errval = twoP_ExportScan_Note (curScan, OverWrite, makeNewFolder)
 				endswitch
 				SVAR curScanG = root:packages:twoP:examine:curScan
 				if (saveDelete & 2)
@@ -235,7 +235,7 @@ End
 // adds name of added file to list
 // returns 0 if no conflict, 1 if overwrite, 2 if renamed, 3 to cancel this file, 4 to cancel all files
 // Last Modified 2015/04/14 by Jamie Boyd
-Function NQ_ExportCheckRename (fileName, fileList)
+Function twoP_ExportCheckRename (fileName, fileList)
 	string &fileName
 	string &fileList
 	
@@ -272,7 +272,7 @@ end
 //******************************************************************************************************
 // Saves to a .pxp file of the current scan or a range of scans
 // Last Modified 2015/04/14 by Jamie Boyd
-function NQ_ExportScan_PXP (expCurOrMatch, curScanOrMatch, doOverWrite, makeNewFile)
+function twoP_ExportScan_PXP (expCurOrMatch, curScanOrMatch, doOverWrite, makeNewFile)
 	variable expCurOrMatch  //0 for current scan, 1 to match a range of scans
 	string curScanOrMatch // either name of current scan, or wild-card enabled string to match a list of scans
 	variable doOverwrite // 1 to overwrite existing pxp without asking for permission
@@ -286,7 +286,7 @@ function NQ_ExportScan_PXP (expCurOrMatch, curScanOrMatch, doOverWrite, makeNewF
 	string saveList, scanList, aScan, fileNameStr
 	variable iScan, nScans, nSaves
 	if (expCurOrMatch)
-		saveList = GUIPListObjs("root:twoP_Scans", 4, curScanOrMatch, 0, "")
+		saveList = GUIPListObjs("root:twoP_Scans", 4, curScanOrMatch, 0, "", sepStr=";")
 	else
 		saveList = curScanOrMatch + ";"
 	endif
@@ -295,14 +295,14 @@ function NQ_ExportScan_PXP (expCurOrMatch, curScanOrMatch, doOverWrite, makeNewF
 	variable owCode
 	string pxpsAlready
 	if (!(doOverWrite))
-		pxpsAlready=GUIPListFiles ("ExportPath",  ".pxp", "*", 0, "")
+		pxpsAlready=GUIPListFiles ("ExportPath",  ".pxp", "*", 0, "", sepStr=";")
 	endif
 	// move unselected scans to a temporary folder
 	newDataFolder/o root:packages:tempScans
 	setdatafolder root:twoP_Scans:
 	if (makeNewFile)// each selected scans will go in its own .pxp file, named for the scan
 		// move all scans into temp folder
-		scanList = GUIPListObjs("root:twoP_Scans:" , 4, "*", 2, "")
+		scanList = GUIPListObjs("root:twoP_Scans:" , 4, "*", 2, "", sepStr = ";")
 		nScans = itemsInList (scanList, ";")
 		for (iScan =0; iScan < nScans;iScan +=1)
 			aScan = stringFromList (iScan, scanList, ";")
@@ -313,7 +313,7 @@ function NQ_ExportScan_PXP (expCurOrMatch, curScanOrMatch, doOverWrite, makeNewF
 			aScan = stringFromList (iScan, saveList, ";")
 			fileNameStr = expName + "_" + aScan + ".pxp"
 			if (!(doOverWrite))
-				owCode = NQ_ExportCheckRename (fileNameStr, pxpsAlready)
+				owCode = twoP_ExportCheckRename (fileNameStr, pxpsAlready)
 				if (owCode == 3)
 					continue
 				elseif (owCode ==4)
@@ -333,7 +333,7 @@ function NQ_ExportScan_PXP (expCurOrMatch, curScanOrMatch, doOverWrite, makeNewF
 	else // all scans in a single .pxp
 		fileNameStr = expName + "_" + curScanOrMatch + ".pxp"
 		if (!(doOverWrite))
-			owCode = NQ_ExportCheckRename (fileNameStr, pxpsAlready)
+			owCode = twoP_ExportCheckRename (fileNameStr, pxpsAlready)
 			if (owCode >= 3)
 				return 1
 			endif
@@ -362,7 +362,7 @@ end
 //******************************************************************************************************
 // Saves to disk all waves from the given scan as Igor Binary waves
 // Last Modified 2015/04/14 by Jamie Boyd
-Function NQ_ExportScan_ibw (theScan, doOverWrite,inSubFolder)
+Function twoP_ExportScan_ibw (theScan, doOverWrite,inSubFolder)
 	string theScan
 	variable doOverWrite
 	variable inSubFolder
@@ -373,19 +373,19 @@ Function NQ_ExportScan_ibw (theScan, doOverWrite,inSubFolder)
 	else
 		ExportPathStr = "ExportPath"
 	endif
-	string fileNameStr, FolderList = GUIPListObjs("root:twoP_Scans:" + theScan, 1, "*", 0, "") 
+	string fileNameStr, FolderList = GUIPListObjs("root:twoP_Scans:" + theScan, 1, "*", 0, "", sepStr = ";") 
 	variable iWave, nWaves = itemsinlist (FolderList, ";")
 	// look for other ibw files in export path, if overwriting is not set
 	variable owCode
 	string ibwsAlready
 	if (!(doOverWrite))
-		ibwsAlready=GUIPListFiles ("ExportPath",  ".ibw", "*", 0, "")
+		ibwsAlready=GUIPListFiles ("ExportPath",  ".ibw", "*", 0, "", sepStr = ";")
 	endif
 	for (iWave =0; iWave < nWaves; iWave += 1)
 		wave dataWave = $"root:twoP_Scans:" + theScan + ":" + stringFromList (iWave, FolderList)
 			FileNameStr = stringFromList (iWave, FolderList) + ".ibw"
 			if (!(doOverWrite))
-				owCode = NQ_ExportCheckRename (fileNameStr, ibwsAlready)
+				owCode = twoP_ExportCheckRename (fileNameStr, ibwsAlready)
 				if (owCode == 3)
 					continue
 				elseif (owCode ==4)
@@ -395,14 +395,14 @@ Function NQ_ExportScan_ibw (theScan, doOverWrite,inSubFolder)
 			Save /C/O/P=$ExportPathStr datawave as FileNameStr
 	endfor
 	// save note
-	NQ_ExportScan_Note (theScan, doOverWrite,inSubFolder)
+	twoP_ExportScan_Note (theScan, doOverWrite,inSubFolder)
 	return 0
 end
 
 //******************************************************************************************************
 // Saves to disk all waves from the given scan as tiff images
 // Last Modified 2025/09/19 by Jamie Boyd
-Function NQ_ExportScan_tif (curScan, doOverWrite, inSubFolder,  tiffScaleMode, tiffExpType)
+Function twoP_ExportScan_tif (curScan, doOverWrite, inSubFolder,  tiffScaleMode, tiffExpType)
 	string curScan
 	variable doOverWrite
 	variable inSubFolder
@@ -423,8 +423,8 @@ Function NQ_ExportScan_tif (curScan, doOverWrite, inSubFolder,  tiffScaleMode, t
 	variable timeinSecs = numberbykey ("ExpTime", scanStr, ":", "\r")
 	// look for other tiff files in export path, if overwriting is not set
 	if (!(doOverWrite))
-		string tifsAlready = tifsAlready=GUIPListFiles ("ExportPath",  ".tif", "*", 0, "")
-		string ibwsAlready=GUIPListFiles ("ExportPath",  ".ibw", "*", 0, "")
+		string tifsAlready =GUIPListFiles ("ExportPath",  ".tif", "*", 0, "", sepStr = ";")
+		string ibwsAlready=GUIPListFiles ("ExportPath",  ".ibw", "*", 0, "", sepStr = ";")
 	endif
 	variable owCode
 	
@@ -442,7 +442,7 @@ Function NQ_ExportScan_tif (curScan, doOverWrite, inSubFolder,  tiffScaleMode, t
 		WAVE scanWave = $"root:twoP_Scans:" + curScan + ":"  + curScan + "_" + aChan
 		fileName=curScan  + "_" + aChan + ".tif"
 		if (!(doOverWrite))
-			owCode = NQ_ExportCheckRename (fileName, tifsAlready)
+			owCode = twoP_ExportCheckRename (fileName, tifsAlready)
 			if (owCode == 3)
 				continue
 			elseif (owCode ==4)
@@ -456,7 +456,7 @@ Function NQ_ExportScan_tif (curScan, doOverWrite, inSubFolder,  tiffScaleMode, t
 			anOther = stringFromList (iOther, otherChanIms)
 			FileName = anOther + ".tif"
 			if (!(doOverWrite))
-				owCode = NQ_ExportCheckRename (fileName, tifsAlready)
+				owCode = twoP_ExportCheckRename (fileName, tifsAlready)
 				if (owCode == 3)
 					continue
 				elseif (owCode ==4)
@@ -475,7 +475,7 @@ Function NQ_ExportScan_tif (curScan, doOverWrite, inSubFolder,  tiffScaleMode, t
 		wave dataWave = $"root:twoP_Scans:" + curScan + ":"  + stringFromList (iWave, folderList)
 		FileName = stringFromList (iWave, folderList) + ".ibw"
 		if (!(doOverWrite))
-			owCode = NQ_ExportCheckRename (FileName, ibwsAlready)
+			owCode = twoP_ExportCheckRename (FileName, ibwsAlready)
 			if (owCode == 3)
 				continue
 			elseif (owCode ==4)
@@ -485,7 +485,7 @@ Function NQ_ExportScan_tif (curScan, doOverWrite, inSubFolder,  tiffScaleMode, t
 		Save /C/O/P=$ExportPathStr datawave as FileName
 	endfor
 	// save note
-	NQ_ExportScan_Note (curScan, doOverWrite,inSubFolder)
+	twoP_ExportScan_Note (curScan, doOverWrite,inSubFolder)
 	setDataFolder $savedFolder
 	return 0
 end
@@ -494,7 +494,7 @@ end
 //******************************************************************************************************
 // Saves as a 2D tiff whatever image is displayed in the scan Graph, usually the current frame of a 3D wave
 // Last Modified 2025/09/19 by Jamie Boyd
-Function NQ_ExportScan_tifCurFrame (curScan, doOverWrite, inSubFolder,TiffScaleMode, tiffExpType, CurFramePos)
+Function twoP_ExportScan_tifCurFrame (curScan, doOverWrite, inSubFolder,TiffScaleMode, tiffExpType, CurFramePos)
 	string curScan
 	variable doOverwrite
 	variable inSubFolder
@@ -515,7 +515,7 @@ Function NQ_ExportScan_tifCurFrame (curScan, doOverWrite, inSubFolder,TiffScaleM
 	variable owCode
 	string tifsAlready
 	if (!(doOverWrite))
-		tifsAlready=GUIPListFiles ("ExportPath",  ".tif", "*", 0, "")
+		tifsAlready=GUIPListFiles ("ExportPath",  ".tif", "*", 0, "", sepStr = ";")
 	endif
 	NVAR framPos= root:Packages:twoP:examine:CurFramePos
 	SVAR channels=root:Packages:twoP:examine:ScanGraphSelChans
@@ -529,7 +529,7 @@ Function NQ_ExportScan_tifCurFrame (curScan, doOverWrite, inSubFolder,TiffScaleM
 		NVAR maxVal= $"root:packages:twoP:examine:" + aChan + "Lastlutcolor"
 		FileNameStr = curScan + "_ch1_f" + num2str (curFramePos) + ".tif"
 		if (!(doOverWrite))
-			owCode = NQ_ExportCheckRename (fileNameStr, tifsAlready)
+			owCode = twoP_ExportCheckRename (fileNameStr, tifsAlready)
 			if ((owCode == 3) || (owCode ==4))
 				return 1
 			endif
@@ -548,7 +548,7 @@ end
 //******************************************************************************************************
 //Exports a quicktime movie, only applicable for 3D images
 // Last Modified Aug 03 2010 by Jamie Boyd
-Function NQ_ExportScan_QTMovie (curScan, doOverWrite, inSubFolder)
+Function twoP_ExportScan_QTMovie (curScan, doOverWrite, inSubFolder)
 	string CurScan
 	variable  doOverWrite, inSubFolder
 		
@@ -580,7 +580,7 @@ Function NQ_ExportScan_QTMovie (curScan, doOverWrite, inSubFolder)
 	if (V_Flag != 0)
 		return 1
 	endif
-	// call NQ_DisplayFramesProc to display all the frames
+	// call twoP_DisplayFramesProc to display all the frames
 	STRUCT WMSliderAction sa
 	sa.eventCode = 1
 	for (ii= 0; ii < numFrames; ii += 1)
@@ -597,7 +597,7 @@ end
 //******************************************************************************************************
 //Exports the info note for the given scan as a text file
 // Last Modified Aug 03 2010 by Jamie Boyd
-Function NQ_ExportScan_Note (theScan, doOverWrite,inSubFolder)
+Function twoP_ExportScan_Note (theScan, doOverWrite,inSubFolder)
 	string theScan
 	variable doOverwrite
 	variable inSubFolder

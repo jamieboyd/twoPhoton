@@ -23,7 +23,7 @@ static constant kGreenChan = 2
 				return 1
 			endif
 			// which channels are selected?
-			NVAR stackChan = root:packages:twoP:examine:StackChan
+			NVAR stackChan = root:packages:twoP:examine:StacksSelChan
 			// which channels are available for this scan?
 			variable imChans = numberbykey ("ImChans", scanStr,  ":", "\r")
 			variable doChans =0

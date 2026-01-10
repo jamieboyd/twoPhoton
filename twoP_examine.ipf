@@ -33,10 +33,10 @@ StrConstant kNQexTabPathStr = "twoPhoton"
 // also functions to add and remove examine tabs
 Menu "Macros"
 	Submenu "twoP"
-		"twoP Panel", /Q, twoP_ExamineMakePanel ()
+		"twoP Panel", /Q, twoP_ExamineMakePanel()
 		Submenu "Examine"
-			"Add a Tab to the Examine TabControl",/Q ,twoP_ExamineAddTab ()
-			"Remove a Tab from the Examine TabControl",/Q, twoP_ExamineRemoveTab ()
+			"Add a Tab to the Examine TabControl",/Q ,twoP_ExamineAddTab()
+			"Remove a Tab from the Examine TabControl",/Q, twoP_ExamineRemoveTab()
 		end
 	end
 End 
@@ -60,10 +60,10 @@ end
 //******************************************************************************************************
 // Makes globals for Examine tab functions of the Nidaq Controls panel
 // Last Modified 2025/08/08 by Jamie Boyd
-Function twoP_ExamineMakeFolder ()
-	if (!(DataFolderexists ("root:Packages:twoP:examine")))
-		if (!(DataFolderExists ("root:packages:twoP")))
-			if (!(DataFolderExists ("root:packages")))
+Function twoP_ExamineMakeFolder()
+	if(!(DataFolderexists("root:Packages:twoP:examine")))
+		if(!(DataFolderExists("root:packages:twoP")))
+			if(!(DataFolderExists("root:packages")))
 				NewDataFolder root:Packages
 			endif
 			NewDataFolder root:Packages:twoP
@@ -81,11 +81,11 @@ Function twoP_ExamineMakeFolder ()
 	make/t/n=0 root:Packages:twoP:examine:NoteListWave
 	// Wave for Histogram
 	String/G root:packages:twoP:examine:HistGraphSelChans = "ch1;"
-	make/o/n = (2^kNQimageBits) root:Packages:twoP:Examine:HistWaveCh1
+	make/o/n =(2^kNQimageBits) root:Packages:twoP:Examine:HistWaveCh1
 	WAVE HistWaveCh1 = root:Packages:twoP:Examine:HistWaveCh1
 	setscale/p x, 0, 1	, "", HistWaveCh1
 	// Waves for sliders on the histogram
-	make/o root:Packages:twoP:examine:ImRangeLeftxCh1 = {(0.05 * 2^kNQimageBits), (0.05 * 2^kNQimageBits)}
+	make/o root:Packages:twoP:examine:ImRangeLeftxCh1 = {(0.05 * 2^kNQimageBits),(0.05 * 2^kNQimageBits)}
 	make/o root:Packages:twoP:examine:ImRangeLeftyCh1 = {0.1,inf}
 	make/o root:Packages:twoP:examine:ImRangeRightxCh1 = {(0.95 * 2^kNQimageBits) ,(0.95 * 2^kNQimageBits)}
 	make/o root:Packages:twoP:examine:ImRangeRightyCh1 = {0.1,inf}
@@ -93,14 +93,14 @@ Function twoP_ExamineMakeFolder ()
 	string/G root:packages:twoP:examine:ScanGraphSelChans = "ch1;"
 	variable/G root:packages:twoP:examine:ShowScanGraphAxes
 	// Waves to show frames from 3D waves in the scanGraph
-	make/w/u/o/n = (500,500) root:packages:twoP:examine:scanGraph_ch1
-	make/w/u/o/n = (500,500) root:packages:twoP:examine:scanGraph_ch2
-	make/b/u/o/n = (500, 500, 3) root:packages:twoP:examine:scanGraph_rgb
+	make/w/u/o/n =(500,500) root:packages:twoP:examine:scanGraph_ch1
+	make/w/u/o/n =(500,500) root:packages:twoP:examine:scanGraph_ch2
+	make/b/u/o/n =(500, 500, 3) root:packages:twoP:examine:scanGraph_rgb
 	// Values to control image appearance with look up table
 	// NB: modified 2016/11/08 to use unsigined integers
 	string/G root:Packages:twoP:examine:LUTChan = "ch1" // image channel we are working with, ch1 is a pretty good guess. Others made as needed
 	variable/G root:Packages:twoP:examine:Ch1FirstLUTColor = 0
-	variable/G root:Packages:twoP:examine:Ch1LastLUTColor =  (2^kNQimageBits)-1
+	variable/G root:Packages:twoP:examine:Ch1LastLUTColor = (2^kNQimageBits)-1
 	variable/G root:Packages:twoP:examine:Ch1CTable = 1 // Grays
 	string/G  root:Packages:twoP:examine:Ch1CTableStr ="Grays"
 	variable/G root:Packages:twoP:examine:Ch1LUTInvert = 0 //  don't invert
@@ -136,33 +136,33 @@ end
 //******************************************************************************************************
 // Makes the main control panel. Also makes sure Global Variables and Folders exist, and calls Initializing of Acquire Stuff, if Acquire Procedure is present
 // Last Modified 2025/08/11 by Jamie Boyd
-Function twoP_ExamineMakePanel ()
+Function twoP_ExamineMakePanel()
 	
 	// if panel is already present, just bring it to front and exit, assuming everything else is done
 	DoWindow/F twoP_controls
-	if (V_Flag == 1)
+	if(V_Flag == 1)
 		return 1
 	endif
 	// If no global variables found, Make Global variables 
-	if (!(dataFolderExists ("root:Packages:twoP:examine")))
+	if(!(dataFolderExists("root:Packages:twoP:examine")))
 		// Make global examine variables
-		twoP_ExamineMakeFolder ()
+		twoP_ExamineMakeFolder()
 	endif
 	// make path to get new tabs for examine tab control
 	PathInfo exTabPath
-	if (V_Flag == 0)
+	if(V_Flag == 0)
 		string exTabPathStr = SpecialDirPath("Igor Pro User Files", 0, 0, 0 ) + "User Procedures:" + kNQexTabPathStr
 		NewPath/o/q/z exTabPath, exTabPathStr
 		PathInfo exTabPath
-		if (V_Flag == 0)
+		if(V_Flag == 0)
 			NewPath/M="Locate the twoP procedures." exTabPath, exTabPathStr
 		endif
 	endif
 	// Make folders for scans and ROIs
-	if (!(dataFolderExists ("root:twoP_Scans")))
+	if(!(dataFolderExists("root:twoP_Scans")))
 		newDataFolder/o root:twoP_Scans
 	endif
-	if (!(dataFolderExists ("root:twoP_ROIS")))
+	if(!(dataFolderExists("root:twoP_ROIS")))
 		newDataFolder/o root:twoP_ROIS
 	endif
 	// Make the panel
@@ -170,22 +170,22 @@ Function twoP_ExamineMakePanel ()
 	DoWindow/C twoP_Controls
 	ModifyPanel /W=twoP_Controls, fixedSize= 1
 	// Test for the presence of the acquire function to draw controls.
-	variable AqPresent = (exists("twoP_AcquireAddControls" ) == 6) 
+	variable AqPresent =(exists("twoP_AcquireAddControls" ) == 6) 
 	// Add AcquireExamine tabcontrol and, if acquire proc is loaded, add acquire tab and its controls
 	TabControl AcquireExamineTab, win =twoP_Controls, pos={0,1},size={344,709}, proc=GUIPTabProc
-	if (aqPresent)
-		TabControl AcquireExamineTab, win =twoP_Controls, tabLabel(0)="Acquire", tabLabel (1) = "Examine", value = 0
-		GUIPTabNewTabCtrl ("twoP_Controls", "AcquireExamineTab", TabList = "Acquire;Examine;", UserFunc = "twoP_ExamineTabCtrlProc", CurTab = 0)
-		twoP_ExamineAddControls (1)
+	if(aqPresent)
+		TabControl AcquireExamineTab, win =twoP_Controls, tabLabel(0)="Acquire", tabLabel(1) = "Examine", value = 0
+		GUIPTabNewTabCtrl("twoP_Controls", "AcquireExamineTab", TabList = "Acquire;Examine;", UserFunc = "twoP_ExamineTabCtrlProc", CurTab = 0)
+		twoP_ExamineAddControls(1)
 		funcref GUIPprotoFunc AcquireInit = $"twoP_AcquireInit"
-		AcquireInit ()
-		Execute/P/Q "GUIPTabClick (\"twoP_Controls\", \"AcquireExamineTab\", \"Acquire\")"
+		AcquireInit()
+		Execute/P/Q "GUIPTabClick(\"twoP_Controls\", \"AcquireExamineTab\", \"Acquire\")"
 	else //just the examine tab
 		TabControl AcquireExamineTab, tabLabel(0)="Examine", value = 0
-		GUIPTabNewTabCtrl ("twoP_Controls", "AcquireExamineTab", TabList = "Examine", UserFunc = "twoP_ExamineTabCtrlProc", CurTab = 0)
-		twoP_ExamineAddControls (0)
+		GUIPTabNewTabCtrl("twoP_Controls", "AcquireExamineTab", TabList = "Examine", UserFunc = "twoP_ExamineTabCtrlProc", CurTab = 0)
+		twoP_ExamineAddControls(0)
 		// save/apply window position
-		SetWindow twoP_Controls hook (savePosHook)= twoP_UtilSaveWinPosHook, hookevents = 2
+		SetWindow twoP_Controls hook(savePosHook)= twoP_UtilSaveWinPosHook, hookevents = 2
 		WC_WindowCoordinatesRestore("twoP_Controls")
 	endif
 end
@@ -193,7 +193,7 @@ end
 //******************************************************************************************************
 // Adds controls for the Examine functions to the Nidaq Controls panel
 // Last Modified 2025/08/01 by Jamie Boyd
-Function twoP_ExamineAddControls (able)
+Function twoP_ExamineAddControls(able)
 	variable able		// controls start out hidden when acquire is present
 	// Current scan info and WaveNote
 	SetVariable ScanNumSetVar win = twoP_Controls,pos={4.00,27.00},size={49.00,18.00},proc=twoP_ScanNumSetVarProc
@@ -202,10 +202,10 @@ Function twoP_ExamineAddControls (able)
 	SetVariable ScanNumSetVar win = twoP_Controls, disable = able
 	PopupMenu ScansPopMenu win = twoP_Controls,pos={56.00,26.00},size={60.00,20.00},bodyWidth=60,proc=twoP_ScanPopMenuProc
 	PopupMenu ScansPopMenu win = twoP_Controls,title="Scan:"
-	if (able)
-		PopupMenu ScansPopMenu win = twoP_Controls,mode=0,value=#"twoP_ScanListScans (\"0,1,2,3,4,5,\")"
+	if(able)
+		PopupMenu ScansPopMenu win = twoP_Controls,mode=0,value=#"twoP_ScanListScans(\"0,1,2,3,4,5,\")"
 	else
-		PopupMenu ScansPopMenu win = twoP_Controls,mode=0,value=#"twoP_ScanListScans (\"1,2,3,4,5,\")"
+		PopupMenu ScansPopMenu win = twoP_Controls,mode=0,value=#"twoP_ScanListScans(\"1,2,3,4,5,\")"
 	endif
 	PopupMenu ScansPopMenu win = twoP_Controls, disable = able
 	TitleBox CurScanTitleBox win = twoP_Controls,pos={118.00,28.00},size={57.00,15.00},fSize=12
@@ -219,8 +219,8 @@ Function twoP_ExamineAddControls (able)
 	ListBox WaveNoteListBox win = twoP_Controls, pos={3,74},size={337,66},proc=twoP_ScanEditNoteProc,font="Courier",fSize=12
 	ListBox WaveNoteListBox win = twoP_Controls,listWave=root:Packages:twoP:examine:NoteListWave
 	ListBox WaveNoteListBox win = twoP_Controls,disable=able
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Setvariable ScanNumSetVar;Popupmenu ScansPopMenu;Titlebox CurScanTitleBox;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "TitleBox DateTimeTitleBox;Titlebox ChannnelsTitleBox;Listbox WaveNoteListBox;")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "Setvariable ScanNumSetVar;Popupmenu ScansPopMenu;Titlebox CurScanTitleBox;")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "TitleBox DateTimeTitleBox;Titlebox ChannnelsTitleBox;Listbox WaveNoteListBox;")
 	// Histogram
 	Button HistButton win = twoP_Controls,pos={6.00,144.00},size={67.00,20.00},proc=twoP_HistButtonProc
 	Button HistButton win = twoP_Controls,title="Histogram",fSize=12
@@ -238,8 +238,8 @@ Function twoP_ExamineAddControls (able)
 	CheckBox HistStackCheck win = twoP_Controls,pos={272.00,145.00},size={50.00,15.00},proc=twoP_HistTypeCheckProc
 	CheckBox HistStackCheck win = twoP_Controls,title="Stack",fSize=12,value=0,mode=1
 	CheckBox HistStackCheck win = twoP_Controls, disable = able
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Button HistButton;PopupMenu HistChansPopmenu;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "TitleBox SelHistChansTitle;CheckBox HistFrameCheck;CheckBox HistStackCheck;")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "Button HistButton;PopupMenu HistChansPopmenu;")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "TitleBox SelHistChansTitle;CheckBox HistFrameCheck;CheckBox HistStackCheck;")
 	// Image Appearance
 	// Channel selector
 	PopupMenu LUTchanMenu win = twoP_Controls,pos={7.00,169.00},size={43.00,19.00},proc=twoP_LUTchanPopMenuProc
@@ -320,14 +320,14 @@ Function twoP_ExamineAddControls (able)
 	CheckBox LUTAfterUseTransCheck win = twoP_Controls,pos={232.00,276.00},size={86.00,15.00},proc=twoP_LUTAfterModeCheckProc
 	CheckBox LUTAfterUseTransCheck win = twoP_Controls,title="Transparent",fSize=12,value=0,mode=1
 	CheckBox LUTAfterUseTransCheck win = twoP_Controls, disable = able
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Checkbox HistFrameCheck;Checkbox HistStackCheck;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Popupmenu LUTpopUp;Checkbox LUTInvertCheck;Popupmenu LUTchanMenu;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Setvariable LUTFirstValueSetVar;Setvariable LUTLastValueSetVar;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Button LUTtoDataButton;Checkbox LUT96check;CustomControl LUTslider")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Titlebox LUTBeforeFirstTitle;Checkbox LUTBeforeUseFirstCheck;Checkbox LUTBeforeUseColorCheck;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Popupmenu LUTBeforeColorPopUp;Titlebox LUTAfterLastTitle;Checkbox LUTBeforeUseTransCheck;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Checkbox LUTAfterUseLastCheck;Checkbox LUTAfterUseColorCheck;Popupmenu LUTAfterColorPopUp;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Checkbox LUTAfterUseTransCheck;Checkbox LUTautoCheck;TitleBox LUTchanTitle;")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "Checkbox HistFrameCheck;Checkbox HistStackCheck;")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "Popupmenu LUTpopUp;Checkbox LUTInvertCheck;Popupmenu LUTchanMenu;")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "Setvariable LUTFirstValueSetVar;Setvariable LUTLastValueSetVar;")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "Button LUTtoDataButton;Checkbox LUT96check;CustomControl LUTslider")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "Titlebox LUTBeforeFirstTitle;Checkbox LUTBeforeUseFirstCheck;Checkbox LUTBeforeUseColorCheck;")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "Popupmenu LUTBeforeColorPopUp;Titlebox LUTAfterLastTitle;Checkbox LUTBeforeUseTransCheck;")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "Checkbox LUTAfterUseLastCheck;Checkbox LUTAfterUseColorCheck;Popupmenu LUTAfterColorPopUp;")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "Checkbox LUTAfterUseTransCheck;Checkbox LUTautoCheck;TitleBox LUTchanTitle;")
 	// Movie Controls
 	Button MovieButton win = twoP_Controls, pos={5,293},size={52,20},proc=twoP_MovieProc,title="movie"
 	Button MovieButton win = twoP_Controls, disable=able
@@ -338,12 +338,12 @@ Function twoP_ExamineAddControls (able)
 	Button PrevFrame win = twoP_Controls, disable=able
 	Button NextFrame win = twoP_Controls, pos={31,318},size={23,18},proc=NQ_MovieNextPrevious,title="->"
 	Button NextFrame win = twoP_Controls, disable=able
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Button MovieButton;Slider FramePositionSlider;Button PrevFrame;Button NextFrame;")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "Button MovieButton;Slider FramePositionSlider;Button PrevFrame;Button NextFrame;")
 	// Dynamic ROI
 	CheckBox DROICheck win = twoP_Controls,pos={14,346},size={19,35},title="", proc=twoP_DROICheckProc
 	CheckBox DROICheck win = twoP_Controls,variable=root:Packages:twoP:examine:doDROI
 	CheckBox DROICheck win = twoP_Controls, disable=able
-	SetVariable DROIRadSetVar win = twoP_Controls, pos={30,342},size={214,19},title="Dynamic ROI  Radius (pixels)", fSize=12
+	SetVariable DROIRadSetVar win = twoP_Controls, pos={30,342},size={214,19},title="Dynamic ROI  Radius(pixels)", fSize=12
 	SetVariable DROIRadSetVar win = twoP_Controls, limits={0,inf,1},value= root:Packages:twoP:examine:DROIRad
 	SetVariable DROIRadSetVar win = twoP_Controls, disable=able
 	
@@ -379,8 +379,8 @@ Function twoP_ExamineAddControls (able)
 	TitleBox ROIbottomChanTitle win = twoP_Controls,variable=root:packages:twoP:examine:ROIbottomChan
 	TitleBox ROIbottomChanTitle win = twoP_Controls,disable=able
 
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Checkbox DROICheck;Setvariable DROIRadSetVar;PopupMenu DROIChansPopmenu;TitleBox SelDROIChansTitle;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "PopupMenu dROItopChanPopUp;TitleBox dROItopChanTitle;PopupMenu dROIbottomChanPopUp;TitleBox dROIbottomChanTitle;")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "Checkbox DROICheck;Setvariable DROIRadSetVar;PopupMenu DROIChansPopmenu;TitleBox SelDROIChansTitle;")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "PopupMenu dROItopChanPopUp;TitleBox dROItopChanTitle;PopupMenu dROIbottomChanPopUp;TitleBox dROIbottomChanTitle;")
 	// Show Other windows
 	GroupBox ShowOthersGroupBox win = twoP_Controls,pos={3,664},size={337,40},title="Show Other Windows", frame=0
 	GroupBox ShowOthersGroupBox win = twoP_Controls, disable=able
@@ -390,38 +390,38 @@ Function twoP_ExamineAddControls (able)
 	Button ShowMiscAnalysisButton win = twoP_Controls, disable=able
 	Button ShowScansButton win = twoP_Controls, pos={230,679},size={49,20},proc=twoP_ScanShowScan,title="Scans"
 	Button ShowScansButton win = twoP_Controls, disable=able
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine","GroupBox ShowOthersGroupBox;Button ShowTracesButton;Button ShowMiscAnalysisButton;")
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine","Button ShowScansButton;")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine","GroupBox ShowOthersGroupBox;Button ShowTracesButton;Button ShowMiscAnalysisButton;")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine","Button ShowScansButton;")
 	// Examine tabControl
 	// Use String for list of tabs on the examine tab control, use it to start a tabcontrol database 
 	string tabList = kNQexTabList
 	SVAR/Z gTabList = root:packages:TCD:twoP_Controls:ExamineTabControl:tabList
-	if (SVAR_EXISTS (gTabList))
+	if(SVAR_EXISTS(gTabList))
 		tabList = gTabList
 	endif
 	variable CurTab =0
 	NVAR/Z gCurTab = root:packages:TCD:twoP_Controls:ExamineTabControl:curTab
-	if (NVAR_EXISTS (gCurTab))
+	if(NVAR_EXISTS(gCurTab))
 		curTab = gCurTab
 	endif
 	TabControl ExamineTabCtrl win = twoP_Controls,pos={3,388},size={337,269}, fSize=12, value= 0, proc = GUIPTabProc
 	TabControl ExamineTabCtrl win = twoP_Controls, disable = able
-	GUIPTabNewTabCtrl ("twoP_Controls", "ExamineTabCtrl", TabList = tabList, UserFunc = "twoP_ExamineTabCtrlProc", curTab = curTab)
-	GUIPTabAddCtrls ("twoP_Controls", "AcquireExamineTab", "Examine", "Tabcontrol ExamineTabCtrl;")
+	GUIPTabNewTabCtrl("twoP_Controls", "ExamineTabCtrl", TabList = tabList, UserFunc = "twoP_ExamineTabCtrlProc", curTab = curTab)
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "Tabcontrol ExamineTabCtrl;")
 	// add selected tabs to examine tabcontrol
-	variable iT, nTabs = itemsinList (tabList)
+	variable iT, nTabs = itemsinList(tabList)
 	string addTab
 	//Make sure the tab's procedure file is loaded 
-	for (iT =0; iT < nTabs; iT += 1)
-		addTab = stringfromList (iT, tabList, ";")
-		TabControl ExamineTabCtrl, win = twoP_Controls, tabLabel (iT)= addTab
+	for(iT =0; iT < nTabs; iT += 1)
+		addTab = stringfromList(iT, tabList, ";")
+		TabControl ExamineTabCtrl, win = twoP_Controls, tabLabel(iT)= addTab
 		Execute/P/Q "INSERTINCLUDE \"twoPex_" + addTab + "\""
 	endfor
 	Execute/P/Q "COMPILEPROCEDURES "	
 	// Call the added tabs' add tab method
-	for (iT =0; iT < nTabs; iT += 1)
-		addTab = stringfromList (iT, tabList)
-		if ((iT ==curTab) && (able == 0))
+	for(iT =0; iT < nTabs; iT += 1)
+		addTab = stringfromList(iT, tabList)
+		if((iT ==curTab) &&(able == 0))
 			Execute/P/Q "NQex" + addTab + "_add(0)"
 		else
 			Execute/P/Q "NQex" + addTab + "_add(1)"
@@ -433,25 +433,25 @@ end
 //******************************************************************************************************
 // Adds a tab to the Examine tab control. Each tab  has its own procedure file
 // Last Modified 2015/04/14 by Jamie Boyd
-Function twoP_ExamineAddTab ()
+Function twoP_ExamineAddTab()
 	// make sure panel is open
-	if ((cmpstr("twoP_Controls", WinList ( "twoP_Controls", "", "WIN:64"))) != 0)
+	if((cmpstr("twoP_Controls", WinList( "twoP_Controls", "", "WIN:64"))) != 0)
 		twoP_ExamineMakePanel()
 	endif
 	//List of tabs/files already loaded
-	string exTabList = GUIPTabGetTabList ("twoP_Controls", "ExamineTabCtrl")
+	string exTabList = GUIPTabGetTabList("twoP_Controls", "ExamineTabCtrl")
 	// make list of procedures that have not been loaded yet
-	string AllFileList =  GUIPListFiles ("exTabPath", ".ipf", "twoPex_*",1, "") 
-	variable iFile, nFiles = itemsinList (allFileList, ";")
+	string AllFileList =  GUIPListFiles("exTabPath", ".ipf", "twoPex_*",1, "") 
+	variable iFile, nFiles = itemsinList(allFileList, ";")
 	string procList = "", aproc
-	for (iFile =0;iFile < nFiles;iFile+=1)
-		aproc =removeending (((stringFromList (iFile, AllFileList, ";"))[7, INF]), ".ipf")
-		if  (WhichListItem(aProc, exTabList, ";") == -1)
+	for(iFile =0;iFile < nFiles;iFile+=1)
+		aproc =removeending(((stringFromList(iFile, AllFileList, ";"))[7, INF]), ".ipf")
+		if (WhichListItem(aProc, exTabList, ";") == -1)
 			procList = AddListItem(aproc, procList , ";")
 		endif
 	endfor
 	// if nothing left to load, say so and exit
-	if (cmpstr (procList, "") == 0)
+	if(cmpstr(procList, "") == 0)
 		doalert 0, "There are no available twoP Examine tab procedures to load."
 		return -1
 	endif
@@ -459,14 +459,14 @@ Function twoP_ExamineAddTab ()
 	string AddTab
 	Prompt addTab, "Tab to add:" , popup, procList
 	doPrompt "Add a Tab to the\"Examine\" tab control", addTab
-	if (V_Flag) //cancel was clicked on the dialog, so exit
+	if(V_Flag) //cancel was clicked on the dialog, so exit
 		return -1
 	endif
 	/// make sure examine tab is in front
-	if (cmpStr (GUIPTabGetCurrentTab ("twoP_Controls", "AcquireExamineTab"), "Examine") != 0)
-		GUIPTabClick ("twoP_Controls", "AcquireExamineTab", "Examine")
+	if(cmpStr(GUIPTabGetCurrentTab("twoP_Controls", "AcquireExamineTab"), "Examine") != 0)
+		GUIPTabClick("twoP_Controls", "AcquireExamineTab", "Examine")
 	endif
-	if (GUIPTabAddTab ("twoP_Controls", "ExamineTabCtrl", addTab, 3) == 1) //This eventuality should not even be a possibility
+	if(GUIPTabAddTab("twoP_Controls", "ExamineTabCtrl", addTab, 3) == 1) //This eventuality should not even be a possibility
 		doAlert 0, "That tab has already been added to the tabcontrol."
 		return 1
 	endif
@@ -480,33 +480,33 @@ end
 //******************************************************************************************************
 //removes a tab from the Examine tabcontrol of the Two-Photon control panel. Assumes each tab has a procedure "_remove"
 // Last Modified 2013/10/28 by Jamie Boyd
-Function twoP_ExamineRemoveTab ()
+Function twoP_ExamineRemoveTab()
 	//if thePanel window does not exist, exit with error
-	if ((cmpstr("twoP_Controls", WinList ( "twoP_Controls", "", "WIN:64"))) != 0)
+	if((cmpstr("twoP_Controls", WinList( "twoP_Controls", "", "WIN:64"))) != 0)
 		doAlert 0, "The Two-Photon Control Panel is not open."
 		return 1
 	endif
 	//put  up a dialog to choose a tab to remove
-	string exTabList =GUIPTabGetTabList ("twoP_Controls", "ExamineTabCtrl")
+	string exTabList =GUIPTabGetTabList("twoP_Controls", "ExamineTabCtrl")
 	// if only 1 tab, exit with error
-	if (itemsinlist (exTabList, ";") == 1)
+	if(itemsinlist(exTabList, ";") == 1)
 		doalert 0, "You must have at least one tab on the tab control."
 		return 0
 	endif
 	string removeTab
 	Prompt removeTab, "Tab to remove:" , popup, exTabList
 	doPrompt "Remove a tab from the Examine TabControl", removeTab
-	if (V_Flag) //cancel was clicked on the dialog, so exit
+	if(V_Flag) //cancel was clicked on the dialog, so exit
 		return 1
 	endif
 	// Try to remove the tab and its controls from the tabcontrol
-	if (GUIPTabRemoveTab ("twoP_Controls", "ExamineTabCtrl", removeTab, 3))
+	if(GUIPTabRemoveTab("twoP_Controls", "ExamineTabCtrl", removeTab, 3))
 		return 1
 	endif
 	// Call the procedure's remove function , if it exists, to do extra things like kill globals
-	if ((Exists ("NQex" + removeTab + "_remove")) == 6) // then the procedure exists
+	if((Exists("NQex" + removeTab + "_remove")) == 6) // then the procedure exists
 		funcref GUIPprotoFunc RemoveFunc = $"NQex" + removeTab + "_remove"
-		removeFunc ()
+		removeFunc()
 	endif
 	//Add a deleteinclude of the tabs procedure file to the operations que
 	Execute/P/Q "DELETEINCLUDE \"twoPex_" + removeTab + "\""
@@ -518,14 +518,14 @@ end
 // It runs whatever update function is provided by the procedure for the current tab
 // All the hiding and showing of controls is done by the tabControl utilities procedure
 // Last Modified 2014/08/13 by Jamie Boyd
-Function twoP_ExamineTabCtrlProc (tca): TabControl
+Function twoP_ExamineTabCtrlProc(tca): TabControl
 	STRUCT WMTabControlAction &tca 
 
-	if (tca.eventCode == 2)
-		String tabList = GUIPTabGetTabList ("twoP_Controls", "ExamineTabCtrl")
-		string theTab = StringFromList (tca.tab, tabList)
+	if(tca.eventCode == 2)
+		String tabList = GUIPTabGetTabList("twoP_Controls", "ExamineTabCtrl")
+		string theTab = StringFromList(tca.tab, tabList)
 		funcref GUIPprotofunc tabFunc = $"NQex" + theTab + "_Update"
-		tabFunc ()
+		tabFunc()
 	endif
 end
 
@@ -538,7 +538,7 @@ end
 //******************************************************************************************************
 // Returns a list of scans in the twoP_Scans folder, sorted by scan mode. Pass a comma separated list of scan types
 // Last Modified 2025/08/02 by Jamie Boyd - made better method to list scans ina text wave
-Function/S twoP_ScanListScans (modeList)
+Function/S twoP_ScanListScans(modeList)
 	string modeList // comma separated list of modes to be returned
 	
 	variable aMode
@@ -549,14 +549,14 @@ Function/S twoP_ScanListScans (modeList)
 	variable nScans =0
 	
 	string LiveModeList = "", TimeSeriesList="", SingleImageList="", zSeriesList ="", lineScanList="",ephysOnlyList=""
-	for (iFolder = 0,  nFolders=CountObjects("root:twoP_Scans:", 4) ; iFolder < nFolders; iFolder += 1)
+	for(iFolder = 0,  nFolders=CountObjects("root:twoP_Scans:", 4) ; iFolder < nFolders; iFolder += 1)
 		aFolder = GetIndexedObjName("root:twoP_Scans:", 4, iFolder)
 		SVAR/Z scanStr = $"root:twoP_Scans:" + aFolder + ":" + aFolder + "_info"
-		if ((SVAR_EXISTS (scanStr)) && (WhichListItem(stringbyKey ("Mode", scanStr, ":", "\r"), modeList, ",", 0,0) > -1))
+		if((SVAR_EXISTS(scanStr)) &&(WhichListItem(stringbyKey("Mode", scanStr, ":", "\r"), modeList, ",", 0,0) > -1))
 			tempForScanList [nScans] = aFolder
 			nScans +=1
-			aMode = numberbyKey ("Mode", scanStr, ":", "\r")
-			switch (aMode)
+			aMode = numberbyKey("Mode", scanStr, ":", "\r")
+			switch(aMode)
 				case kLiveMode:
 					LiveModeList += aFolder + ";"
 					break
@@ -580,25 +580,25 @@ Function/S twoP_ScanListScans (modeList)
 	endfor
 
 	string outPutList = ""
-	if (WhichListItem("0", modeList, ",") > -1)
+	if(WhichListItem("0", modeList, ",") > -1)
 		outPutList += "\\M1(Live;" + LiveModeList + "\\M1(-;"
 	endif
-	if (WhichListItem("1", modeList, ",") > -1)
+	if(WhichListItem("1", modeList, ",") > -1)
 		outPutList += "\\M1(Time Series;" + TimeSeriesList + "\\M1(-;"
 	endif
-	if (whichListItem( "2", modeList, ",") > -1)
+	if(whichListItem( "2", modeList, ",") > -1)
 		outPutList += "\\M1(Averages;" + SingleImageList + "\\M1(-;"
 	endif
-	if (whichListItem( "4", modeList, ",") > -1)
+	if(whichListItem( "4", modeList, ",") > -1)
 		outPutList += "\\M1(Z Stacks;" + zSeriesList + "\\M1(-;"
 	endif
-	if (whichListItem( "3", modeList, ",") > -1)
+	if(whichListItem( "3", modeList, ",") > -1)
 		outPutList += "\\M1(Line Scans;" + lineScanList + "\\M1(-;"
 	endif
-	if (whichListItem( "5", modeList, ",") > -1)
+	if(whichListItem( "5", modeList, ",") > -1)
 		outPutList += "\\M1(ePhys Only;" + ephysOnlyList
 	endif
-	if (strlen (outPutList) < 2)
+	if(strlen(outPutList) < 2)
 		return "\\M1(No Scans"
 	else
 		return outPutList
@@ -620,11 +620,11 @@ Function twoP_ScanNumSetVarProc(sva) : SetVariableControl
 			scanNum = sva.dval
 			string scanNumStr, newScan
 			sprintf scanNumStr, "_%03d", scanNum
-			newScan = stringFromList (0, curScan, "_")  + scanNumStr
-			if (!(DataFolderExists ("root:twoP_Scans:" + newScan)))
-				if (!(sva.eventMod & 2)) // shift-click to advance through missing scans
+			newScan = stringFromList(0, curScan, "_")  + scanNumStr
+			if(!(DataFolderExists("root:twoP_Scans:" + newScan)))
+				if(!(sva.eventMod & 2)) // shift-click to advance through missing scans
 					printf "No such scan:\"%s\"\r", newScan
-					scanNum = str2num (stringfromlist (1, curScan, "_"))
+					scanNum = str2num(stringfromlist(1, curScan, "_"))
 				endif
 				return 0
 			endif
@@ -650,30 +650,30 @@ Function twoP_ScanPopMenuProc(pa) : PopupMenuControl
 			SVAR curScan = root:Packages:twoP:examine:CurScan
 			curScan = pa.popStr
 			SVAR/Z scanNote =$"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-			if (!(SVAR_Exists(scanNote)))
+			if(!(SVAR_Exists(scanNote)))
 				print "root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 			endif
 			
 			// if numeric series, set scan num
 			NVAR scanNum = root:packages:twoP:Examine:curScanNum
-			scanNum = str2num (stringfromlist (1, pa.popStr, "_"))
+			scanNum = str2num(stringfromlist(1, pa.popStr, "_"))
 			// Get some variables from scan note
 			variable mode = NumberByKey("mode",ScanNote, ":", "\r")
-			variable doephys = itemsInList (StringByKey("ePhysChanDesc",ScanNote, ":", "\r"), ",")
-			if (mode == kePhysOnly)
+			variable doephys = itemsInList(StringByKey("ePhysChanDesc",ScanNote, ":", "\r"), ",")
+			if(mode == kePhysOnly)
 				DoWindow/K twoPscanGraph
-				NQ_NewTracesGraph (curScan)
+				NQ_NewTracesGraph(curScan)
 			else
-				twoP_ScanUpdateScanGraph (curScan)
-				variable nTraces = GUIPCountObjs ("root:twoP_Scans:" + CurScan, 1, "*avg*", 0) + GUIPCountObjs ("root:twoP_Scans:" + CurScan, 1, "*ratio*", 0)
-				if ((doephys ==0) && (nTraces ==0)) 
+				twoP_ScanUpdateScanGraph(curScan)
+				variable nTraces = GUIPCountObjs("root:twoP_Scans:" + CurScan, 1, "*avg*", 0) + GUIPCountObjs("root:twoP_Scans:" + CurScan, 1, "*ratio*", 0)
+				if((doephys ==0) &&(nTraces ==0)) 
 					DoWindow/K twoP_TracesGraph
 				else
-					NQ_NewTracesGraph (curScan)
+					NQ_NewTracesGraph(curScan)
 				endif
 			endif
 				// adjust the movie controls and visibility and change display
-				twoP_ScanAdjustExamineControls (curScan)
+				twoP_ScanAdjustExamineControls(curScan)
 			break
 	endswitch
 	return 0
@@ -683,12 +683,12 @@ End
 // ******************************************************************************************************
 // When a new scan is selected, either new scangraph or updates the subwindows in scanGraph
 // Last Modified 2025/10/07 by Jamie Boyd
-Function twoP_ScanUpdateScanGraph (curScan)
+Function twoP_ScanUpdateScanGraph(curScan)
 	string curScan
 
 	// get reference to scan info string
 	SVAR/Z ScanInfo = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
-	if (!(SVAR_EXISTS (ScanInfo)))
+	if(!(SVAR_EXISTS(ScanInfo)))
 		printf "The info string for the scan, \"%s\" was not found.\r", CurScan
 		return 1
 	endif
@@ -696,46 +696,44 @@ Function twoP_ScanUpdateScanGraph (curScan)
 	string scanChans = StringByKey("imChanDesc", ScanInfo, ":", "\r")
 	// which channels are selected?
 	SVAR selChans = root:packages:twoP:examine:ScanGraphSelChans
-	if (itemsInList(selChans, ",") ==0)
+	if(itemsInList(selChans, ",") ==0)
 		selChans = scanChans
 	endif
 	// remove what don't belong
 	// make sure selected chans are in scan chans
-	variable iChan, nChans = itemsInList (selChans, ",")
+	variable iChan, nChans = itemsInList(selChans, ",")
 	string aChan
-	for (iChan =nChans -1; iChan >= 0; iChan -=1)
-		aChan = stringFromList (iChan, selChans, ",")
-		if (WhichListItem(aChan, scanChans, ",", 0, 0) ==-1)
+	for(iChan =nChans -1; iChan >= 0; iChan -=1)
+		aChan = stringFromList(iChan, selChans, ",")
+		if(WhichListItem(aChan, scanChans, ",", 0, 0) ==-1)
 			selChans = RemoveFromList(aChan, selChans, ",")
 		endif
 	endfor
 	// if scangraph exists, bring window to front and change title
 	DoWindow/F twoPscanGraph
-	if (V_Flag)		// scanGraph alreay exists
+	if(V_Flag)		// scanGraph alreay exists
 		DoWindow/T twoPscanGraph "twoP Scan:" + curScan
 		// remove subwindows that are not selected
-		string existingSubWins =  RemoveFromList("controlPanel;GRGB", childwindowList ("twoPscanGraph"), ";", 0)
+		string existingSubWins =  RemoveFromList("controlPanel;GRGB", childwindowList("twoPscanGraph"), ";", 0)
 		nChans = ItemsInList(existingSubWins, ";")
-		for (iChan =0; iChan < nChans; iChan +=1)
+		for(iChan =0; iChan < nChans; iChan +=1)
 			aChan = stringFromList(iChan, existingSubWins)
-			if (WhichListItem (aChan [1,strlen (aChan)], selChans, ",") == -1)
-			//killWindow $"twoPscanGraph" + "#" + aChan
-				//existingSubWins = RemoveFromList (aChan, existingSubWins, ";", 0)
-				GUIPSubWin_Remove ("twoPscanGraph", aChan)
+			if(WhichListItem(aChan [1,strlen(aChan)], selChans, ",") == -1)
+				GUIPSubWin_Remove("twoPscanGraph", aChan)
 			endif
 		endfor
 		// add or replace subwindows
 		STRUCT GUIPSubWin_ContentStruct cs
-		nChans = itemsInList (selChans, ",")
-		for (iChan =0; iChan < nChans; iChan +=1)
+		nChans = itemsInList(selChans, ",")
+		for(iChan =0; iChan < nChans; iChan +=1)
 			aChan = stringFromList(iChan, selChans, ",")
-			twoP_ImGraphFillcs (cs, curScan, aChan)
-			GUIPSubWin_Add (cs)
+			twoP_ImGraphFillcs(cs, curScan, aChan)
+			GUIPSubWin_Add(cs)
 		endfor
-		//GUIPSubWin_FullScale("twoPscanGraph")
-		//GUIPSubWin_ReapportionSubWins ("twoPscanGraph")
+		GUIPSubWin_FullScale("twoPscanGraph")
+		GUIPSubWin_ReapportionSubWins("twoPscanGraph")
 	else // new window from scratch
-		twoP_ImGraphNew (CurScan)
+		twoP_ImGraphNew(CurScan)
 	endif
 end
 
@@ -744,49 +742,51 @@ end
 // adjusts the Date and time info and the slider control on the examine scans panel to reflect the time of the current scan.
 // It also disables the movie controls if the current scan is not a stack.
 // Last modified 2025/09/19 by Jamie Boyd 
-Function twoP_ScanAdjustExamineControls (curScan)
+Function twoP_ScanAdjustExamineControls(curScan)
 	string curScan
 
 	SVAR/z ScanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-	if (!(SVAR_EXISTS (ScanStr)))
+	if(!(SVAR_EXISTS(ScanStr)))
 		return 1
 	endif
 	NVAR FrameTime = root:Packages:twoP:examine:FrameTime 
 	NVAR NumFrames =root:Packages:twoP:examine:Numframes
 	variable mode = numberbykey("mode", ScanStr, ":", "\r")
 	// change the title box to reflect the current scan
-	TitleBox CurScanTitleBox win = twoP_Controls, title= stringbykey ("Scan Type", ScanStr, ":", "\r") + ":" + curScan
+	TitleBox CurScanTitleBox win = twoP_Controls, title= stringbykey("Scan Type", ScanStr, ":", "\r") + ":" + curScan
 	Controlinfo /w = twoP_Controls AcquireExamineTab
-	variable ShowNow = (cmpstr (S_Value, "Examine") == 0) // 0 if acquiring, 1 if examining
+	variable ShowNow =(cmpstr(S_Value, "Examine") == 0) // 0 if acquiring, 1 if examining
 	// Change the info displayed about the current scan
-	twoP_ScanShowNote ("root:twoP_Scans:" + curScan + ":" + curScan + "_info")
+	twoP_ScanShowNote("root:twoP_Scans:" + curScan + ":" + curScan + "_info")
 	TitleBox DateTimeTitleBox Win=twoP_Controls, title =  secs2date(numberbykey("ExpTime", ScanStr, ":", "\r"),0) + " " + secs2Time(numberbykey("ExpTime",ScanStr, ":", "\r"),1)
 	string ChanTitleStr = "" 
 	string scanChans = StringByKey("ImChanDesc", scanStr, ":", "\r")
 	variable iChan, nChans = ItemsInList(scanChans, ",")
-	if (nChans > 0)
+	if(nChans > 0)
 		ChanTitleStr += "Img:"
-		for (iChan =0; iChan < nChans; iChan +=1)
+		for(iChan =0; iChan < nChans; iChan +=1)
 			ChanTitleStr += stringFromList(iChan, scanChans, ",") + ", "
 		endfor
 	endif
 	string ePhysChans = StringByKey("ePhysChanDesc", scanStr, ":", "\r")
 	nChans = ItemsInList(ePhysChans, ",")
-	if (nChans > 0)
+	if(nChans > 0)
 		ChanTitleStr += " ePhys:"
-		for (iChan =0; iChan < nChans; iChan +=1)
+		for(iChan =0; iChan < nChans; iChan +=1)
 			ChanTitleStr += stringFromList(iChan, ePhysChans, ",") + ", "
 		endfor
 	endif
 	TitleBox ChannnelsTitleBox Win=twoP_Controls, title = ChanTitleStr
-	// Make sure UT chan points to a displayed channel
-	SVAR ScanGraphSelChans = root:packages:twoP:examine:ScanGraphSelChans
-	STRUCT WMPopupAction pa
-	pa.eventCode =2
-	pa.popStr = stringFromList (0, ScanGraphSelChans, ",")
-	twoP_LUTchanPopMenuProc(pa)
+	// Make sure LUT chan points to a displayed channel
+	if (mode != kepHysOnly)
+		SVAR ScanGraphSelChans = root:packages:twoP:examine:ScanGraphSelChans
+		STRUCT WMPopupAction pa
+		pa.eventCode =2
+		pa.popStr = stringFromList(0, ScanGraphSelChans, ",")
+		twoP_LUTchanPopMenuProc(pa)
+	endif
 	// adjust movie and average controls
-	if ((mode == kTimeSeries) || (mode == kZSeries))
+	if((mode == kTimeSeries) ||(mode == kZSeries))
 		// reset the slider values
 		NVAR CurFramePos = root:Packages:twoP:examine:CurFramePos
 		CurFramePos = 0
@@ -794,7 +794,7 @@ Function twoP_ScanAdjustExamineControls (curScan)
 		NumFrames = numberbykey("NumFrames", ScanStr, ":", "\r")
 		Slider FramePositionSlider, Win =twoP_Controls,limits={0,NumFrames-1,1}, value =0
 		variable ableState
-		if (ShowNow)
+		if(ShowNow)
 			ableState = 0
 		else
 			ableState = 1
@@ -805,14 +805,14 @@ Function twoP_ScanAdjustExamineControls (curScan)
 		STRUCT WMCheckBoxAction cba
 		cba.checked = 0
 		cba.eventCode = 2
-		twoP_DROICheckProc (cba)
-		if (ShowNow)
+		twoP_DROICheckProc(cba)
+		if(ShowNow)
 			ableState  = 2
 		else
 			ableState = 3
 		endif
 	endif
-	GUIPTabSetAbleState ("twoP_Controls", "AcquireExamineTab", "Examine", "FramePositionSlider;MovieButton;PrevFrame;NextFrame;DROICheck", ableState, 1)
+	GUIPTabSetAbleState("twoP_Controls", "AcquireExamineTab", "Examine", "FramePositionSlider;MovieButton;PrevFrame;NextFrame;DROICheck", ableState, 1)
 	// Adjust examineTabControl stuff for front tab
 	controlinfo/w=twoP_controls ExamineTabCtrl
 	STRUCT WMTabControlAction tca
@@ -820,7 +820,7 @@ Function twoP_ScanAdjustExamineControls (curScan)
 	tca.win = "twoP_Controls"
 	tca.eventCode = 2
 	tca.tab = V_Value
-	twoP_ExamineTabCtrlProc (tca)
+	twoP_ExamineTabCtrlProc(tca)
 end
 
 
@@ -832,24 +832,24 @@ end
 // 2016/11/24 by Jamie Boyd
 STATIC CONSTANT twoPNOTECHARWID = 38	// Must match the width of our listbox, in characters. If your text is spilling past the end of the line, set CharWid smaller
 
-function twoP_ScanShowNote (ScanStrName)
+function twoP_ScanShowNote(ScanStrName)
 	string ScanStrName
 	
 	SVAR scanStr = $ScanStrName
 	WAVE/T notelistwave = root:Packages:twoP:examine:notelistwave
-	string theNoteStr = stringbykey ("expnote", scanStr, ":", "\r")
-	variable notelen = strlen (theNoteStr)
+	string theNoteStr = stringbykey("expnote", scanStr, ":", "\r")
+	variable notelen = strlen(theNoteStr)
 	variable ii, ie, ni
 	Redimension/N=0 NoteListWave
-	FOR (ii =0, ni =0, ie = twoPNOTECHARWID; ii < noteLen; ii = ie +1, ie += twoPNOTECHARWID + 1, ni += 1)
-		if ((ie < notelen) && (cmpstr (theNoteStr [ii + twoPNOTECHARWID], " ") != 0))
+	FOR(ii =0, ni =0, ie = twoPNOTECHARWID; ii < noteLen; ii = ie +1, ie += twoPNOTECHARWID + 1, ni += 1)
+		if((ie < notelen) &&(cmpstr(theNoteStr [ii + twoPNOTECHARWID], " ") != 0))
 			do
 				ie -= 1
-				if (((cmpstr (theNoteStr [ie], " ")) == 0) || (cmpstr (theNoteStr [ie], ";") == 0))
+				if(((cmpstr(theNoteStr [ie], " ")) == 0) ||(cmpstr(theNoteStr [ie], ";") == 0))
 					break
 				endif
-			while (ie > ii)
-			if ((ie - ii) < 4)
+			while(ie > ii)
+			if((ie - ii) < 4)
 				ie = ii + twoPNOTECHARWID
 			endif
 		endif
@@ -867,39 +867,39 @@ Function twoP_ScanEditNoteProc(lba) : ListBoxControl
 	switch( lba.eventCode )
 		case 3:  // double click
 			SVAR CurScan = root:Packages:twoP:examine:curScan
-			if (cmpStr (CurScan, "LiveScan") == 0)
+			if(cmpStr(CurScan, "LiveScan") == 0)
 				doAlert 0, "You can't edit a note for Live Scanning - it won't be saved anywhere."
 				return 1
 			endif
 			SVAR scanStr = $"root:twoP_Scans:" + CurScan + ":" + curScan +"_info"
-			string ExpNoteStr  = stringbykey ("ExpNote",scanStr, ":", "\r")
+			string ExpNoteStr  = stringbykey("ExpNote",scanStr, ":", "\r")
 			Prompt ExpNoteStr, "Experiment Note For " + CurScan + ":"
 			DoPrompt "Edit the Experiment Note", ExpNoteStr
-			if (V_Flag)
+			if(V_Flag)
 				return 1
 			else
 				// check for semicolons with char2num
-				variable badChar =0, iChar, nChars = strlen (ExpNoteStr)
-				For (iChar = 0; iChar < nChars; iChar +=1)
-					if  (char2num (ExpNoteStr [iChar]) == 58)
+				variable badChar =0, iChar, nChars = strlen(ExpNoteStr)
+				For(iChar = 0; iChar < nChars; iChar +=1)
+					if (char2num(ExpNoteStr [iChar]) == 58)
 						ExpNoteStr [iChar, iChar]= "="
-						badChar= (1 | badChar)
-					elseif (char2num (ExpNoteStr [iChar]) == 13)
+						badChar=(1 | badChar)
+					elseif(char2num(ExpNoteStr [iChar]) == 13)
 						ExpNoteStr [iChar, iChar]= ";"
-						badChar= (2 | badChar)
+						badChar=(2 | badChar)
 					endif
 				endfor
 				scanStr = ReplaceStringByKey("ExpNote", scanStr, ExpNoteStr, ":", "\r")
-				twoP_ScanShowNote ("root:twoP_Scans:" + CurScan + ":" + curScan +"_info")
+				twoP_ScanShowNote("root:twoP_Scans:" + CurScan + ":" + curScan +"_info")
 				string alertStr
-				if ((badChar & 3) ==3)
+				if((badChar & 3) ==3)
 					AlertStr = "Colons and Returns are used as separator characters "
-				elseif (badChar & 1)
+				elseif(badChar & 1)
 					AlertStr = "Colons are used to separate keys and values "
-				elseif (badChar & 2)
+				elseif(badChar & 2)
 					AlertStr = "Returns are used to separate key:value pairs "
 				endif
-				if (badChar)
+				if(badChar)
 					doAlert 0, AlertStr + "in the\rkey:value\rkey:value\r map in the scan info string,and are unavailable for use in your experiment notes. key=value;key=value can be used, though."  
 				endif
 			endif
@@ -916,10 +916,10 @@ Function twoP_ScanShowScan(ctrlName) : ButtonControl
 	String ctrlName
 	
 	doWindow/F twoPscanGraph
-	if (V_Flag ==0)
+	if(V_Flag ==0)
 		SVAR curScan = root:packages:twoP:examine:curScan
 		SVAR scanInfo = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-		if (numberbyKey("mode", scanInfo, ":", "\r") != kEphysOnly)
+		if(numberbyKey("mode", scanInfo, ":", "\r") != kEphysOnly)
 			twoP_ImGraphNew(curScan)
 		endif
 	endif
@@ -932,16 +932,16 @@ End
 function/S twoP_ScanListImChans()
 	string chanlist
 	SVAR curScan = root:packages:twoP:examine:curScan
-	if (cmpStr (CurScan, "no current scan") ==0)
+	if(cmpStr(CurScan, "no current scan") ==0)
 		// DoAlert 0, "There is no scan selected from which to choose a channel!"
 		chanlist = ""
 	else
 		SVAR/Z scanNote = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-		if (!(SVAR_Exists(scanNote)))
+		if(!(SVAR_Exists(scanNote)))
 			//DoAlert 0, "Can't find scan note for current scan!"
 			chanlist = ""
 		else
-			chanlist = replaceString (",", stringbykey ("imChanDesc", scanNote, ":", "\r"), ";")
+			chanlist = replaceString(",", stringbykey("imChanDesc", scanNote, ":", "\r"), ";")
 		endif
 	endif
 	return chanlist
@@ -954,16 +954,16 @@ end
 function/S twoP_ScanListEphysChans()
 	string chanlist
 	SVAR curScan = root:packages:twoP:examine:curScan
-	if (cmpStr (CurScan, "no current scan") ==0)
+	if(cmpStr(CurScan, "no current scan") ==0)
 		DoAlert 0, "There is no scan selected from which to choose a channel!"
 		chanlist = ""
 	else
 		SVAR/Z scanNote = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-		if (!(SVAR_Exists(scanNote)))
+		if(!(SVAR_Exists(scanNote)))
 			DoAlert 0, "Can't find scan note for current scan!"
 			chanlist = ""
 		else
-			chanlist = replaceString (",", stringbykey ("ePhysChanDesc", scanNote, ":", "\r"), ";")
+			chanlist = replaceString(",", stringbykey("ePhysChanDesc", scanNote, ":", "\r"), ";")
 		endif
 	endif
 	return chanlist
@@ -988,7 +988,7 @@ end
 // string 1 is channel name
 // string 2 is label for channel subwin
 // strings 3+ is for names of ROIs
-Function twoP_ImGraphFillcs (cs, curScan, aChan)
+Function twoP_ImGraphFillcs(cs, curScan, aChan)
 	STRUCT GUIPSubWin_ContentStruct &cs	//subwin plotting struct
 	String curScan
 	String aChan
@@ -1012,7 +1012,7 @@ Function twoP_ImGraphFillcs (cs, curScan, aChan)
 
 	// some things are done differently when acquiring a new scan
 	Controlinfo /w = twoP_Controls AcquireExamineTab
-	variable isAcquire = (cmpstr (S_Value, "Acquire") == 0) // 1 if called from acquiring tab, 0 if examining.
+	variable isAcquire =(cmpstr(S_Value, "Acquire") == 0) // 1 if called from acquiring tab, 0 if examining.
 	// fill out non-variant parts of cs
 	cs.graphName = "twoPscanGraph"
 	funcref GUIPSubWin_AddProto cs.addContent = twoP_ImGraphSubWin
@@ -1026,9 +1026,9 @@ Function twoP_ImGraphFillcs (cs, curScan, aChan)
 	NVAR showAxes = root:packages:twoP:examine:ShowScanGraphAxes
 	cs.userVariables [1] = showAxes
 	// show Live ROI?
-	if (((mode == kTimeSeries) || (mode== kLiveMode)) && (isAcquire==1))
+	if(((mode == kTimeSeries) ||(mode== kLiveMode)) &&(isAcquire==1))
 		NVAR LiveROI = root:packages:twoP:acquire:liveROIcheck
-		if  (liveROI)
+		if (liveROI)
 			cs.userVariables [2] = 1
 			NVAR LroiL = root:packages:twoP:acquire:lROIL
 			NVAR LroiT = root:packages:twoP:acquire:lROIT
@@ -1046,25 +1046,25 @@ Function twoP_ImGraphFillcs (cs, curScan, aChan)
 	cs.userVariables [1] = isAcquire // 1 if acquiring new image, else 0
 	// show ROIs?
 	string roiStr = GUIPListObjs("root:twoP_Scans:" + CurScan, 1, "*avg*",0, "") + GUIPListObjs("root:twoP_Scans:" + CurScan, 1, "*ratio*",0, "")
-	variable iROI, numROIs = itemsinList (roiStr, ";")
+	variable iROI, numROIs = itemsinList(roiStr, ";")
 	cs.nUserStrings = 3 + numROIs
-	for (iROI =0; iROI < numROIs; iROI += 1)
-		WAVE anAvg = $"root:twoP_Scans:" + curScan + ":" + stringFromList (iROI, roiStr, ";")
-		cs.UserStrings [iROI + 3] = StringByKey("ROI", note (anAvg), ":", ";")
+	for(iROI =0; iROI < numROIs; iROI += 1)
+		WAVE anAvg = $"root:twoP_Scans:" + curScan + ":" + stringFromList(iROI, roiStr, ";")
+		cs.UserStrings [iROI + 3] = StringByKey("ROI", note(anAvg), ":", ";")
 	endfor
 	// add channel info
-	if (cmpStr (aChan, "RGB") == 0)
+	if(cmpStr(aChan, "RGB") == 0)
 		WAVE/Z channelWave = root:packages:twoP:examine:RGBwave
-		if (WaveExists(channelWave))
-			if ((DimSize(channelWave, 0) != xSize) || (DimSize(channelWave, 1) != ySize))
-				redimension/n= ((xSize), (ySize), 3) channelWave
+		if(WaveExists(channelWave))
+			if((DimSize(channelWave, 0) != xSize) ||(DimSize(channelWave, 1) != ySize))
+				redimension/n=((xSize),(ySize), 3) channelWave
 			endif
 		else
-			make/B/U/n= ((xSize), (ySize), 3) root:packages:twoP:examine:RGBwave
+			make/B/U/n=((xSize),(ySize), 3) root:packages:twoP:examine:RGBwave
 			WAVE channelWave = root:packages:twoP:examine:RGBwave
 		endif
 		SetScale/P X, xOffset, xPixSize, "m", channelWave
-		if (mode == kLineScan)
+		if(mode == kLineScan)
 			SetScale/P Y yOffset, yPixSize, "s", channelWave
 		else
 			SetScale/P Y yOffset, yPixSize, "m", channelWave
@@ -1074,17 +1074,17 @@ Function twoP_ImGraphFillcs (cs, curScan, aChan)
 	else
 
 		WAVE/Z ScanWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
-		if (!(isAcquire ||(waveExists (ScanWave))))
+		if(!(isAcquire ||(waveExists(ScanWave))))
 			doAlert 0, "Channel " + aChan + " does not exist for " + curScan
 			return 1
 		endif
 
-		if ((mode == kTimeSeries) || (mode == kZSeries))  // make a separate 2D image to display a frame of 3D stack
+		if((mode == kTimeSeries) ||(mode == kZSeries))  // make a separate 2D image to display a frame of 3D stack
 			// make or redimension 2D waves for scanGraph
 			WAVE/Z channelWave = $"root:packages:twoP:examine:scanGraph_" + aChan
-			if (WaveExists(channelWave))
-				if ((DimSize(channelWave, 0) != xSize) || (DimSize(channelWave, 1) != ySize))
-					redimension/n= ((xSize), (ySize)) channelWave
+			if(WaveExists(channelWave))
+				if((DimSize(channelWave, 0) != xSize) ||(DimSize(channelWave, 1) != ySize))
+					redimension/n=((xSize),(ySize)) channelWave
 				endif
 			else
 				make/w/u/n=(xSize, ySize) $"root:packages:twoP:examine:scanGraph_" + aChan
@@ -1093,17 +1093,17 @@ Function twoP_ImGraphFillcs (cs, curScan, aChan)
 			SetScale/P X, xOffset, xPixSize, "m", channelWave
 			SetScale/P Y yOffset, yPixSize, "m", channelWave
 			// if acquiring, displayed waves have already been made and zeroed
-			if (isAcquire)
+			if(isAcquire)
 				sprintf cs.UserStrings[2], "%s", aChan
 			else
-				if (waveExists (ScanWave))
-					if (mode == kTimeSeries)
+				if(waveExists(ScanWave))
+					if(mode == kTimeSeries)
 						// make a kalman averge of first 20 frames
-						KalmanSpecFrames (ScanWave, 0, min (19, zSize-1), channelWave, 0, 16)
-						sprintf cs.UserStrings[2], "%s:%.2W0Ps to %.2W0Ps", aChan, 0, frameTime*max (19, zSize-1)
+						KalmanSpecFrames(ScanWave, 0, min(19, zSize-1), channelWave, 0, 16)
+						sprintf cs.UserStrings[2], "%s:%.2W0Ps to %.2W0Ps", aChan, 0, frameTime*max(19, zSize-1)
 					else // project all frames for a Zstack
-						ProjectSpecFrames (ScanWave, 0, zSize-1, channelWave, 0, 2, 1)
-						sprintf cs.UserStrings[2], "%s%.2W0Pm to %.2W0Pm", aChan, zOffset, zOffset + zSize * numberbyKey ("ZstepSize",  ScanInfo, ":", "\r")
+						ProjectSpecFrames(ScanWave, 0, zSize-1, channelWave, 0, 2, 1)
+						sprintf cs.UserStrings[2], "%s%.2W0Pm to %.2W0Pm", aChan, zOffset, zOffset + zSize * numberbyKey("ZstepSize",  ScanInfo, ":", "\r")
 					endif
 				endif
 			endif
@@ -1118,31 +1118,31 @@ end
 // *************************************************************************
 // Does the graphing for a subwindow in a frehly created subwindow
 // Last Modified 2025/0804 by Jamie Boyd
-Function twoP_ImGraphSubWin (cs)
+Function twoP_ImGraphSubWin(cs)
 	STRUCT GUIPSubWin_ContentStruct &cs
 	// append the image
 	appendimage cs.userWaves [0]
-	ModifyGraph margin=1, fSize=12, axThick=1, tick=2,mirror = 0, standoff = 0,tlOffset (bottom)=-25, tlOffset (left)=-30
+	ModifyGraph margin=1, fSize=12, axThick=1, tick=2,mirror = 0, standoff = 0,tlOffset(bottom)=-25, tlOffset(left)=-30
 	ModifyGraph axRGB(left)=(65535,65535,65535),tlblRGB(left)=(65535,65535,65535),alblRGB(left)=(65535,65535,65535)
 	ModifyGraph axRGB(bottom)=(65535,65535,65535),tlblRGB(bottom)=(65535,65535,65535),alblRGB(bottom)=(65535,65535,65535)
 	Label  left "\\U"
 	Label bottom "\\U"
 	// if lineScan, flip right axis
-	if (cs.userVariables[0] == kLineScan)
+	if(cs.userVariables[0] == kLineScan)
 		Setaxis/A/R left
 	endif
 	//show axes?
-	if (cs.userVariables [1] == 1)
+	if(cs.userVariables [1] == 1)
 		ModifyGraph nticks=5,noLabel=0
 	else
 		ModifyGraph nticks=0,noLabel=2
 	endif
 	// Show live ROI position?
 	SetDrawLayer/K ProgFront
-	if (cs.userVariables [2] == 1)
-		SetDrawEnv xcoord= bottom,ycoord= left,fillpat= 0,linefgc= (0,0,0),linethick= 3.00
+	if(cs.userVariables [2] == 1)
+		SetDrawEnv xcoord= bottom,ycoord= left,fillpat= 0,linefgc=(0,0,0),linethick= 3.00
 		DrawRect cs.UserVariables [3], cs.UserVariables [4], cs.UserVariables [5], cs.UserVariables [6]
-		SetDrawEnv xcoord= bottom,ycoord= left,fillpat= 0,linefgc= (65535,65535,65535),linethick= 1, dash = 2
+		SetDrawEnv xcoord= bottom,ycoord= left,fillpat= 0,linefgc=(65535,65535,65535),linethick= 1, dash = 2
 		DrawRect cs.UserVariables [3], cs.UserVariables [4], cs.UserVariables [5], cs.UserVariables [6]
 		SetDrawLayer UserFront
 	endif
@@ -1150,14 +1150,14 @@ Function twoP_ImGraphSubWin (cs)
 	variable red, green, blue
 	string ROIbase
 	variable iw
-	for (iw =3; iw < cs.nUserStrings; iw += 1)
+	for(iw =3; iw < cs.nUserStrings; iw += 1)
 		ROIbase = cs.UserStrings [iW]
 		WAVE/Z xWave = $"root:twoP_ROIS:" + RoiBase + "_x"
 		WAVE/Z yWave = $"root:twoP_ROIS:" +RoiBase + "_y"
-		if ((waveExists (xWave)) && (waveExists (yWave)))
-			red= NumberByKey("Red", note (xWave), ":", ";")
-			green= NumberByKey("Green", note (xWave), ":", ";")
-			blue =  NumberByKey("Blue", note (xWave), ":", ";")
+		if((waveExists(xWave)) &&(waveExists(yWave)))
+			red= NumberByKey("Red", note(xWave), ":", ";")
+			green= NumberByKey("Green", note(xWave), ":", ";")
+			blue =  NumberByKey("Blue", note(xWave), ":", ";")
 			appendToGraph /C=(red,green,blue) yWave vs xWave 
 		endif
 	endfor
@@ -1165,7 +1165,7 @@ Function twoP_ImGraphSubWin (cs)
 	string textStr= cs.userStrings[2]
 	TextBox/W = $"twoPscanGraph#" +cs.subWin/C/N=PosText/F=0/A=LT/X=0.00/Y=0.00 textStr
 	//apply LUT to image
-	twoP_LUTApplysettings (cs.UserStrings [1])
+	twoP_LUTApplysettings(cs.UserStrings [1])
 end
 
 
@@ -1173,19 +1173,19 @@ end
 // Makes the scangraph of the current scan, starting from scratch
 // Don't call it if scanGraph alreay exists
 // Last Modified 2025/08/04 by Jamie Boyd
-Function twoP_ImGraphNew (curScan)
+Function twoP_ImGraphNew(curScan)
 	string curScan
 	// If ScanGraph is open, bring it to the front and exit. 
 	DoWindow/F twoPscanGraph
-	if (V_Flag)
+	if(V_Flag)
 		return 1
 	endif
 	// some things are done differently when acquiring a new scan
 	Controlinfo /w = twoP_Controls AcquireExamineTab
-	variable isAcquire = (cmpstr (S_Value, "Acquire") == 0) // 1 if called from acquiring tab, 0 if examining.
+	variable isAcquire =(cmpstr(S_Value, "Acquire") == 0) // 1 if called from acquiring tab, 0 if examining.
 	// get reference to scan info string
 	SVAR/Z ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
-	if (!(SVAR_EXISTS (scanStr)))
+	if(!(SVAR_EXISTS(scanStr)))
 		doAlert 0, "The info string for the scan, \"" + CurScan + "\" was not found."
 		return 1
 	endif
@@ -1198,9 +1198,9 @@ Function twoP_ImGraphNew (curScan)
 	// limit selScanChans to imchans
 	variable iChan, nChans = itemsInList(selScanChans, ",")
 	string aChan
-	for (iChan =nChans-1; iChan >= 0; iChan -=1)
+	for(iChan =nChans-1; iChan >= 0; iChan -=1)
 		aChan = stringfromList(iChan, selScanChans, ",")
-		if (WhichListItem(aChan, imChanList, ",") == -1)
+		if(WhichListItem(aChan, imChanList, ",") == -1)
 			selScanChans = removeFromList(aChan, selScanChans, ",")
 			nChans -=1
 		endif
@@ -1216,7 +1216,7 @@ Function twoP_ImGraphNew (curScan)
 	STRUCT GUIPSubWin_UtilStruct us
 	us.graphName = "twoPscanGraph"
 	us.graphTitle = "twoP Scan:" +  curScan
-	if (mode == kLineScan)
+	if(mode == kLineScan)
 		us.holdAspect =0
 	else
 		us.holdAspect =1
@@ -1227,17 +1227,17 @@ Function twoP_ImGraphNew (curScan)
 	us.nRows = 1
 	us.reSizeByWidth = 1
 	us.xStart = xOffset - xPixSize/2
-	us.xEnd = us.xStart + (xSize * xPixSize)
+	us.xEnd = us.xStart +(xSize * xPixSize)
 	us.yStart = yOffset - yPixSize/2
-	us.yEnd = us.yStart + (ySize * yPixSize)
+	us.yEnd = us.yStart +(ySize * yPixSize)
 	// subwin plotting struct
 	STRUCT GUIPSubWin_ContentStruct cs
 	// add channel info
-	for (iChan =0; iChan < nChans ; iChan +=1)
+	for(iChan =0; iChan < nChans ; iChan +=1)
 		aChan = stringfromList(iChan, selScanChans, ",")
-		twoP_ImGraphFillcs (us.contentStructs [iChan], curScan, aChan)
+		twoP_ImGraphFillcs(us.contentStructs [iChan], curScan, aChan)
 	endfor
-	GUIPSubWin_Display (us)
+	GUIPSubWin_Display(us)
 	// resize default control panel
 	MoveSubWindow /W=twoPscanGraph#controlPanel fnum=(0, 90, 505, 0 )
 	// Move subwin built-in controls
@@ -1297,7 +1297,7 @@ Function twoP_ImGraphNew (curScan)
 	CustomControl LUTslider win=twoPscanGraph#controlPanel,userdata=A"!!<4(!\"&a1z7=Xe,!!`K(5skVP!\"&]5z!EoM-7=Xe,!!!!$"
 	CustomControl LUTslider win=twoPscanGraph#controlPanel,userdata(FUNCSTR)="twoP_LUTSliderAction",frame=0,focusRing=0
 	// Set window hook function
-	SetWindow twoPscanGraph hook (infoHook)= twoP_imGraphHookProc, hookevents = 3
+	SetWindow twoPscanGraph hook(infoHook)= twoP_imGraphHookProc, hookevents = 3
 	WC_WindowCoordinatesRestore(us.graphName)
 end
 
@@ -1316,9 +1316,9 @@ function/S twoP_imGraphListChans()
 	SVAR selChans = root:packages:twoP:examine:ScanGraphSelChans
 	variable iChan, nChans = itemsInList(chanList, ",")
 	string aChan, outList = ""
-	for (iChan =0; iChan < nChans; iChan += 1)
-		aChan = stringfromlist (iChan, chanList, ",")
-			if (FindListItem(aChan, selChans, ",") > -1)
+	for(iChan =0; iChan < nChans; iChan += 1)
+		aChan = stringfromlist(iChan, chanList, ",")
+			if(FindListItem(aChan, selChans, ",") > -1)
 				outList += "\\M1!"  +num2char(18)
 			endif
 			outList += aChan + ";"
@@ -1335,17 +1335,17 @@ Function twoP_imGraphChansPopMenuProc(pa) : PopupMenuControl
 	switch( pa.eventCode )
 		case 2: // mouse up
 			SVAR selChans = root:packages:twoP:examine:ScanGraphSelChans
-			if (FindListItem(pa.popStr, selChans, ",") > -1)
-				selChans = sortList (removeFromList(pa.popStr, selChans, ","), ",")
-				string thegraph = stringfromlist (0, pa.win, "#")
-				GUIPSubWin_Remove (thegraph, "G" + pa.popStr)
+			if(FindListItem(pa.popStr, selChans, ",") > -1)
+				selChans = sortList(removeFromList(pa.popStr, selChans, ","), ",")
+				string thegraph = stringfromlist(0, pa.win, "#")
+				GUIPSubWin_Remove(thegraph, "G" + pa.popStr)
 			else
-				selChans = sortList (addlistItem(pa.popStr, selChans, ","), ",")
+				selChans = sortList(addlistItem(pa.popStr, selChans, ","), ",")
 				// add graph
 				SVAR curScan = root:packages:twoP:examine:CurScan
 				STRUCT GUIPSubWin_ContentStruct cs
-				twoP_ImGraphFillcs (cs, curScan, pa.popStr)
-				GUIPSubWin_Add (cs)
+				twoP_ImGraphFillcs(cs, curScan, pa.popStr)
+				GUIPSubWin_Add(cs)
 			endif
 			break
 		case -1: // control being killed
@@ -1358,11 +1358,11 @@ End
 // *************************************************************************
 // Lists channels displayed in subwindows, excluding RGB
 // Last Modified 2025/080/13 by Jamie Boyd
-Function/s twoP_imGraphListDisplayedChans ()
-	string subwins = removeFromList ("GRGB;controlPanel", childwindowList ("TwoPScanGraph"))
-	variable iSubWin, nSubWins = itemsinList (subwins)
+Function/s twoP_imGraphListDisplayedChans()
+	string subwins = removeFromList("GRGB;controlPanel", childwindowList("TwoPScanGraph"))
+	variable iSubWin, nSubWins = itemsinList(subwins)
 	string chanList="", aSubWin
-	for (iSubWin=0; iSubWin<nSubWIns; iSubWin+=1)
+	for(iSubWin=0; iSubWin<nSubWIns; iSubWin+=1)
 		aSubWin = StringFromList(iSubWin,subwins)
 		chanList = AddListItem(aSubWin[1,strlen(aSubWin)-1], chanList)
 	endfor
@@ -1378,13 +1378,13 @@ Function twoP_imGraphShowAxesProc(cba) : CheckBoxControl
 	switch( cba.eventCode )
 		case 2: // mouse up
 			Variable checked = cba.checked
-			string subWinList = RemoveFromList("controlPanel", childwindowList ("twoPscanGraph"), ";", 0)
-			variable iWin, nWins = itemsinlist (subWinList)
-			for (iWin =0; iWin < nWins; iWin +=1)
-				if (checked)
-					ModifyGraph/w=$"twoPscanGraph#" + stringfromlist (iWin,subWinList) nticks=5,noLabel=0
+			string subWinList = RemoveFromList("controlPanel", childwindowList("twoPscanGraph"), ";", 0)
+			variable iWin, nWins = itemsinlist(subWinList)
+			for(iWin =0; iWin < nWins; iWin +=1)
+				if(checked)
+					ModifyGraph/w=$"twoPscanGraph#" + stringfromlist(iWin,subWinList) nticks=5,noLabel=0
 				else
-					ModifyGraph/w=$"twoPscanGraph#" + stringfromlist (iWin,subWinList) nticks=0,noLabel=2
+					ModifyGraph/w=$"twoPscanGraph#" + stringfromlist(iWin,subWinList) nticks=0,noLabel=2
 				endif
 			endfor
 			break
@@ -1400,13 +1400,13 @@ Function twoP_ImGraphRGBCheckProc(cba) : CheckBoxControl
 
 	switch( cba.eventCode )
 		case 2: // mouse up
-			if (cba.checked)
+			if(cba.checked)
 				SVAR curScan =  root:packages:twoP:examine:curScan
 				STRUCT GUIPSubWin_ContentStruct cs
-				twoP_ImGraphFillcs (cs, curScan, "RGB")
-				GUIPSubWin_Add (cs)
+				twoP_ImGraphFillcs(cs, curScan, "RGB")
+				GUIPSubWin_Add(cs)
 			else
-				GUIPSubWin_Remove ("twoPscanGraph", "GRGB")
+				GUIPSubWin_Remove("twoPscanGraph", "GRGB")
 			endif
 			break
 		case -1: // control being killed
@@ -1417,7 +1417,7 @@ Function twoP_ImGraphRGBCheckProc(cba) : CheckBoxControl
 End
 
 // *************************************************************************
-// sets channels for layers (colours) of RGB wave
+// sets channels for layers(colours) of RGB wave
 // Last Modified 2025/080/13 by Jamie Boyd
 Function twoP_imGraphRGBPopMenuProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
@@ -1426,7 +1426,7 @@ Function twoP_imGraphRGBPopMenuProc(pa) : PopupMenuControl
 		case 2: // mouse up
 			Variable popNum = pa.popNum
 			String popStr = pa.popStr
-			strswitch (pa.ctrlName)
+			strswitch(pa.ctrlName)
 				case "RedPopMenu":
 					SVAR chanStr = root:packages:twoP:examine:RGB_redChan
 					break
@@ -1438,7 +1438,7 @@ Function twoP_imGraphRGBPopMenuProc(pa) : PopupMenuControl
 					break
 			endswitch
 			chanStr = pa.popStr
-			twoP_ImGraphSetRGB ()
+			twoP_ImGraphSetRGB()
 			break
 		case -1: // control being killed
 			break
@@ -1451,7 +1451,7 @@ End
 // *************************************************************************
 // Makes and applies a dependeny for RGB wave
 // Last Modified 2025/080/13 by Jamie Boyd
-function twoP_ImGraphSetRGB ()
+function twoP_ImGraphSetRGB()
 
 	string savedfolder = getdataFolder(1)
 	setdatafolder root:packages:twoP:examine
@@ -1462,7 +1462,7 @@ function twoP_ImGraphSetRGB ()
 	
 	string scanBaseName
 	SVAR curScan = root:packages:twoP:examine:curScan
-	if (cmpStr (curScan, "LiveScan") ==0)
+	if(cmpStr(curScan, "LiveScan") ==0)
 		scanBaseName = "root:twoP_Scans:LiveScan:LiveScan"
 	else
 		scanBaseName = "scanGraph"
@@ -1470,33 +1470,33 @@ function twoP_ImGraphSetRGB ()
 	
 	string redStr, greenStr, blueStr
 	
-	if (cmpStr (RGB_RedChan, "BLACK") ==0)
+	if(cmpStr(RGB_RedChan, "BLACK") ==0)
 		redStr = "0"
 	else
 		variable/G RGB_redScal 
 		setformula RGB_redScal RGB_RedChan + "LastLutColor - " +  RGB_RedChan + "FirstLutColor" 
-		sprintf redStr "min (RGB_redScal, max (0, %s_%s [p][q] - %sFirstLutColor)) / (RGB_redScal/256)", scanBaseName, RGB_RedChan, RGB_RedChan
-		//sprintf redStr "min ((%sLastLutColor -%sFirstLutColor), max (0, %s_%s [p][q] - %sFirstLutColor)) / ((%sLastLutColor -%sFirstLutColor)/256)",RGB_RedChan, RGB_RedChan,scanBaseName, RGB_RedChan, RGB_RedChan, RGB_RedChan, RGB_RedChan
+		sprintf redStr "min(RGB_redScal, max(0, %s_%s [p][q] - %sFirstLutColor)) /(RGB_redScal/256)", scanBaseName, RGB_RedChan, RGB_RedChan
+		//sprintf redStr "min((%sLastLutColor -%sFirstLutColor), max(0, %s_%s [p][q] - %sFirstLutColor)) /((%sLastLutColor -%sFirstLutColor)/256)",RGB_RedChan, RGB_RedChan,scanBaseName, RGB_RedChan, RGB_RedChan, RGB_RedChan, RGB_RedChan
 	endif
 	
-	if (cmpStr (RGB_GreenChan, "BLACK") ==0)
+	if(cmpStr(RGB_GreenChan, "BLACK") ==0)
 		greenStr = "0"
 	else
 		variable/G RGB_greenScal 
 		setformula RGB_greenScal RGB_GreenChan + "LastLutColor - " +  RGB_GreenChan + "FirstLutColor" 
-		sprintf greenStr "min (RGB_greenScal, max (0, %s_%s [p][q] - %sFirstLutColor)) / (RGB_greenScal/256)",scanBaseName,  RGB_GreenChan, RGB_GreenChan
+		sprintf greenStr "min(RGB_greenScal, max(0, %s_%s [p][q] - %sFirstLutColor)) /(RGB_greenScal/256)",scanBaseName,  RGB_GreenChan, RGB_GreenChan
 	endif
 	
-	if (cmpStr (RGB_BlueChan, "BLACK") ==0)
+	if(cmpStr(RGB_BlueChan, "BLACK") ==0)
 		blueStr = "0"
 	else
 		variable/G RGB_blueScal 
 		setformula RGB_blueScal RGB_BlueChan + "LastLutColor - " +  RGB_BlueChan + "FirstLutColor" 
-		sprintf blueStr "min (RGB_blueScal, max (0, %s_%s [p][q] - %sFirstLutColor)) / (RGB_blueScal/256)",scanBaseName,  RGB_BlueChan, RGB_BlueChan
+		sprintf blueStr "min(RGB_blueScal, max(0, %s_%s [p][q] - %sFirstLutColor)) /(RGB_blueScal/256)",scanBaseName,  RGB_BlueChan, RGB_BlueChan
 	endif
 	
 	string formulaStr
-	sprintf formulaStr "r == 0 ? %s : (r == 1 ? %s : %s)", redStr, greenStr, blueStr
+	sprintf formulaStr "r == 0 ? %s :(r == 1 ? %s : %s)", redStr, greenStr, blueStr
 	setformula RGBWave, formulaStr
 	
 	setdatafolder $savedfolder
@@ -1525,100 +1525,100 @@ Function twoP_imGraphHookProc(s)
 			// if shift. show value at position under mouse for any scan
 			// if dynamic ROI is checked, do ROI for area under cursor, for time and z series
 			NVAR dodROI = root:packages:twoP:examine:doDROI
-			if (!((dodROI) || (s.eventMod == 2)))
+			if(!((dodROI) ||(s.eventMod == 2)))
 				return 0
 			endif
-			variable xpos = AxisvalFromPixel (s.winName, "bottom", s.mouseLoc.h)
-			variable ypos =  AxisvalFromPixel (s.winName, "left", s.mouseLoc.v)
+			variable xpos = AxisvalFromPixel(s.winName, "bottom", s.mouseLoc.h)
+			variable ypos =  AxisvalFromPixel(s.winName, "left", s.mouseLoc.v)
 			SVAR curScan = root:Packages:twoP:examine:CurScan
 			SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-			variable scanMode = numberbykey ("Mode", scanStr, ":", "\r")
-			variable xPixSIze = numberbykey ("xPixSize", scanStr, ":", "\r")
-			variable xOffset = numberbykey ("XOffset", scanStr, ":", "\r")
-			variable xPixPos = round ((xpos - xOffset)/xPixSIze)
-			variable yPixSize = numberbykey ("yPixSize", scanStr, ":", "\r")
-			variable pixHeight = numberbykey ("PixHeight", scanStr, ":", "\r")
-			variable yOffset = numberbykey ("YOffset", scanStr, ":", "\r")
-			variable yPixPos = round ((yPos - yOffset)/yPixSize)
-			variable pixWidth = numberbykey ("PixWidth", scanStr, ":", "\r")
-			if (!((((yPixPos > 0) && (yPixPos < PixHeight)) && (xPixPos > 0)) && (xPixPos < PixWidth)))
+			variable scanMode = numberbykey("Mode", scanStr, ":", "\r")
+			variable xPixSIze = numberbykey("xPixSize", scanStr, ":", "\r")
+			variable xOffset = numberbykey("XOffset", scanStr, ":", "\r")
+			variable xPixPos = round((xpos - xOffset)/xPixSIze)
+			variable yPixSize = numberbykey("yPixSize", scanStr, ":", "\r")
+			variable pixHeight = numberbykey("PixHeight", scanStr, ":", "\r")
+			variable yOffset = numberbykey("YOffset", scanStr, ":", "\r")
+			variable yPixPos = round((yPos - yOffset)/yPixSize)
+			variable pixWidth = numberbykey("PixWidth", scanStr, ":", "\r")
+			if(!((((yPixPos > 0) &&(yPixPos < PixHeight)) &&(xPixPos > 0)) &&(xPixPos < PixWidth)))
 				return 1
 			endif
 			string aChan
 			SVAR selImChans = root:packages:twoP:examine:scanGraphSelchans
-			variable iChan, nChans = itemsInList (selImChans, ","), chanValue
-			variable ImChans = numberbykey ("ImChans", scanStr, ":", "\r")
-			string theSubWin, SubWinList = ChildWindowList(stringfromlist (0, s.winName, "#"))
+			variable iChan, nChans = itemsInList(selImChans, ","), chanValue
+			variable ImChans = numberbykey("ImChans", scanStr, ":", "\r")
+			string theSubWin, SubWinList = ChildWindowList(stringfromlist(0, s.winName, "#"))
 			NVAR DROIrad = root:packages:twoP:examine:dROIRad
 			// shift-click  - value under mouse
-			if (s.eventMod == 2)
-				for (iChan =0; iChan < nChans; iChan +=1)
-					aChan = stringfromList (iChan, selImChans, ",")
-					if ((scanMode == kTimeSeries) || (ScanMode == kZseries)) // 3D image, only a plane displayed at a time
+			if(s.eventMod == 2)
+				for(iChan =0; iChan < nChans; iChan +=1)
+					aChan = stringfromList(iChan, selImChans, ",")
+					if((scanMode == kTimeSeries) ||(ScanMode == kZseries)) // 3D image, only a plane displayed at a time
 						WAVE thescanwave  = $"root:Packages:twoP:examine:scanGraph_" + aChan
 					else  // for 2D images, scan is scan
 						WAVE thescanwave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
 					endif
-					if (DROIrad== 0)
+					if(DROIrad== 0)
 						chanValue = thescanwave [xPixpos] [yPixpos]
 					else
 						imagestats/G={xpixpos -DROIrad , xPixpos +  DROIrad, yPixpos -DROIrad, yPixpos +DROIrad}/M =1 thescanwave
 						chanValue = V_avg
 					endif
-					if (WhichListItem("G" + aChan, SubWinList, ";") > -1)
+					if(WhichListItem("G" + aChan, SubWinList, ";") > -1)
 						TextBox/W = $"twoPscanGraph#G" + aChan/C/N=PosText/F=0/A=LT/X=0.00/Y=0.00 aChan + ": " + num2str(chanValue)
 					endif
 				endfor
-			elseif ((scanMode == kTimeSeries) || (ScanMode == kZseries)) // do dynamic ROI for 3D scans only
+			elseif((scanMode == kTimeSeries) ||(ScanMode == kZseries)) // do dynamic ROI for 3D scans only
 				NVAR doDROI = root:Packages:twoP:examine:doDROI
-				if (doDROI)
+				if(doDROI)
 					SVAR seldROIChans=root:Packages:twoP:examine:DROISelChans
-					variable nROIchans=itemsinlist (seldROIChans, ",")
+					variable nROIchans=itemsinlist(seldROIChans, ",")
 					variable doRatio
 					string chanList = seldROIChans
-					if (WhichListItem("ratio", chanList, ",") > -1)
+					if(WhichListItem("ratio", chanList, ",") > -1)
 						chanList = RemoveFromList("ratio",chanList, ",")
 						doRatio=1
 						SVAR TopChan = root:packages:twoP:examine:DROITopChan
 						SVAR BottomChan = root:packages:twoP:examine:DROIBottomChan
-						if (WhichListItem(topChan, selImChans , ",") > -1)
-							if (WhichListItem(topChan, chanList , ",") == -1)
+						if(WhichListItem(topChan, selImChans , ",") > -1)
+							if(WhichListItem(topChan, chanList , ",") == -1)
 								chanList = AddListItem(topChan, chanList, ",")
 							endif
 							WAVE topWave=$"root:packages:twoP:examine:DROI_" + TopChan
 						else
 							doRatio=0
 						endif
-						if (WhichListItem(bottomChan, selImChans , ",") > -1)
-							if (WhichListItem(bottomChan, chanList , ",") == -1)
+						if(WhichListItem(bottomChan, selImChans , ",") > -1)
+							if(WhichListItem(bottomChan, chanList , ",") == -1)
 								chanList = AddListItem(bottomChan, chanList, ",")
 							endif
 							WAVE bottomWave=$"root:packages:twoP:examine:DROI_" + bottomChan
 						else
 							doRatio=0
 						endif
-						if (doRatio)
+						if(doRatio)
 							WAVE dROIratio = $"root:packages:twoP:examine:DROI_ratio"
 						endif
 					endif
 					nchans=itemsInList(chanList,",")
 					variable iFrame, nFrames=NumberByKey("numFrames", scanStr, ":", "\r")
-					for (iChan=0;iCHan < nCHans; iCHan +=1)
-						aChan=stringFromList (iChan, chanList, ",")
+					for(iChan=0;iCHan < nCHans; iCHan +=1)
+						aChan=stringFromList(iChan, chanList, ",")
 						WAVE scanWave=$"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
 						WAVE dROIwave=$"root:packages:twoP:examine:DROI_" + aChan
-						if (DROIrad== 0)
-							For (iFrame=0; iFrame < nFrames; iFrame+= 1)
+						if(DROIrad== 0)
+							For(iFrame=0; iFrame < nFrames; iFrame+= 1)
 								dROIwave [iFrame]=scanWave [xPixPos] [yPixPos] [iFrame]
 							endfor
 						else
-							For (iFrame=0; iFrame < nFrames; iFrame+= 1)
+							For(iFrame=0; iFrame < nFrames; iFrame+= 1)
 								imagestats/G={xpixpos -DROIrad , xPixpos +  DROIrad, yPixpos -DROIrad, yPixpos +DROIrad}/P=(iFrame)/M=1 scanWave
 								dROIwave [iFrame] =V_Avg
 							endfor
 						endif
 					endfor
-					if (doRatio)
+					if(doRatio)
 						dROIratio = topWave/bottomWave
 					endif
 				endif
@@ -1628,15 +1628,15 @@ Function twoP_imGraphHookProc(s)
 		case 5: //mouse up
 			break
 		case 11: // keyboard
-			if ((s.keycode ==44) || (s.keycode == 46)) // comma, for z-plane -1, period, for z-plane +1
+			if((s.keycode ==44) ||(s.keycode == 46)) // comma, for z-plane -1, period, for z-plane +1
 				STRUCT WMButtonAction ba
-				if (s.keycode ==44)
+				if(s.keycode ==44)
 					ba.ctrlname = "PrevFrame"
 				else
 					ba.ctrlname = "NextFrame"
 				endif
 				ba.eventCode =2
-				NQ_MovieNextPrevious (ba)
+				NQ_MovieNextPrevious(ba)
 				hookResult =1
 			endif
 			break
@@ -1653,103 +1653,103 @@ End
 
 // Makes the Nidaq traces graph, where ephysiology and ROIs/ Linescan averages are displayed. 
 // 
-// LIne scans on a separate Y axis, same X axis (cause they have the same time base). When DeltaF/F is applied, the averages are put on a new Y axis on bottom right
+// LIne scans on a separate Y axis, same X axis(cause they have the same time base). When DeltaF/F is applied, the averages are put on a new Y axis on bottom right
 // Last Modified Jul 12 2010 by Jamie Boyd
-Function NQ_NewTracesGraph (curScan)
+Function NQ_NewTracesGraph(curScan)
 	string curScan
 	
 	variable isNew // if making graph from scratch, this will be set to 1, 0 for revamping an existing graph
 	DoWindow/F twoP_TracesGraph
-	if (V_Flag) // window already exists
+	if(V_Flag) // window already exists
 		DoWindow/T twoP_TracesGraph,  curScan + " Traces"
 		string OnGraph = guiplistWavesFromGraph("twoP_TracesGraph" , "*", 1, 0, "")
 		isNew =0
 	else
 		display/N=twoP_TracesGraph/k=1 as curScan + " Traces"
 		WC_WindowCoordinatesRestore("twoP_TracesGraph")
-		SetWindow twoP_TracesGraph hook (infoHook)= twoP_UtilSaveWinPosHook, hookevents = 2
+		SetWindow twoP_TracesGraph hook(infoHook)= twoP_UtilSaveWinPosHook, hookevents = 2
 		isNew=1
 	endif
 	SVAR ScanInfo = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 	string ePhysWaves=""
 	// ePhys channels existing for this scan -
 	string ePhysChans = StringByKey("ePhysChanDesc", ScanInfo, ":", "\r")
-	string roiWaves = GUIPListObjs ("root:twoP_Scans:" + CurScan, 1, "*avg*", 0, "") 
-	string ratioWaves = GUIPListObjs ("root:twoP_Scans:" + CurScan, 1, "*ratio*", 0, "")
-	variable nEphysChans=itemsinList (ePhysChans, ",")
-	variable nROIWaves=itemsinlist (roiWaves, ";")
-	variable nRatioWaves = itemsinlist (ratioWaves, ";")
+	string roiWaves = GUIPListObjs("root:twoP_Scans:" + CurScan, 1, "*avg*", 0, "") 
+	string ratioWaves = GUIPListObjs("root:twoP_Scans:" + CurScan, 1, "*ratio*", 0, "")
+	variable nEphysChans=itemsinList(ePhysChans, ",")
+	variable nROIWaves=itemsinlist(roiWaves, ";")
+	variable nRatioWaves = itemsinlist(ratioWaves, ";")
 	// ePhys channels each get their own axis, ROIs share an axis, ratios share an axis
-	variable nAxes=itemsinlist (ePhysChans, ",")
-	if (nROIWaves > 0)
+	variable nAxes=itemsinlist(ePhysChans, ",")
+	if(nROIWaves > 0)
 		nAxes +=1
 	endif
-	if (nRatioWaves > 0)
+	if(nRatioWaves > 0)
 		nAxes +=1
 	endif
-	variable axisFrac = (1-.02*(nAxes-1))/nAxes
+	variable axisFrac =(1-.02*(nAxes-1))/nAxes
 	// append ePhys chans, each in own axis
 	variable iChan, iAxis
 	string aChan, traceName
-	for (iChan=0;iChan < nEphysChans;iChan +=1)
-		aChan = stringFromList (iChan, ePhysChans, ",")
+	for(iChan=0;iChan < nEphysChans;iChan +=1)
+		aChan = stringFromList(iChan, ePhysChans, ",")
 		traceName = curScan + "_" + aChan
 		WAVE traceWave =  $"root:twoP_Scans:" + curScan + ":" + traceName
 		appendtograph/W=twoP_TracesGraph/L= $"L_" + aChan traceWave
-		modifygraph/W=twoP_TracesGraph rgb ($traceName) = (0,0,0), mode ($traceName) = 0
+		modifygraph/W=twoP_TracesGraph rgb($traceName) =(0,0,0), mode($traceName) = 0
 		ModifyGraph freePos($"L_" + aChan)={0,bottom}
-		label $"L_" + aChan  aChan +  " (\\U)"
+		label $"L_" + aChan  aChan +  "(\\U)"
 		ModifyGraph lblPos($"L_" + aChan)= 45
-		ModifyGraph/W=twoP_TracesGraph axisEnab($"L_" +  aChan)={(iChan * axisFrac) + (iChan * .01) , ((iChan + 1) * axisFrac) + (iChan * .01)}
+		ModifyGraph/W=twoP_TracesGraph axisEnab($"L_" +  aChan)={(iChan * axisFrac) +(iChan * .01) ,((iChan + 1) * axisFrac) +(iChan * .01)}
 	endfor
 	
 	variable red, green, blue
-	// append ROI averages on two axes (delta effed (Left) or not (right)) that share axis space
-	if (nROIWaves > 0)
+	// append ROI averages on two axes(delta effed(Left) or not(right)) that share axis space
+	if(nROIWaves > 0)
 		iAxis = nEphysChans
-		for (iChan=0;iChan < nROIWaves;iChan +=1)
-			aChan = stringFromList (iChan, roiWaves, ";")
+		for(iChan=0;iChan < nROIWaves;iChan +=1)
+			aChan = stringFromList(iChan, roiWaves, ";")
 			WAVE traceWave = $"root:twoP_Scans:" + CurScan + ":" + aChan
-			red = numberbykey ("Red", note (traceWave))
-			green = numberbykey ("Green", note (traceWave))
-			blue = numberbykey ("Blue", note (traceWave))
-			if ((numberbykey ("deltafed", note (traceWave))) == 0)
-				appendtograph /W=twoP_TracesGraph/C=((red), (green), (blue))/L=ROILAxis/B=Bottom traceWave
+			red = numberbykey("Red", note(traceWave))
+			green = numberbykey("Green", note(traceWave))
+			blue = numberbykey("Blue", note(traceWave))
+			if((numberbykey("deltafed", note(traceWave))) == 0)
+				appendtograph /W=twoP_TracesGraph/C=((red),(green),(blue))/L=ROILAxis/B=Bottom traceWave
 			else
-				appendtograph /W=twoP_TracesGraph/C=((red), (green), (blue))/R=ROIRAxis/B=Bottom traceWave
+				appendtograph /W=twoP_TracesGraph/C=((red),(green),(blue))/R=ROIRAxis/B=Bottom traceWave
 			endif
 		endfor
-		if (WhichListItem("ROILAxis", axislist("twoP_TracesGraph"), ";") >-1)
-			ModifyGraph/W=twoP_TracesGraph axisEnab(ROILAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
+		if(WhichListItem("ROILAxis", axislist("twoP_TracesGraph"), ";") >-1)
+			ModifyGraph/W=twoP_TracesGraph axisEnab(ROILAxis)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis * .01)}
 			ModifyGraph /W=twoP_TracesGraph freePos(ROILAxis)={0,bottom}, lblPos(ROILAxis)=45, tick(ROILAxis)=0
 			Label ROILAxis "\\Z12Raw 12 bit A/D"
 		endif
-		if (WhichListItem("ROIRAxis", axislist("twoP_TracesGraph"), ";") >-1)
-			ModifyGraph/W=twoP_TracesGraph axisEnab(ROIRAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
+		if(WhichListItem("ROIRAxis", axislist("twoP_TracesGraph"), ";") >-1)
+			ModifyGraph/W=twoP_TracesGraph axisEnab(ROIRAxis)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis * .01)}
 			ModifyGraph/W=twoP_TracesGraph freePos(ROIRAxis)={0,kwFraction}, lblPos(ROIRAxis)=45, tick(ROIRAxis)=0
 			Label ROIrAxis  "\\Z12Delta F/F"
 		endif
 	endif
 	
 	//append Ratio averages on one axis 
-	if (nRatioWaves> 0)
+	if(nRatioWaves> 0)
 		iAxis +=1
-		for (iChan=0;iChan < nROIWaves;iChan +=1, iAxis +=1)
-			aChan = stringFromList (iChan, ratioWaves, ";")
+		for(iChan=0;iChan < nROIWaves;iChan +=1, iAxis +=1)
+			aChan = stringFromList(iChan, ratioWaves, ";")
 			WAVE traceWave = $"root:twoP_Scans:" + CurScan + ":" + aChan
-			red = numberbykey ("Red", note (traceWave))
-			green = numberbykey ("Green", note (traceWave))
-			blue = numberbykey ("Blue", note (traceWave))
-			appendtograph /W=twoP_TracesGraph/C=((red), (green), (blue))/L=RATIOAxis/B=Bottom traceWave
+			red = numberbykey("Red", note(traceWave))
+			green = numberbykey("Green", note(traceWave))
+			blue = numberbykey("Blue", note(traceWave))
+			appendtograph /W=twoP_TracesGraph/C=((red),(green),(blue))/L=RATIOAxis/B=Bottom traceWave
 		endfor
-		ModifyGraph/W=twoP_TracesGraph axisEnab(RATIOAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
+		ModifyGraph/W=twoP_TracesGraph axisEnab(RATIOAxis)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis * .01)}
 		ModifyGraph freePos(RATIOAxis)={0,bottom},  lblPos(RATIOAxis)=45
 		Label RATIOAxis  "\\Z12Ratio"
 	endif
-	if (isNew)
+	if(isNew)
 		// Set the margins of the graph
 		ModifyGraph /W=twoP_TracesGraph margin(left)=50,margin(bottom)=30,margin(top)=10,margin(right)=50
-		Label bottom "\\Z12Time (\\U)"
+		Label bottom "\\Z12Time(\\U)"
 		ModifyGraph/W=twoP_TracesGraph lblLatPos(bottom)=-15
 		// Set tick lengths for all axes
 		ModifyGraph /W=twoP_TracesGraph btLen=2
@@ -1778,16 +1778,16 @@ Function NQ_NewTracesGraph (curScan)
 		SetActiveSubwindow ##
 
 		// Aply saved settings for size, position
-		WC_WindowCoordinatesRestore("twoP_TracesGraph")//ApplyWinPosStr ("twoP_TracesGraph")
+		WC_WindowCoordinatesRestore("twoP_TracesGraph")//ApplyWinPosStr("twoP_TracesGraph")
 		// set the hook function to save positions
-		SetWindow twoP_TracesGraph hook (SavePosHook)= SaveWinPosStrHook, hookevents = 0
+		SetWindow twoP_TracesGraph hook(SavePosHook)= SaveWinPosStrHook, hookevents = 0
 	endif
 
 	// remove old traces
-	if (!(isNew)) // remove old traces
-		variable it, nt = itemsinlist (OnGraph, ";")
-		for (it =0; it < nt; it += 1)
-			removefromgraph/w=twoP_TracesGraph $stringfromlist (it, OnGraph)
+	if(!(isNew)) // remove old traces
+		variable it, nt = itemsinlist(OnGraph, ";")
+		for(it =0; it < nt; it += 1)
+			removefromgraph/w=twoP_TracesGraph $stringfromlist(it, OnGraph)
 		endfor
 	endif
 
@@ -1797,30 +1797,30 @@ end
 // Adjust the axes on the Nidaq Traces Graph to share axis space, if necessary
 // call after adding or removing traces
 // Last modified 2025/09/18 by Jamie Boyd
-Function NQ_TracesGraphShareAxes ()
+Function NQ_TracesGraphShareAxes()
 	
 	variable hasLeftROI =0
 	variable hasRightROI =0
-	string Axes = removefromList ("bottom", axisList("twoP_TracesGraph"))
-	if (whichListItem ("ROIRAxis", Axes) > -1)
+	string Axes = removefromList("bottom", axisList("twoP_TracesGraph"))
+	if(whichListItem("ROIRAxis", Axes) > -1)
 		hasRightROI =1
 	endif
-	if (whichListItem ("ROILAxis", Axes) > -1)
+	if(whichListItem("ROILAxis", Axes) > -1)
 		hasLeftROI =1
 	endif
 	variable hasBothROI = hasRightROI && hasLeftROI
 	variable iAxis, nAxes = itemsinList(Axes)
-	if (hasBothROI)
+	if(hasBothROI)
 		nAxes -=1
-		Axes = removefromList ("ROIRAxis",Axes)
+		Axes = removefromList("ROIRAxis",Axes)
 	endif
-	variable axisFrac = (1-.02*(nAxes-1))/nAxes
+	variable axisFrac =(1-.02*(nAxes-1))/nAxes
 	string anAxis
-	for (iAxis =0; iAxis < nAxes; iAxis +=1)
-		anAxis = stringfromlist (iAxis, Axes)
-		ModifyGraph/W=twoP_TracesGraph axisEnab($anAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
-		if ((cmpStr (anAxis, "ROILAxis") ==0) && (hasBothROI))
-			ModifyGraph/W=twoP_TracesGraph axisEnab(ROIRAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
+	for(iAxis =0; iAxis < nAxes; iAxis +=1)
+		anAxis = stringfromlist(iAxis, Axes)
+		ModifyGraph/W=twoP_TracesGraph axisEnab($anAxis)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis * .01)}
+		if((cmpStr(anAxis, "ROILAxis") ==0) &&(hasBothROI))
+			ModifyGraph/W=twoP_TracesGraph axisEnab(ROIRAxis)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis * .01)}
 		endif
 	endfor
 end
@@ -1833,7 +1833,7 @@ Function NQ_showTracesProc(ctrlName) : ButtonControl
 	String ctrlName
 	
 	SVAR curScan = root:packages:twoP:examine:curScan
-	NQ_NewTracesGraph (curScan)
+	NQ_NewTracesGraph(curScan)
 End
 
 
@@ -1863,11 +1863,11 @@ End
 // **********************************************************************************
 // Makes histogram display and/or adjusts channels displayed on histogram graph
 // Last Modified: 2025/08/02 by Jamie Boyd
-Function twoP_HistMakeGraph ()
+Function twoP_HistMakeGraph()
 	
 	SVAR curScan = root:packages:twoP:examine:CurScan
 	doWindow/F twoP_HistGraph
-	if (V_Flag) // window already exists
+	if(V_Flag) // window already exists
 		DoWindow /T twoP_HistGraph,  curScan + " Histogram"
 	else
 		display/N=twoP_HistGraph/k=1 as curScan + " Histogram"
@@ -1880,45 +1880,45 @@ Function twoP_HistMakeGraph ()
 	SVAR selChans = root:packages:twoP:examine:HistGraphSelChans 
 	// remove what don't belong
 	// make sure selected chans are in scan chans
-	variable iChan, nChans = itemsInList (selChans, ",")
+	variable iChan, nChans = itemsInList(selChans, ",")
 	string aChan
-	for (iChan =nChans -1; iChan >= 0; iChan -=1)
-		aChan = stringFromList (iChan, selChans, ",")
-		if (WhichListItem(aChan, scanChans, ",", 0, 0) ==-1)
+	for(iChan =nChans -1; iChan >= 0; iChan -=1)
+		aChan = stringFromList(iChan, selChans, ",")
+		if(WhichListItem(aChan, scanChans, ",", 0, 0) ==-1)
 			selChans = RemoveFromList(aChan, selChans, ",")
 		endif
 	endfor
 	// remove histograms that are not selected
 	// Histograms already on the graph 
 	string existingHists = guiplistWavesFromGraph("twoP_HistGraph" , "HistWave*", 1, 0, "")
-	nChans = itemsInList (existingHists, ";")
+	nChans = itemsInList(existingHists, ";")
 	string HistWaveName
-	for (iChan =0; iCHan < nChans; iChan +=1)
-		HistWaveName = stringFromList (iChan, existingHists, ";")
+	for(iChan =0; iCHan < nChans; iChan +=1)
+		HistWaveName = stringFromList(iChan, existingHists, ";")
 		sscanf HistWaveName, "HistWave%s", aChan
-		if (WhichListItem(aChan, selChans, ",", 0, 0) == -1)
+		if(WhichListItem(aChan, selChans, ",", 0, 0) == -1)
 			removefromGraph/W=twoP_HistGraph $HistWaveName, $"ImRangeLefty" + aChan, $"ImRangerighty" + aChan
 			existingHists = RemoveFromList(HistWaveName, existingHists, ";", 0)
 		endif
 	endfor
 	// append channels as needed
 	string left_yName, right_yName
-	nChans = itemsInList (selChans, ",")
-	variable axisFrac = (1-.02*(nChans-1))/nChans
-	for (iChan =0; iChan < nCHans; iChan +=1)
-		aChan = stringFromList (iChan, selChans, ",")
-		if (WhichListItem("HistWave" + aChan, existingHists, ";", 0, 0) == -1) // need to append the hist
+	nChans = itemsInList(selChans, ",")
+	variable axisFrac =(1-.02*(nChans-1))/nChans
+	for(iChan =0; iChan < nCHans; iChan +=1)
+		aChan = stringFromList(iChan, selChans, ",")
+		if(WhichListItem("HistWave" + aChan, existingHists, ";", 0, 0) == -1) // need to append the hist
 			WAVE/Z histWave = $"root:Packages:twoP:Examine:HistWave" + aChan // first need to make the hist
-			if (!(waveExists(histWave)))
-				twoP_LUTmakeChanVars (aChan)
+			if(!(waveExists(histWave)))
+				twoP_LUTmakeChanVars(aChan)
 				//WAVE histWave = $"root:Packages:twoP:Examine:HistWave" + aChan
 			endif
-			twoP_HistAddChannel (aChan)
+			twoP_HistAddChannel(aChan)
 		endif
 		// share axis space
-		ModifyGraph/W=twoP_HistGraph axisEnab($"L_" +  aChan)={(iChan * axisFrac) + (iChan * .01) , ((iChan + 1) * axisFrac) + (iChan * .01)}
+		ModifyGraph/W=twoP_HistGraph axisEnab($"L_" +  aChan)={(iChan * axisFrac) +(iChan * .01) ,((iChan + 1) * axisFrac) +(iChan * .01)}
 	endfor
-	if (!(V_Flag))
+	if(!(V_Flag))
 		label bottom "Raw A/D Value"
 		controlbar 22
 		CheckBox LinearCheck,pos={4,2},size={53,16},proc=twoP_HistAxisCheckProc,title="Linear"
@@ -1928,7 +1928,7 @@ Function twoP_HistMakeGraph ()
 	endif
 	ModifyGraph margin(left)=35
 	// save/apply window position
-	SetWindow twoP_HistGraph hook (infoHook)= twoP_UtilSaveWinPosHook, hookevents = 2
+	SetWindow twoP_HistGraph hook(infoHook)= twoP_UtilSaveWinPosHook, hookevents = 2
 	WC_WindowCoordinatesRestore("twoP_HistGraph")
 	
 end
@@ -1937,10 +1937,10 @@ end
 // **********************************************************************************
 // adds a channel to be displayed on histogram display
 // Last Modified: 2025/08/02 by Jamie Boyd
-Function twoP_HistAddChannel (aChan)
+Function twoP_HistAddChannel(aChan)
 	string aChan
 	doWindow/F twoP_HistGraph
-	if (!(V_Flag)) // window already exists
+	if(!(V_Flag)) // window already exists
 		return 1
 	endif
 	string HistWaveName = "HistWave" + aChan
@@ -1956,11 +1956,11 @@ Function twoP_HistAddChannel (aChan)
 	left_x = ChFirst
 	right_x = ChLast
 	appendtograph/W=twoP_HistGraph/L= $"L_" + aChan histWave
-	modifygraph/W=twoP_HistGraph rgb ($HistWaveName) = (0,0,0), mode ($HistWaveName) =1
+	modifygraph/W=twoP_HistGraph rgb($HistWaveName) =(0,0,0), mode($HistWaveName) =1
 	appendtograph/W=twoP_HistGraph/L= $"L_" + aChan left_y vs left_x
-	modifygraph/W=twoP_HistGraph rgb ($left_yName) = (0,0,65535), lsize($left_yName)=2
+	modifygraph/W=twoP_HistGraph rgb($left_yName) =(0,0,65535), lsize($left_yName)=2
 	appendtograph/W=twoP_HistGraph/L= $"L_" + aChan right_y vs right_x
-	modifygraph/W=twoP_HistGraph rgb ($right_yName) = (65535,0,0), lsize($right_yName)=2
+	modifygraph/W=twoP_HistGraph rgb($right_yName) =(65535,0,0), lsize($right_yName)=2
 	ModifyGraph freePos($"L_" + aChan)={0,bottom}
 	label $"L_" + aChan  aChan +  " Number"
 	ModifyGraph lblPos($"L_" + aChan)= 55
@@ -1970,16 +1970,16 @@ end
 // **********************************************************************************
 // shares left axis space for all the channels - run after adding or removing a channel
 // Last Modified: 2025/08/02 by Jamie Boyd
-Function twoP_ShareAxisSpace (graphName)
+Function twoP_ShareAxisSpace(graphName)
 	string graphName
 	
-	string LeftAxes = removefromlist ("bottom", axisList(graphName), ";")
-	variable iAxis, nAxes = itemsinList (LeftAxes, ";")
-	variable axisFrac = (1-.02*(nAxes-1))/nAxes
+	string LeftAxes = removefromlist("bottom", axisList(graphName), ";")
+	variable iAxis, nAxes = itemsinList(LeftAxes, ";")
+	variable axisFrac =(1-.02*(nAxes-1))/nAxes
 	string anAixs
-	for (iAxis  =0; iAxis < nAxes; iAxis +=1)
-		anAixs = stringFromList (iAxis, LeftAxes, ";")
-		ModifyGraph/W= $graphName axisEnab($anAixs)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
+	for(iAxis  =0; iAxis < nAxes; iAxis +=1)
+		anAixs = stringFromList(iAxis, LeftAxes, ";")
+		ModifyGraph/W= $graphName axisEnab($anAixs)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis * .01)}
 	endfor
 end
 
@@ -1990,14 +1990,14 @@ end
 function/S twoP_HistGraphListChans()
 	SVAR curScan = root:packages:twoP:examine:curScan
 	SVAR/Z scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-	if (SVAR_EXISTS(scanStr))
+	if(SVAR_EXISTS(scanStr))
 		string chanList = StringByKey("imChanDesc", scanStr, ":", "\r")
 		SVAR selChans = root:packages:twoP:examine:HistGraphSelChans
 		variable iChan, nChans = itemsInList(chanList, ",")
 		string aChan, outList = ""
-		for (iChan =0; iChan < nChans; iChan += 1)
-			aChan = stringfromlist (iChan, chanList, ",")
-				if (FindListItem(aChan, selChans, ",") > -1)
+		for(iChan =0; iChan < nChans; iChan += 1)
+			aChan = stringfromlist(iChan, chanList, ",")
+				if(FindListItem(aChan, selChans, ",") > -1)
 					outList += "\\M1!"  +num2char(18)
 				endif
 				outList += aChan + ";"
@@ -2018,24 +2018,24 @@ Function twoP_HistGraphChansPopMenuProc(pa) : PopupMenuControl
 	switch( pa.eventCode )
 		case 2: // mouse up
 			SVAR selChans = root:packages:twoP:examine:HistGraphSelChans
-			if (FindListItem(pa.popStr, selChans, ",") > -1)  // removing a channel
-				selChans = sortList (removeFromList(pa.popStr, selChans, ","), ",")
+			if(FindListItem(pa.popStr, selChans, ",") > -1)  // removing a channel
+				selChans = sortList(removeFromList(pa.popStr, selChans, ","), ",")
 				doWindow/F twoP_HistGraph
-				if (V_Flag) // window was found
+				if(V_Flag) // window was found
 					string histName = "HistWave" + pa.popStr
 					string leftName = "ImRangeLefty" + pa.popStr
 					string rightName = "ImRangerighty" + pa.popStr
 					removefromGraph/W=twoP_HistGraph $histName, $leftName, $rightName
-					twoP_ShareAxisSpace ("twoP_HistGraph")
+					twoP_ShareAxisSpace("twoP_HistGraph")
 				endif
 			else
-				selChans = sortList (addlistItem(pa.popStr, selChans, ","), ",") // adding a channel
+				selChans = sortList(addlistItem(pa.popStr, selChans, ","), ",") // adding a channel
 				doWindow/F twoP_HistGraph
 				// do the histogram
-				twoP_HistDoChannel (pa.popStr)
-				if (V_Flag) // window was found
-					twoP_HistAddChannel (pa.popStr)
-					twoP_ShareAxisSpace ("twoP_HistGraph")
+				twoP_HistDoChannel(pa.popStr)
+				if(V_Flag) // window was found
+					twoP_HistAddChannel(pa.popStr)
+					twoP_ShareAxisSpace("twoP_HistGraph")
 				endif
 			endif
 			break
@@ -2049,13 +2049,13 @@ End
 // *************************************************************************
 // Does a histogram of the selected channel for the current scan
 // Last Modified 2025/08/02 by Jamie Boyd
-Function twoP_HistDoChannel (aChan)
+Function twoP_HistDoChannel(aChan)
 	string aChan
 	SVAR curScan = root:packages:twoP:examine:curScan
 	SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 	variable mode = NumberByKey("mode", scanStr, ":", "\r") 
 	variable doframe 	// set to do a single frame from a stack, else doing whole wave
-	if ((mode == kLineScan) || (mode == kSingleImage) || (mode == kLiveMode)) 
+	if((mode == kLineScan) ||(mode == kSingleImage) ||(mode == kLiveMode)) 
 		doFrame = 0
 	else
 		controlinfo/w= twoP_Controls HistFrameCheck
@@ -2063,15 +2063,15 @@ Function twoP_HistDoChannel (aChan)
 	endif
 	// make sure hist wave exists
 	WAVE/Z HistWave = $"root:Packages:twoP:Examine:HistWave" + aChan
-	if (!(WaveExists(HistWave)))
+	if(!(WaveExists(HistWave)))
 		twoP_LUTmakeChanVars(aChan)
 		WAVE HistWave = $"root:Packages:twoP:Examine:HistWave" + aChan
 	endif
-	if (doFrame)
+	if(doFrame)
 		WAVE chWave = $"root:packages:twoP:examine:scanGraph_" + aChan
 		WAVE scanwave =$"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
 		NVAR curVal = root:packages:twoP:examine:curFramePos
-		ProjectZSlice (scanwave, chWave, curval)
+		ProjectZSlice(scanwave, chWave, curval)
 	else // whole stack
 		WAVE chWave =$"root:twoP_Scans:" + curScan + ":" + curScan + "_ch1"
 	endif
@@ -2082,7 +2082,7 @@ End
 //********************************************************************************************
 // Buton procedure makes a histogram for selected channels of the current scan and disaplys them
 // Last Modified Jul 14 2010  by Jamie Boyd
-Function twoP_HistButtonProc (ba) : ButtonControl
+Function twoP_HistButtonProc(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 
 	switch( ba.eventCode )
@@ -2090,11 +2090,11 @@ Function twoP_HistButtonProc (ba) : ButtonControl
 			SVAR selChans = root:packages:twoP:examine:HistGraphSelChans
 			variable iChan, nChans = itemsInList(selChans, ",")
 			string aChan
-			for (ichan =0;iChan < nChans ; iChan +=1)
-				aChan = stringFromList (iChan, selChans, ",")
-				twoP_HistDoChannel (aChan)
+			for(ichan =0;iChan < nChans ; iChan +=1)
+				aChan = stringFromList(iChan, selChans, ",")
+				twoP_HistDoChannel(aChan)
 			endfor
-			twoP_HistMakeGraph ()
+			twoP_HistMakeGraph()
 			break
 	endswitch
 	return 0
@@ -2109,7 +2109,7 @@ Function twoP_HistTypeCheckProc(cba) : CheckBoxControl
 	switch( cba.eventCode )
 		case 2: // mouse up
 			Variable checked = cba.checked
-			if (cmpStr (cba.ctrlname, "HistFrameCheck") == 0)
+			if(cmpStr(cba.ctrlname, "HistFrameCheck") == 0)
 				checkbox HistStackCheck, win = twoP_Controls, value = 0
 			else
 				checkbox HistFrameCheck, win = twoP_Controls, value = 0
@@ -2131,18 +2131,18 @@ Function twoP_HistAxisCheckProc(cba) : CheckBoxControl
 	switch( cba.eventCode )
 		case 2: // mouse up
 			variable isLog
-			if (cmpStr (cba.ctrlName, "LinearCheck") == 0)
+			if(cmpStr(cba.ctrlName, "LinearCheck") == 0)
 				checkbox LogCheck value = 0
 				isLog =0
 			else
 				checkbox LinearCheck value = 0
 				isLog =1
 			endif
-			string axesStr = ListMatch(axislist ("twoP_HistGraph"), "L_*" , ";"), anAxis
-			variable iAxis, nAxes = itemsinlist (axesStr, ";")
-			for (iAxis =0; iAxis < nAxes; iAxis +=1)
-				anAxis = stringFromList (iAxis, axesStr, ";")
-				ModifyGraph log ($anAxis) = isLog
+			string axesStr = ListMatch(axislist("twoP_HistGraph"), "L_*" , ";"), anAxis
+			variable iAxis, nAxes = itemsinlist(axesStr, ";")
+			for(iAxis =0; iAxis < nAxes; iAxis +=1)
+				anAxis = stringFromList(iAxis, axesStr, ";")
+				ModifyGraph log($anAxis) = isLog
 			endfor
 			break
 	endswitch
@@ -2158,7 +2158,7 @@ End
 //*******************************************************************************************
 // Creates global variables for LUT control adjustments. Runs when a procedure can't find globals for a channel
 //last modified 2025/07/25 by Jamie Boyd
-function twoP_LUTmakeChanVars (LUTchan)
+function twoP_LUTmakeChanVars(LUTchan)
 	string LUTchan // name of image channel we are working with
 	
 	Variable/G $"root:packages:twoP:Examine:" + LUTchan + "LUTAuto" =0
@@ -2167,18 +2167,18 @@ function twoP_LUTmakeChanVars (LUTchan)
 	String/G $"root:Packages:twoP:examine:" + LUTchan + "CTableStr"="Grays"								// name of color table, popmenu proc wants the name
 	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "LUTInvert" = 0 								// don't invert the LUT
 	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "FirstLUTColor" = 0							// First color for LUT
-	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "LastLUTColor" = (2^kNQimageBits)-1		// last color for LUT e.g., 4095 for 12 bit images
+	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "LastLUTColor" =(2^kNQimageBits)-1		// last color for LUT e.g., 4095 for 12 bit images
 	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "BeforeMode" = 1 								// 0 means first color, 1 means selected color, 2 means transparent
 	String/G $"root:Packages:twoP:examine:" + LUTchan + "BeforeColors" = "0,0,65535" 					// use blue for image values before  first color with before mode 1
 	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "AfterMode" = 1 								// 0 means last color, 1 means selected color, 2 means transparent
 	String/G $"root:Packages:twoP:examine:" + LUTchan + "AfterColors" = "65535,0,0" 					// use red for image values greater tan lest color, with after mode 1
 	// make waves to display LUT on histogram
-	make/o $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan = {(0.05 * 2^kNQimageBits), (0.05 * 2^kNQimageBits)}
+	make/o $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan = {(0.05 * 2^kNQimageBits),(0.05 * 2^kNQimageBits)}
 	make/o $"root:Packages:twoP:examine:ImRangeLefty" + LUTchan = {0.1,inf}
 	make/o $"root:Packages:twoP:examine:ImRangeRightx" + LutChan = {(0.95 * 2^kNQimageBits) ,(0.95 * 2^kNQimageBits)}
 	make/o $"root:Packages:twoP:examine:ImRangeRighty" + LutChan = {0.1,inf}
 	// make histogram wave as well
-	make/o/n = (2^kNQimageBits) $"root:Packages:twoP:Examine:HistWave" + LUTchan
+	make/o/n =(2^kNQimageBits) $"root:Packages:twoP:Examine:HistWave" + LUTchan
 	WAVE HistWave = $"root:Packages:twoP:Examine:HistWave" + LUTchan
 	setscale/p x, 0, 1	, "", HistWave
 end
@@ -2186,12 +2186,12 @@ end
 //********************************************************************************************
 // Applies LUT settings from all the LUT controls to a channel image in the scan graph
 // Last Modified: 2025/07/25 by Jamie Boyd
-function twoP_LUTApplysettings (LUTchan)
+function twoP_LUTApplysettings(LUTchan)
 	string LUTchan  //not limited to ch1 or ch2 anymore
 	SVAR curScan = root:packages:twoP:examine:curScan
 	SVAR ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
-	variable scanMode = numberbykey ("mode", curScan, ":", "\r" )
-	Switch (scanMode)
+	variable scanMode = numberbykey("mode", curScan, ":", "\r" )
+	Switch(scanMode)
 		case kLiveMode:
 		case kZSeries:
 		case kTimeSeries:
@@ -2213,10 +2213,10 @@ function twoP_LUTApplysettings (LUTchan)
 	SVAR/Z beforeColors = $"root:Packages:twoP:examine:" + LUTchan + "BeforeColors"
 	NVAR/Z afterMode =  $"root:Packages:twoP:examine:" + LUTchan + "AfterMode"
 	SVAR/Z afterColors = $"root:Packages:twoP:examine:" + LUTchan + "AfterColors"
-	if (!(SVAR_Exists(CTableStr) && NVAR_Exists(invert) && NVAR_Exists(FirstLUTColor) && \
-		NVAR_Exists(LastLUTColor) && 	 NVAR_Exists(autoLut) && NVAR_Exists (beforeMode) && \
-		  SVAR_Exists (beforeCOlors)  && NVAR_Exists(afterMode) && SVAR_Exists(afterCOlors)))
-		twoP_LUTmakeChanVars (LUTchan)
+	if(!(SVAR_Exists(CTableStr) && NVAR_Exists(invert) && NVAR_Exists(FirstLUTColor) && \
+		NVAR_Exists(LastLUTColor) && 	 NVAR_Exists(autoLut) && NVAR_Exists(beforeMode) && \
+		  SVAR_Exists(beforeCOlors)  && NVAR_Exists(afterMode) && SVAR_Exists(afterCOlors)))
+		twoP_LUTmakeChanVars(LUTchan)
 		SVAR CTableStr = $"root:Packages:twoP:examine:" + LUTchan + "CTableStr"
 		NVAR inVert =$"root:Packages:twoP:examine:" + LUTchan + "LUTInvert"
 		NVAR FirstLUTColor = $"root:Packages:twoP:examine:" + LUTchan + "FirstLUTColor"
@@ -2230,33 +2230,33 @@ function twoP_LUTApplysettings (LUTchan)
 	// subwindow on scangraph named for channel
 	string subWinStr  = "twoPscanGraph#G" + LUTchan
 	variable rColor, gColor, bColor
-	if (autoLUT)
+	if(autoLUT)
 		ModifyImage/w=$subWinStr $nameofwave(scangraphWave) ctab= {*,*,$CTableStr,inVert}
 	else
 		ModifyImage/w=$subWinStr $nameofwave(scangraphWave) ctab= {FirstLUTColor,LastLutColor,$CTableStr,inVert}
-		switch (beforeMode) // 0 means first color, 1 means selected color, 2 means transparent
+		switch(beforeMode) // 0 means first color, 1 means selected color, 2 means transparent
 			case 0: // Use first color
 				ModifyImage/w=$subWinStr $nameofwave(scangraphWave), minRGB = 0
 				break
 			case 1: // Use selected color
-				rColor = str2num (stringFromlist (0, beforeColors, ","))
-				gColor = str2num (stringFromlist (1, beforeColors, ","))
-				bColor = str2num (stringFromlist (2, beforeColors, ","))
-				ModifyImage/w=$subWinStr $nameofwave(scangraphWave), minRGB = (rColor, gColor, bColor)
+				rColor = str2num(stringFromlist(0, beforeColors, ","))
+				gColor = str2num(stringFromlist(1, beforeColors, ","))
+				bColor = str2num(stringFromlist(2, beforeColors, ","))
+				ModifyImage/w=$subWinStr $nameofwave(scangraphWave), minRGB =(rColor, gColor, bColor)
 				break
 			case 2: // transparent
 				ModifyImage/w=$subWinStr $nameofwave(scangraphWave), minRGB = NaN
 		endswitch
 		
-		switch (afterMode) // 0 means last color, 1 means selected color, 2 means transparent
+		switch(afterMode) // 0 means last color, 1 means selected color, 2 means transparent
 			case 0: // Use last color
 				ModifyImage/w=$subWinStr $nameofwave(scangraphWave), maxRGB = 0
 				break
 			case 1: // Use selected color
-				rColor = str2num (stringFromlist (0, afterColors, ","))
-				gColor = str2num (stringFromlist (1, afterColors, ","))
-				bColor = str2num (stringFromlist (2, afterColors, ","))
-				ModifyImage/w=$subWinStr $nameofwave(scangraphWave), maxRGB = (rColor, gColor, bColor)
+				rColor = str2num(stringFromlist(0, afterColors, ","))
+				gColor = str2num(stringFromlist(1, afterColors, ","))
+				bColor = str2num(stringFromlist(2, afterColors, ","))
+				ModifyImage/w=$subWinStr $nameofwave(scangraphWave), maxRGB =(rColor, gColor, bColor)
 				break
 			case 2: // transparent
 				ModifyImage/w=$subWinStr $nameofwave(scangraphWave), maxRGB = NaN
@@ -2287,10 +2287,10 @@ Function twoP_LUTchanPopMenuProc(pa) : PopupMenuControl
 			NVAR/Z afterMode =  $"root:Packages:twoP:examine:" + LUTchan + "AfterMode"
 			SVAR/Z afterColors = $"root:Packages:twoP:examine:" + LUTchan + "AfterColors"
 			NVAR/Z LUTto96 =  $"root:Packages:twoP:examine:" + LUTchan + "LUTto96"
-			if (!(NVAR_Exists (CTable) && SVAR_Exists(CTableStr) && NVAR_Exists(invert) && NVAR_Exists(FirstLUTColor) && \
-				NVAR_Exists(LastLUTColor) && 	 NVAR_Exists(autoLut) && NVAR_Exists (beforeMode) && \
-				  SVAR_Exists (beforeCOlors)  && NVAR_Exists(afterMode) && SVAR_Exists(afterCOlors)))
-				twoP_LUTmakeChanVars (LUTchan)
+			if(!(NVAR_Exists(CTable) && SVAR_Exists(CTableStr) && NVAR_Exists(invert) && NVAR_Exists(FirstLUTColor) && \
+				NVAR_Exists(LastLUTColor) && 	 NVAR_Exists(autoLut) && NVAR_Exists(beforeMode) && \
+				  SVAR_Exists(beforeCOlors)  && NVAR_Exists(afterMode) && SVAR_Exists(afterCOlors)))
+				twoP_LUTmakeChanVars(LUTchan)
 				NVAR CTable =  $"root:Packages:twoP:examine:" + LUTchan + "CTable"
 				SVAR CTableStr = $"root:Packages:twoP:examine:" + LUTchan + "CTableStr"
 				NVAR inVert =$"root:Packages:twoP:examine:" + LUTchan + "LUTInvert"
@@ -2305,7 +2305,7 @@ Function twoP_LUTchanPopMenuProc(pa) : PopupMenuControl
 			endif
 			
 			variable hasScanGraph =0
-			if (cmpStr ("twoPscanGraph",WinList("twoPscanGraph", "", "" )) == 0)
+			if(cmpStr("twoPscanGraph",WinList("twoPscanGraph", "", "" )) == 0)
 				hasScanGraph =1
 			endif
 			variable rColor, gColor, bColor
@@ -2317,21 +2317,21 @@ Function twoP_LUTchanPopMenuProc(pa) : PopupMenuControl
 			setvariable LUTFirstValueSetVar win=twoP_Controls, variable = FirstLUTColor
 			setvariable LUTLastValueSetVar win=twoP_Controls, variable = LastLutColor
 			// Adjust MinMax slider
-			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kLeftThumb, FirstLUTColor)
-			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kRightThumb, LastLutColor)
+			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kLeftThumb, FirstLUTColor)
+			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kRightThumb, LastLutColor)
 			// Adjust LUT autoCheck
 			checkbox LUTautoCheck win=twoP_Controls, variable = $"root:packages:twoP:examine:" + LUTChan + "LUTauto"
 			checkbox LUT96check win=twoP_Controls, variable = $"root:packages:twoP:examine:" + LUTChan + "LUTto96"
-			if (hasScanGraph)
+			if(hasScanGraph)
 				setvariable LUTFirstValueSetVar win=twoPscanGraph#controlPanel, variable = FirstLUTColor
 				setvariable LUTLastValueSetVar win=twoPscanGraph#controlPanel, variable = LastLutColor
-				MinMaxSlider_Manual ("twoPscanGraph#controlPanel", "LUTslider", kLeftThumb, FirstLUTColor)
-				MinMaxSlider_Manual ("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, LastLutColor)
+				MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kLeftThumb, FirstLUTColor)
+				MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, LastLutColor)
 				checkbox LUT96check  win=twoPscanGraph#controlPanel, variable = $"root:packages:twoP:examine:" + LUTChan + "LUTto96"
 			endif
 
 			// Adjust first color radio buttons and popmenu
-			switch (beforeMode) // 0 means first color, 1 means selected color, 2 means transparent
+			switch(beforeMode) // 0 means first color, 1 means selected color, 2 means transparent
 				case 0: // Use first color
 					checkbox LUTBeforeUseFirstCheck win=twoP_Controls, value = 1
 					checkbox LUTBeforeUseColorCheck win=twoP_Controls, value = 0
@@ -2341,10 +2341,10 @@ Function twoP_LUTchanPopMenuProc(pa) : PopupMenuControl
 					checkbox LUTBeforeUseFirstCheck win=twoP_Controls, value = 0
 					checkbox LUTBeforeUseColorCheck win=twoP_Controls, value = 1
 					checkBox LUTBeforeUseTransCheck  win=twoP_Controls, value = 0
-					rColor = str2num (stringFromlist (0, beforeColors, ","))
-					gColor = str2num (stringFromlist (1, beforeColors, ","))
-					bColor = str2num (stringFromlist (2, beforeColors, ","))
-					popupmenu LUTBeforeColorPopUp win=twoP_Controls, popcolor = (rColor,gColor,bColor)
+					rColor = str2num(stringFromlist(0, beforeColors, ","))
+					gColor = str2num(stringFromlist(1, beforeColors, ","))
+					bColor = str2num(stringFromlist(2, beforeColors, ","))
+					popupmenu LUTBeforeColorPopUp win=twoP_Controls, popcolor =(rColor,gColor,bColor)
 					break
 				case 2: // Use transparent
 					checkbox LUTBeforeUseFirstCheck win=twoP_Controls, value = 0
@@ -2353,7 +2353,7 @@ Function twoP_LUTchanPopMenuProc(pa) : PopupMenuControl
 					break
 			endSwitch
 				// Adjust Last color radio buttons and popmenu
-				switch (afterMode) // 0 means last color, 1 means selected color, 2 means transparent
+				switch(afterMode) // 0 means last color, 1 means selected color, 2 means transparent
 					case 0: // Use last color
 						checkbox LUTAfterUseLastCheck win=twoP_Controls, value = 1
 						checkbox LUTAfterUseColorCheck win=twoP_Controls, value = 0
@@ -2363,10 +2363,10 @@ Function twoP_LUTchanPopMenuProc(pa) : PopupMenuControl
 						checkbox LUTAfterUseLastCheck win=twoP_Controls, value = 0
 						checkbox LUTAfterUseColorCheck win=twoP_Controls, value = 1
 						checkBox LUTAfterUseTransCheck  win=twoP_Controls, value = 0
-						rColor = str2num (stringFromlist (0, afterColors, ","))
-						gColor = str2num (stringFromlist (1, afterColors, ","))
-						bColor = str2num (stringFromlist (2, afterColors, ","))
-						popupmenu LUTAfterColorPopUp win=twoP_Controls, popcolor = (rColor,gColor,bColor)
+						rColor = str2num(stringFromlist(0, afterColors, ","))
+						gColor = str2num(stringFromlist(1, afterColors, ","))
+						bColor = str2num(stringFromlist(2, afterColors, ","))
+						popupmenu LUTAfterColorPopUp win=twoP_Controls, popcolor =(rColor,gColor,bColor)
 						break
 					case 2: // Use transparent
 						checkbox LUTAfterUseLastCheck win=twoP_Controls, value = 0
@@ -2394,16 +2394,16 @@ Function twoP_LUTPopMenuProc(pa) : PopupMenuControl
 			// save changed value in appropriate global for selected channel
 			NVAR/z CTable = $"root:Packages:twoP:examine:" + LUTchan + "CTable"
 			SVAR/z ctableStr = $"root:Packages:twoP:examine:" + LUTchan + "CTableStr"
-			if (!(NVAR_Exists(CTable) && SVAR_Exists(cTableStr)))
-				 twoP_LUTmakeChanVars (LUTchan)
+			if(!(NVAR_Exists(CTable) && SVAR_Exists(cTableStr)))
+				 twoP_LUTmakeChanVars(LUTchan)
 				NVAR CTable = $"root:Packages:twoP:examine:" + LUTchan + "CTable"
 				SVAR ctableStr = $"root:Packages:twoP:examine:" + LUTchan + "CTableStr"
 			endif
 			CTable = pa.popNum
 			cTableStr = pa.popStr
 			// Apply Image settings for channel
-			if (WhichListItem("G" + LUTChan, childwindowlist ("twoPscanGraph"), ";",0, 0) > -1)
-				twoP_LUTApplysettings (LUTChan)
+			if(WhichListItem("G" + LUTChan, childwindowlist("twoPscanGraph"), ";",0, 0) > -1)
+				twoP_LUTApplysettings(LUTChan)
 			endif
 			break
 	endswitch
@@ -2421,8 +2421,8 @@ Function twoP_LUTInvertCheckProc(cba) : CheckBoxControl
 		case 2: // mouse up
 			//Update image settings for selected channel. checkbox is already hooked up to correctvariable for channel
 			SVAR LUTChan = root:Packages:twoP:examine:LUTChan
-			if (WhichListItem("G" + LUTchan, childwindowlist ("twoPscanGraph"), ";", 0, 0) > -1)
-				twoP_LUTApplysettings (LUTChan)
+			if(WhichListItem("G" + LUTchan, childwindowlist("twoPscanGraph"), ";", 0, 0) > -1)
+				twoP_LUTApplysettings(LUTChan)
 			endif		
 			break
 	endswitch
@@ -2446,33 +2446,33 @@ Function twoP_LUTValsSetVarProc(sva) : SetVariableControl
 			NVAR/Z LastColor = $"root:packages:twoP:examine:" + LUTchan + "LastLutColor"
 			WAVE/Z leftWave = $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan
 			WAVE/Z rightWave = $"root:Packages:twoP:examine:ImRangerightx" + LUTchan
-			if (!(NVAR_Exists(FirstColor) && NVAR_Exists(LastCOlor) && WAVEExists(LeftWave) && WaveExists(rightWave)))
-				twoP_LUTmakeChanVars (LUTchan)
+			if(!(NVAR_Exists(FirstColor) && NVAR_Exists(LastCOlor) && WAVEExists(LeftWave) && WaveExists(rightWave)))
+				twoP_LUTmakeChanVars(LUTchan)
 				NVAR FirstColor = $"root:packages:twoP:examine:" + LUTchan + "FirstLutColor"
 				NVAR LastColor = $"root:packages:twoP:examine:" + LUTchan + "LastLutColor"
 				WAVE leftWave = $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan
 				WAVE rightWave = $"root:Packages:twoP:examine:ImRangerightx" + LUTchan
 			endif
 			
-			if (cmpstr (sva.ctrlname, "LUTFirstValueSetVar") == 0)
-				if (sva.dval > LastColor)
+			if(cmpstr(sva.ctrlname, "LUTFirstValueSetVar") == 0)
+				if(sva.dval > LastColor)
 					FirstColor = LastColor -1
 				endif
 				leftWave = FirstColor
 			else
-				if (sva.dval <  firstColor)
+				if(sva.dval <  firstColor)
 					LastColor = FirstColor + 1
 				endif
 				rightWave = LastColor
 			endif
-			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kLeftThumb, FirstColor)
-			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kRightThumb, LastColor)
-			MinMaxSlider_Manual ("twoPscanGraph#controlPanel", "LUTslider", kLeftThumb, FirstColor)
-			MinMaxSlider_Manual ("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, LastColor)
+			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kLeftThumb, FirstColor)
+			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kRightThumb, LastColor)
+			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kLeftThumb, FirstColor)
+			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, LastColor)
 			// apply image settings
-			string SubWinList = childwindowlist ("twoPscanGraph")
-			if (WhichListItem("G"+LUTchan, SubWinList, ";", 0,0) > -1)
-				twoP_LUTApplysettings (LUTchan)
+			string SubWinList = childwindowlist("twoPscanGraph")
+			if(WhichListItem("G"+LUTchan, SubWinList, ";", 0,0) > -1)
+				twoP_LUTApplysettings(LUTchan)
 			endif
 			break
 	endswitch
@@ -2482,46 +2482,46 @@ End
 //******************************************************************************************************
 // Function for the LUT first and last values Slider.Calls Apply Image settings procedure for selected channel
 // Last Modified 2025/07/22 by Jamie Boyd
-Function twoP_LUTSliderAction (leftThumb, rightThumb, event, thumb)
+Function twoP_LUTSliderAction(leftThumb, rightThumb, event, thumb)
 	variable leftThumb		// value left thumb is pointing to
 	variable rightThumb	// value right thumb is pointing to
-	variable event			// type of event (thumb up or thumb moved
+	variable event			// type of event(thumb up or thumb moved
 	variable thumb			// 1 if a left thumb was just moved or 2 for a right thumb
 
-	rightThumb = round (rightThumb)
-	leftThumb = round (leftThumb)
+	rightThumb = round(rightThumb)
+	leftThumb = round(leftThumb)
 	//check which channel to modify
 	SVAR LUTchan = root:Packages:twoP:examine:LUTChan
 	NVAR/Z FirstColor = $"root:packages:twoP:examine:" + LUTchan + "FirstLutColor"
 	WAVE/Z leftWave = $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan
 	NVAR/Z LastColor = $"root:packages:twoP:examine:" + LUTchan + "LastLutColor"
 	WAVE/Z rightWave = $"root:Packages:twoP:examine:ImRangerightx" + LUTchan
-	if (!(NVAR_Exists(FirstColor) && WAVEExists(LeftWave) && NVAR_Exists(LastColor) && WAVEExists(rightWave)))
-		twoP_LUTmakeChanVars (LUTchan)
+	if(!(NVAR_Exists(FirstColor) && WAVEExists(LeftWave) && NVAR_Exists(LastColor) && WAVEExists(rightWave)))
+		twoP_LUTmakeChanVars(LUTchan)
 		NVAR FirstColor = $"root:packages:twoP:examine:" + LUTchan + "FirstLutColor"
 		WAVE leftWave = $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan
 		NVAR LastColor = $"root:packages:twoP:examine:" + LUTchan + "LastLutColor"
 		WAVE rightWave = $"root:Packages:twoP:examine:ImRangerightx" + LUTchan
 	endif
-	if (thumb == kleftThumb)
+	if(thumb == kleftThumb)
 		FirstColor = leftThumb
 		leftWave = leftThumb
-		if (firstColor > LastColor -4)
+		if(firstColor > LastColor -4)
 			LastColor = rightThumb
 			rightWave = rightThumb
 		endif
 	else
 		LastColor = rightThumb
 		rightWave = rightThumb
-		if (firstCOlor < lastColor + 4)
+		if(firstCOlor < lastColor + 4)
 			FirstColor = leftThumb
 			leftWave = leftThumb
 		endif
 	endif
-	if (event == kCallMouseMoved)
+	if(event == kCallMouseMoved)
 		// Apply image settings
-		if (WhichListItem("G" + LUTchan, childwindowlist ("twoPscanGraph"), ";", 0, 0) > -1)
-			twoP_LUTApplysettings (LUTChan)
+		if(WhichListItem("G" + LUTchan, childwindowlist("twoPscanGraph"), ";", 0, 0) > -1)
+			twoP_LUTApplysettings(LUTChan)
 		endif
 	endif
 	return 0
@@ -2542,8 +2542,8 @@ Function twoP_LUTtoDataProc(ba) : ButtonControl
 			WAVE/Z leftWave = $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan
 			NVAR/Z LastColor = $"root:packages:twoP:examine:" + LUTchan + "LastLutColor"
 			WAVE/Z rightWave = $"root:Packages:twoP:examine:ImRangerightx" + LUTchan
-			if (!(NVAR_Exists(firstColor) && NVAR_Exists(LastColor) && WAVEExists(leftWave) && WAVEExists(rightWave)))
-				twoP_LUTmakeChanVars (LUTchan)
+			if(!(NVAR_Exists(firstColor) && NVAR_Exists(LastColor) && WAVEExists(leftWave) && WAVEExists(rightWave)))
+				twoP_LUTmakeChanVars(LUTchan)
 				NVAR FirstColor = $"root:packages:twoP:examine:" + LUTchan + "FirstLutColor"
 				WAVE leftWave = $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan
 				NVAR LastColor = $"root:packages:twoP:examine:" + LUTchan + "LastLutColor"
@@ -2555,18 +2555,18 @@ Function twoP_LUTtoDataProc(ba) : ButtonControl
 			WAVE scanWave =$"root:twoP_Scans:" + curScan + ":" + curScan + "_" +  LUTChan
 			// check for limiting to 96% - we need a full histogram, else just max and min
 			NVAR LutTo96 =  $"root:packages:twoP:examine:" + LUTchan + "LUTto96"
-			if (LutTo96)
+			if(LutTo96)
 				make/I/U/n=4096/FREE histWave
 				setscale x 0, 4095, "", histWave
 				histogram/B=2 scanWave, histWave
-				variable theSum =  sum (histWave)
+				variable theSum =  sum(histWave)
 				variable ii, runningSum, val2 = theSum * 0.02, val98 = theSum * 0.98
-				for (ii =0, runningSum = 0; runningSum < val2; ii += 1, runningSum += histWave [ii])
+				for(ii =0, runningSum = 0; runningSum < val2; ii += 1, runningSum += histWave [ii])
 				endfor
-				FirstColor = round (pnt2x (histWave, ii))
-				for (ii =4095, runningSum = theSum;  runningSum >val98 ; ii -= 1, runningSum -= histWave [ii])
+				FirstColor = round(pnt2x(histWave, ii))
+				for(ii =4095, runningSum = theSum;  runningSum >val98 ; ii -= 1, runningSum -= histWave [ii])
 				endfor
-				LastColor = round (pnt2x (histWave, ii))
+				LastColor = round(pnt2x(histWave, ii))
 			else //NOt 96%,just min and max
 				WaveStats/M=1/Q scanWave
 				FirstColor = V_min
@@ -2575,13 +2575,13 @@ Function twoP_LUTtoDataProc(ba) : ButtonControl
 			// apply first color and last color to dragger waves
 			leftWave = FirstColor
 			rightWave = LastColor
-			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kLeftThumb, FirstColor)
-			MinMaxSlider_Manual ("twoPscanGraph#controlPanel", "LUTslider", kLeftThumb, FirstColor)
-			MinMaxSlider_Manual ("twoP_Controls", "LUTslider", kRightThumb, LastColor)
-			MinMaxSlider_Manual ("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, LastColor)
+			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kLeftThumb, FirstColor)
+			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kLeftThumb, FirstColor)
+			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kRightThumb, LastColor)
+			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, LastColor)
 			// Apply image settings
-			if (WhichListItem("G" + LUTChan, childwindowlist ("twoPscanGraph"), ";", 0,0) > -1)
-				twoP_LUTApplysettings (LUTChan)
+			if(WhichListItem("G" + LUTChan, childwindowlist("twoPscanGraph"), ";", 0,0) > -1)
+				twoP_LUTApplysettings(LUTChan)
 			endif
 			break
 	endswitch
@@ -2616,10 +2616,10 @@ Function twoP_LUTBeforeModeCheckProc(cba) : CheckBoxControl
 			string theCheckBox = cba.ctrlName
 			variable beforeMode
 			variable hasScanGraph =0
-			if (cmpStr ("twoPscanGraph",WinList("twoPscanGraph", "", "" )) == 0)
+			if(cmpStr("twoPscanGraph",WinList("twoPscanGraph", "", "" )) == 0)
 				hasScanGraph =1
 			endif
-			strSwitch (theCheckBox)
+			strSwitch(theCheckBox)
 				case "LUTBeforeUseFirstCheck":
 					checkbox LUTBeforeUseFirstCheck win=twoP_Controls, value = 1
 					checkbox LUTBeforeUseColorCheck win=twoP_Controls, value = 0
@@ -2641,14 +2641,14 @@ Function twoP_LUTBeforeModeCheckProc(cba) : CheckBoxControl
 			endSwitch
 			SVAR LUTChan = root:Packages:twoP:examine:LUTChan
 			NVAR/Z beforeModeG = $"root:Packages:twoP:examine:"  + LUTChan + "BeforeMode"
-			if (!(NVAR_Exists(beforeModeG)))
-				twoP_LUTmakeChanVars (LUTchan)
+			if(!(NVAR_Exists(beforeModeG)))
+				twoP_LUTmakeChanVars(LUTchan)
 				NVAR beforeModeG = $"root:Packages:twoP:examine:"  + LUTChan + "BeforeMode"
 			endif
 			beforeModeG = beforeMode
 			// Apply image settings
-			if (WhichListItem("G" + LUTChan, childwindowlist ("twoPscanGraph"), ";", 0,0) > -1)
-				twoP_LUTApplysettings (LUTChan)
+			if(WhichListItem("G" + LUTChan, childwindowlist("twoPscanGraph"), ";", 0,0) > -1)
+				twoP_LUTApplysettings(LUTChan)
 			endif
 	
 			break
@@ -2669,16 +2669,16 @@ Function twoP_LUTBeforeColorPopMenuProc(pa) : PopupMenuControl
 			// save changed value in appropriate global for selected channel
 			SVAR LUTchan = root:Packages:twoP:examine:LUTChan
 			SVAR/Z beforeColors = $"root:Packages:twoP:examine:" + LUTChan + "BeforeColors"
-			if (!(SVAR_Exists(beforeCOlors)))
-				twoP_LUTmakeChanVars (LUTchan)
+			if(!(SVAR_Exists(beforeCOlors)))
+				twoP_LUTmakeChanVars(LUTchan)
 				SVAR beforeColors = $"root:Packages:twoP:examine:" + LUTChan + "BeforeColors"
 			endif
 			// Strip opening and closing braces
-			variable bcLen = strlen (popStr)
+			variable bcLen = strlen(popStr)
 			beforeColors = popStr [1, bcLen-2]
 			// Apply image settings
-			if (WhichListItem("G" + LUTChan, childwindowlist ("twoPscanGraph"), ";", 0,0) > -1)
-				twoP_LUTApplysettings (LUTChan)
+			if(WhichListItem("G" + LUTChan, childwindowlist("twoPscanGraph"), ";", 0,0) > -1)
+				twoP_LUTApplysettings(LUTChan)
 			endif
 			break
 	endswitch
@@ -2697,10 +2697,10 @@ Function twoP_LUTAfterModeCheckProc(cba) : CheckBoxControl
 			string theCheckBox = cba.ctrlName
 			variable afterMode
 			variable hasScanGraph =0
-			if (cmpStr ("twoPscanGraph",WinList("twoPscanGraph", "", "" )) == 0)
+			if(cmpStr("twoPscanGraph",WinList("twoPscanGraph", "", "" )) == 0)
 				hasScanGraph =1
 			endif
-			strSwitch (theCheckBox)
+			strSwitch(theCheckBox)
 				case "LUTAfterUseLastCheck":
 					checkBox LUTAfterUseLastCheck  win=twoP_Controls, value =1
 					checkbox LUTAfterUseColorCheck win=twoP_Controls, value = 0
@@ -2722,13 +2722,13 @@ Function twoP_LUTAfterModeCheckProc(cba) : CheckBoxControl
 			endSwitch
 			SVAR LUTchan = root:Packages:twoP:examine:LUTChan
 			NVAR/Z afterModeG = $"root:Packages:twoP:examine:" + LUTChan + "AfterMode"
-			if (!(NVAR_Exists(afterModeG)))
-				twoP_LUTmakeChanVars (LUTchan)
+			if(!(NVAR_Exists(afterModeG)))
+				twoP_LUTmakeChanVars(LUTchan)
 				NVAR afterModeG = $"root:Packages:twoP:examine:" + LUTChan + "AfterMode"
 			endif
 			afterModeG = afterMode
-			if (WhichListItem("G" + LUTChan, childwindowlist ("twoPscanGraph"), ";", 0,0) > -1)
-				twoP_LUTApplysettings (LUTChan)
+			if(WhichListItem("G" + LUTChan, childwindowlist("twoPscanGraph"), ";", 0,0) > -1)
+				twoP_LUTApplysettings(LUTChan)
 			endif
 			break
 	endswitch
@@ -2748,15 +2748,15 @@ Function twoP_LUTAfterColorPopMenuProc(pa) : PopupMenuControl
 			SVAR LUTchan = root:Packages:twoP:examine:LUTChan
 			// save changed value in appropriate global for selected channel
 			SVAR/Z AfterColors = $"root:Packages:twoP:examine:" + LUTchan + "AfterColors"
-			if (!(SVAR_Exists(AfterColors)))
-				twoP_LUTmakeChanVars (LUTchan)
+			if(!(SVAR_Exists(AfterColors)))
+				twoP_LUTmakeChanVars(LUTchan)
 				SVAR AfterColors = $"root:Packages:twoP:examine:" + LUTchan + "AfterColors"
 			endif
 			// Strip opening and closing braces
-			variable acLen = strlen (popStr)
+			variable acLen = strlen(popStr)
 			AfterColors = popStr [1, acLen-2]
-			if (WhichListItem("G" + LUTChan, childwindowlist ("twoPscanGraph"), ";", 0,0) > -1)
-				twoP_LUTApplysettings (LUTChan)
+			if(WhichListItem("G" + LUTChan, childwindowlist("twoPscanGraph"), ";", 0,0) > -1)
+				twoP_LUTApplysettings(LUTChan)
 			endif
 			break
 	endswitch
@@ -2773,7 +2773,7 @@ Function twoP_LUTAutoCheckProc(cba) : CheckBoxControl
 	switch( cba.eventCode )
 		case 2: // mouse up
 			SVAR LUTchan = root:Packages:twoP:examine:LUTChan
-			twoP_LUTApplysettings (LUTchan)
+			twoP_LUTApplysettings(LUTchan)
 			break
 		case -1: // control being killed
 			break
@@ -2792,14 +2792,14 @@ End
 function/S twoP_DROIListChans()
 	SVAR curScan = root:packages:twoP:examine:curScan
 	SVAR/Z scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-	if (SVAR_EXISTS(scanStr))
+	if(SVAR_EXISTS(scanStr))
 		string chanList = StringByKey("imChanDesc", scanStr, ":", "\r") + ",ratio"
 		SVAR selChans = root:packages:twoP:examine:DROISelChans
 		variable iChan, nChans = itemsInList(chanList, ",")
 		string aChan, outList = ""
-		for (iChan =0; iChan < nChans; iChan += 1)
-			aChan = stringfromlist (iChan, chanList, ",")
-			if (FindListItem(aChan, selChans, ",") > -1)
+		for(iChan =0; iChan < nChans; iChan += 1)
+			aChan = stringfromlist(iChan, chanList, ",")
+			if(FindListItem(aChan, selChans, ",") > -1)
 				outList += "\\M1!"  +num2char(18)
 			endif
 			outList += aChan + ";"
@@ -2819,23 +2819,23 @@ Function twoP_DROIChansPopMenuProc(pa) : PopupMenuControl
 	switch( pa.eventCode )
 		case 2: // mouse up
 			SVAR selChans = root:packages:twoP:examine:DROISelChans
-			if (FindListItem(pa.popStr, selChans, ",") > -1)  // removing a channel
-				selChans = sortList (removeFromList(pa.popStr, selChans, ","), ",")
+			if(FindListItem(pa.popStr, selChans, ",") > -1)  // removing a channel
+				selChans = sortList(removeFromList(pa.popStr, selChans, ","), ",")
 				doWindow/F twoP_DroiGraph
-				if (V_Flag) // window was found
+				if(V_Flag) // window was found
 					removefromGraph/W=twoP_DroiGraph $"Droi_" + pa.popStr
-					twoP_DROIShareAxisSpace ()
+					twoP_DROIShareAxisSpace()
 				endif
 			else
-				selChans = sortList (addlistItem(pa.popStr, selChans, ","), ",") // adding a channel
+				selChans = sortList(addlistItem(pa.popStr, selChans, ","), ",") // adding a channel
 				doWindow/F twoP_DroiGraph
-				if (V_Flag) // window was found
+				if(V_Flag) // window was found
 					WAVE dROIWave = $"root:Packages:twoP:examine:DROI_" + pa.popStr
 					appendtograph/w=twoP_DroiGraph /L= $"L_" + pa.popStr dROIWave
-					ModifyGraph/w=twoP_DroiGraph  freePos($"L_" + pa.popStr)={dimoffset (dROIWave, 0),bottom}
+					ModifyGraph/w=twoP_DroiGraph  freePos($"L_" + pa.popStr)={dimoffset(dROIWave, 0),bottom}
 					label/w=twoP_DroiGraph  $"L_" + pa.popStr "DROI " + pa.popStr
 					ModifyGraph/w=twoP_DroiGraph  lblPos( $"L_" + pa.popStr)=60
-					twoP_DROIShareAxisSpace ()
+					twoP_DROIShareAxisSpace()
 				endif
 			endif
 			break
@@ -2848,14 +2848,14 @@ End
 // **********************************************************************************
 // shares left axis space for all the channels - run after adding or removing a channel
 // Last Modified: 2025/08/02 by Jamie Boyd
-Function twoP_DROIShareAxisSpace ()
-	string LeftAxes = removefromlist ("bottom", axisList("twoP_DroiGraph"), ";")
-	variable iAxis, nAxes = itemsinList (LeftAxes, ";")
-	variable axisFrac = (1-.02*(nAxes-1))/nAxes
+Function twoP_DROIShareAxisSpace()
+	string LeftAxes = removefromlist("bottom", axisList("twoP_DroiGraph"), ";")
+	variable iAxis, nAxes = itemsinList(LeftAxes, ";")
+	variable axisFrac =(1-.02*(nAxes-1))/nAxes
 	string anAixs
-	for (iAxis  =0; iAxis < nAxes; iAxis +=1)
-		anAixs = stringFromList (iAxis, LeftAxes, ";")
-		ModifyGraph axisEnab($anAixs)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis * .01)}
+	for(iAxis  =0; iAxis < nAxes; iAxis +=1)
+		anAixs = stringFromList(iAxis, LeftAxes, ";")
+		ModifyGraph axisEnab($anAixs)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis * .01)}
 	endfor
 end
 
@@ -2868,11 +2868,11 @@ Function twoP_DROICheckProc(cba) : CheckBoxControl
 	switch( cba.eventCode )
 		case 2: // mouse up
 			Variable checked = cba.checked
-			if (checked) // turn on DROI
+			if(checked) // turn on DROI
 				SVAR CurScan =root:Packages:twoP:examine:curScan
 				SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-				variable mode = numberbykey ("mode", scanStr, ":", "\r")
-				if (!((mode == kTimeSeries) || (mode == kZseries)))
+				variable mode = numberbykey("mode", scanStr, ":", "\r")
+				if(!((mode == kTimeSeries) ||(mode == kZseries)))
 					NVAR doDroi = root:packages:twoP:examine:doDROI
 					doDroi =0
 					return 1
@@ -2880,30 +2880,30 @@ Function twoP_DROICheckProc(cba) : CheckBoxControl
 				
 				string ModeUnits = ""
 				variable frameSize, zStart
-				if (mode == kTimeSeries)
+				if(mode == kTimeSeries)
 					modeUnits = "s"
-					FrameSize = numberbykey ("FrameTime", scanStr, ":", "\r")
+					FrameSize = numberbykey("FrameTime", scanStr, ":", "\r")
 					zStart = 0
-				elseif (mode == kZseries)
+				elseif(mode == kZseries)
 					modeUnits = "m"
-					FrameSize = numberbykey ("zStepSize", scanStr, ":", "\r")
-					zStart = numberbykey ("zPos", scanStr, ":", "\r")
+					FrameSize = numberbykey("zStepSize", scanStr, ":", "\r")
+					zStart = numberbykey("zPos", scanStr, ":", "\r")
 				endif
-				variable ROIpnts = numberbykey ("NumFrames", scanStr, ":", "\r")
+				variable ROIpnts = numberbykey("NumFrames", scanStr, ":", "\r")
 				
 				// make waves so they can be appened later, even if not selected now
 				string aChan, imChans = StringByKey("imChanDesc", scanStr, ":", "\r") + ",ratio"
 				variable iChan, nChans = itemsInList(imChans, ",")
-				for (iChan = 0; iChan < nCHans; iChan += 1)
+				for(iChan = 0; iChan < nCHans; iChan += 1)
 					aChan = stringFromList(iChan, imChans, ",")
 					WAVE/Z roiWave = $"root:packages:twoP:examine:DROI_" + aChan
-					if (waveExists(roiWave))
-						redimension/n= (ROIpnts)roiWave
+					if(waveExists(roiWave))
+						redimension/n=(ROIpnts)roiWave
 					else
-						make/o/n= (ROIpnts)  $"root:packages:twoP:examine:DROI_" + aChan
+						make/o/n=(ROIpnts)  $"root:packages:twoP:examine:DROI_" + aChan
 						WAVE roiWave =  $"root:packages:twoP:examine:DROI_" + aChan
 					endif
-					SetScale/p x (zStart),(FrameSize),modeUnits, roiWave
+					SetScale/p x(zStart),(FrameSize),modeUnits, roiWave
 				endfor
 
 				// plot channels selected now
@@ -2911,7 +2911,7 @@ Function twoP_DROICheckProc(cba) : CheckBoxControl
 				nChans = itemsInList(selChans, ",")
 				variable nAxes =0, iAxis
 				string axisStr = "", anAxis
-				for (iChan = 0; iChan < nCHans; iChan += 1)
+				for(iChan = 0; iChan < nCHans; iChan += 1)
 					aChan = stringFromList(iChan, selChans, ",")
 					nAxes +=1
 					axisStr= AddListItem(aChan, axisStr, ";", INF)
@@ -2921,17 +2921,17 @@ Function twoP_DROICheckProc(cba) : CheckBoxControl
 				doWindow/K twoP_DroiGraph
 				// make new graph
 				display/k=2/N=twoP_DroiGraph as "Dynamic ROI for " + CurScan
-				variable axisFrac = (1-.02*(nAxes-1))/nAxes
-				for (iAxis =0; iAxis < nAxes; iAxis += 1)
-					anAxis = stringfromlist (iAxis, axisStr, ";")
+				variable axisFrac =(1-.02*(nAxes-1))/nAxes
+				for(iAxis =0; iAxis < nAxes; iAxis += 1)
+					anAxis = stringfromlist(iAxis, axisStr, ";")
 					WAVE dROIWave = $"root:Packages:twoP:examine:Droi_" + anAxis
 					appendtograph /L= $"L_" + anAxis dROIWave
 					ModifyGraph freePos($"L_" + anAxis)={zStart,bottom}
-					ModifyGraph axisEnab($"L_" +  anAxis)={(iAxis * axisFrac) + (iAxis * .01) , ((iAxis + 1) * axisFrac) + (iAxis* .01)}
-					label $"L_" + anAxis "DROI " + stringfromlist (iAxis, axisStr)
+					ModifyGraph axisEnab($"L_" +  anAxis)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis* .01)}
+					label $"L_" + anAxis "DROI " + stringfromlist(iAxis, axisStr)
 					ModifyGraph lblPos( $"L_" + anAxis)=60
 				endfor
-				SetWindow twoP_DroiGraph hook (infoHook)= twoP_UtilSaveWinPosHook, hookevents = 2
+				SetWindow twoP_DroiGraph hook(infoHook)= twoP_UtilSaveWinPosHook, hookevents = 2
 				WC_WindowCoordinatesRestore("twoP_DroiGraph")
 			else //kill old graph
 				DoWindow/k twoP_DroiGraph
@@ -2955,13 +2955,13 @@ Function twoP_MovieProc(ba) : ButtonControl
 	
 	switch( ba.eventCode )
 		case 2: // mouse up
-			if (cmpstr(WinList("twoPscanGraph", "", "WIN:1"), "twoPscanGraph") != 0)
+			if(cmpstr(WinList("twoPscanGraph", "", "WIN:1"), "twoPscanGraph") != 0)
 				return 1
 			endif			
 			//Movie on or off? 
 			controlinfo /w = twoP_Controls MovieButton
 			string title =  StringByKey("title", S_recreation , "=" , ",")
-			if ((cmpstr (title, "\"movie\"\r")) == 0)
+			if((cmpstr(title, "\"movie\"\r")) == 0)
 				Button MovieButton  win = twoP_Controls,title="Stop"
 				CtrlNamedBackground DoMovie_Bkg, period=(60/NQMOVIEFRAMERATE), proc=twoP_Movie_Bkg
 				CtrlNamedBackground DoMovie_Bkg, start
@@ -2981,13 +2981,13 @@ End
 Function twoP_Movie_Bkg(s)		// This is the function that will be called periodically
 	STRUCT WMBackgroundStruct &s
 	
-	if (cmpstr(WinList("twoPscanGraph", "", "WIN:1"), "twoPscanGraph") != 0)
+	if(cmpstr(WinList("twoPscanGraph", "", "WIN:1"), "twoPscanGraph") != 0)
 		return 1
 	endif		
 	NVAR NumFrames =root:Packages:twoP:examine:Numframes
 	NVAR CurFramePos = root:Packages:twoP:examine:CurFramePos
 	// adjust frame position
-	if (CurFramePos < NumFrames -1)
+	if(CurFramePos < NumFrames -1)
 		CurFramePos += 1
 	else
 		CurFramePos = 0
@@ -3004,12 +3004,12 @@ End
 //******************************************************************************************************
 // moves frame position back/forward with each click of the corresponding button
 // Last modified Sep 03 2009 by Jamie Boyd
-Function NQ_MovieNextPrevious (ba) : ButtonControl
+Function NQ_MovieNextPrevious(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 	
 	switch( ba.eventCode )
 		case 2: // mouse up
-			if ((cmpstr(stringfromlist (0, WinList("twoPscanGraph", ";", "WIN:1" )), "twoPscanGraph")) != 0)
+			if((cmpstr(stringfromlist(0, WinList("twoPscanGraph", ";", "WIN:1" )), "twoPscanGraph")) != 0)
 				return 1
 			endif
 			NVAR NumFrames =root:Packages:twoP:examine:Numframes
@@ -3017,14 +3017,14 @@ Function NQ_MovieNextPrevious (ba) : ButtonControl
 			SVAR curScan = root:Packages:twoP:examine:CurScan
 			string scanPath, scanWaveName
 			variable iChan
-			if (cmpStr (ba.ctrlname, "PrevFrame") == 0)
-				if (CurFramePos > 0)
+			if(cmpStr(ba.ctrlname, "PrevFrame") == 0)
+				if(CurFramePos > 0)
 					CurFramePos -= 1
 				else
 					CurFramePos = NumFrames -1
 				endif
 			else
-				if (CurFramePos < NumFrames -1)
+				if(CurFramePos < NumFrames -1)
 					CurFramePos += 1
 				else
 					CurFramePos = 0
@@ -3042,7 +3042,7 @@ End
 
 //******************************************************************************************************
 // Control for the frame position slider. Dragging the slider sets the image plane of the current scan in the scangraph window
-// shift-dragging selects a range of frames over which to do an average  (Time series) or a Maximum projection (Z series)
+// shift-dragging selects a range of frames over which to do an average (Time series) or a Maximum projection(Z series)
 // Last modified 2013/08/09 by Jamie Boyd
 Function twoP_MovieDisplayFrame(sa) : SliderControl
 	STRUCT WMSliderAction &sa
@@ -3051,41 +3051,41 @@ Function twoP_MovieDisplayFrame(sa) : SliderControl
 		case -1: // kill
 			break
 		default:
-			if ((cmpstr(stringfromlist (0, WinList("twoPscanGraph", ";", "WIN:1" )), "twoPscanGraph")) != 0)
+			if((cmpstr(stringfromlist(0, WinList("twoPscanGraph", ";", "WIN:1" )), "twoPscanGraph")) != 0)
 				return 1
 			endif
 			Variable curval = sa.curval
 			SVAR curScan = root:Packages:twoP:examine:CurScan
 			SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-			string SubWinList =  RemoveFromList ("GRGB;controlPanel", childwindowlist ("twoPscanGraph"))
+			string SubWinList =  RemoveFromList("GRGB;controlPanel", childwindowlist("twoPscanGraph"))
 			string aChan
 			variable iChan, nChans = ItemsInList(SubWinList, ";")
 			string valueStr
 			if(sa.eventCode & 1) // value set
-				for (iChan =0; iChan < nChans; iChan +=1)
+				for(iChan =0; iChan < nChans; iChan +=1)
 					sscanf  StringFromList(iChan, SubWinList),"G%s", aChan
 					WAVE chanWave =  $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
 					WAVE scanGraphWave  = $"root:packages:twoP:examine:scanGraph_" + aChan
-					if (NumberByKey("mode", scanStr , ":", "\r") == kTimeSeries)
-						sprintf valueStr "%.2W0Ps", curval* numberbyKey ("frameTime", scanStr, ":", "\r")
+					if(NumberByKey("mode", scanStr , ":", "\r") == kTimeSeries)
+						sprintf valueStr "%.2W0Ps", curval* numberbyKey("frameTime", scanStr, ":", "\r")
 					else // Z series
-						sprintf valueStr "%.2W0Pm",  numberbyKey ("zPos", scanStr, ":", "\r") + curval* numberbyKey ("zStepSize", scanStr, ":", "\r")
+						sprintf valueStr "%.2W0Pm",  numberbyKey("zPos", scanStr, ":", "\r") + curval* numberbyKey("zStepSize", scanStr, ":", "\r")
 					endif
-					ProjectZSlice (chanWave, scanGraphWave, curval)
+					ProjectZSlice(chanWave, scanGraphWave, curval)
 					TextBox/W = $"twoPscanGraph#G" + aChan/C/N=PosText/F=0/A=LT/X=0.00/Y=0.00 aChan + ": " + valueStr
 				endfor
-			elseif ((sa.eventCode & 2) && (sa.eventMod & 2))
+			elseif((sa.eventCode & 2) &&(sa.eventMod & 2))
 				// On mouse down AND shift key held, set global variable for start position of Kalman or Projection
 				variable/G root:packages:twoP:examine:FrameSliderStart = sa.curval
-				// if mouse up AND shift is held, do an Average (T series) or a Max Projection (zSeries) over the range from mouse down to mouse up
-			elseif ((sa.eventCode & 4) && (sa.eventMod & 2))
+				// if mouse up AND shift is held, do an Average(T series) or a Max Projection(zSeries) over the range from mouse down to mouse up
+			elseif((sa.eventCode & 4) &&(sa.eventMod & 2))
 				NVAR FrameSliderStart = root:packages:twoP:examine:FrameSliderStart
 				variable mode = NumberByKey("mode", scanStr , ":", "\r")
-				if (mode == kZSeries)
-					variable stepSize = numberbyKey ("zStepSize", scanStr, ":", "\r")
-					variable zOffset =  numberbyKey ("zPos", scanStr, ":", "\r")
+				if(mode == kZSeries)
+					variable stepSize = numberbyKey("zStepSize", scanStr, ":", "\r")
+					variable zOffset =  numberbyKey("zPos", scanStr, ":", "\r")
 					variable startz, endz
-					if (FrameSliderStart < curval)
+					if(FrameSliderStart < curval)
 						startZ = zOffset + FrameSliderStart * stepSize
 						endZ = zOffset + curval*stepSize
 					else
@@ -3093,16 +3093,16 @@ Function twoP_MovieDisplayFrame(sa) : SliderControl
 						endZ = zOffset + FrameSliderStart * stepSize
 					endif
 					sprintf valueStr "%.2W0Pm to %.2W0Pm", startZ, endZ
-					for (iChan =0; iChan < nChans; iChan +=1)
+					for(iChan =0; iChan < nChans; iChan +=1)
 						sscanf  StringFromList(iChan, SubWinList),"G%s", aChan
 						WAVE chanWave =  $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
 						WAVE scanGraphWave  = $"root:packages:twoP:examine:scanGraph_" + aChan
-						ProjectSpecFrames (chanWave, min (FrameSliderStart, sa.curval), max (FrameSliderStart, sa.curval), scanGraphWave, 0, 2, 1)
+						ProjectSpecFrames(chanWave, min(FrameSliderStart, sa.curval), max(FrameSliderStart, sa.curval), scanGraphWave, 0, 2, 1)
 						TextBox/W = $"twoPscanGraph#G" + aChan/C/N=PosText/F=0/A=LT/X=0.00/Y=0.00 aChan + ": " + valueStr
 					endfor
 				else // mode = time series
-					variable frameTime = numberbyKey ("FrameTime", scanStr, ":", "\r")
-					if (FrameSliderStart < curVal)
+					variable frameTime = numberbyKey("FrameTime", scanStr, ":", "\r")
+					if(FrameSliderStart < curVal)
 						startZ = FrameSliderStart * frameTime
 						endZ =  curval*frameTime
 					else
@@ -3110,11 +3110,11 @@ Function twoP_MovieDisplayFrame(sa) : SliderControl
 						endZ =  FrameSliderStart * frameTime
 					endif
 					sprintf valueStr "%.2W0Ps to %.2W0Ps", startZ ,endZ
-					for (iChan =0; iChan < nChans; iChan +=1)
+					for(iChan =0; iChan < nChans; iChan +=1)
 						sscanf  StringFromList(iChan, SubWinList),"G%s", aChan
 						WAVE chanWave =  $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
 						WAVE scanGraphWave  = $"root:packages:twoP:examine:scanGraph_" + aChan
-						KalmanSpecFrames (chanWave, min (FrameSliderStart, sa.curval), max (FrameSliderStart, sa.curval), scanGraphWave, 0,16)
+						KalmanSpecFrames(chanWave, min(FrameSliderStart, sa.curval), max(FrameSliderStart, sa.curval), scanGraphWave, 0,16)
 						TextBox/W = $"twoPscanGraph#G" + aChan/C/N=PosText/F=0/A=LT/X=0.00/Y=0.00 aChan + ": " + valueStr
 					endfor
 				endif
@@ -3133,10 +3133,10 @@ End
 // ***************************************************
 // hook function to save window position
 // Last modified: 2025/08/08 by Jamie Boyd
-Function twoP_UtilSaveWinPosHook (s)
+Function twoP_UtilSaveWinPosHook(s)
 	STRUCT WMWinHookStruct &s
 	
-	if (s.eventCode ==2)
+	if(s.eventCode ==2)
 		WC_WindowCoordinatesSave(s.WinName)
 	endif
 	return 0
@@ -3144,14 +3144,14 @@ end
 
 
 // This little function returns the full path to the current scan for channel 1
-Function/S sc1 ()
+Function/S sc1()
 	SVAR curScan = root:packages:twoP:examine:curScan
 	return "root:twoP_Scans:" + curScan + ":" + curScan + "_ch1"
 end
 
 //******************************************************************************************************
 // This little function returns the full path to the current scan for channel 2
-Function/S sc2 ()
+Function/S sc2()
 	SVAR curScan = root:packages:twoP:examine:curScan
 	return "root:twoP_Scans:" + curScan + ":" + curScan + "_ch2"
 end
@@ -3159,7 +3159,7 @@ end
 
 //******************************************************************************************************
 // This little function returns the full path to the current scan for given channel
-Function/S sChan (chan)
+Function/S sChan(chan)
 	string chan
 	SVAR curScan = root:packages:twoP:examine:curScan
 	return "root:twoP_Scans:" + curScan + ":" + curScan + "_" + chan
@@ -3167,7 +3167,7 @@ end
 
 //******************************************************************************************************
 // this little function returns the note for the current scan
-Function/S sInfo ()
+Function/S sInfo()
 	SVAR curScan = root:packages:twoP:examine:curScan
 	SVAR curScanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 	return curScanStr
@@ -3180,258 +3180,258 @@ Function NQ_DrawScaleBar()
 	
 	//Get the marquee coordinates and calculate xsize as distance between left and right
 	string vAxis = "left", hAxis = "bottom"
-	string axes = axislist ("")
-	if ((whichlistItem ("left", axes, ";")) == -1)
-		if ((whichlistItem ("right", axes, ";")) == -1)
+	string axes = axislist("")
+	if((whichlistItem("left", axes, ";")) == -1)
+		if((whichlistItem("right", axes, ";")) == -1)
 			doAlert 0, "Neither left nor right vertical axes were found."
 		else
 			vAxis = "right"
 		endif
 	endif
-	if ((whichlistItem ("bottom", axes, ";")) == -1)
-		if ((whichlistItem ("top", axes, ";")) == -1)
+	if((whichlistItem("bottom", axes, ";")) == -1)
+		if((whichlistItem("top", axes, ";")) == -1)
 			doAlert 0, "Neither top nor bottom horizontal axes were found."
 		else
 			hAxis = "top"
 		endif
 	endif
-	string leftAxisUnits = stringByKey ("UNITS", AxisInfo("", vAxis), ":", ";")
-	string bottomAxisUnits = stringByKey ("UNITS", AxisInfo("", hAxis), ":", ";")
+	string leftAxisUnits = stringByKey("UNITS", AxisInfo("", vAxis), ":", ";")
+	string bottomAxisUnits = stringByKey("UNITS", AxisInfo("", hAxis), ":", ";")
 	//Get the marquee coordinates and calculate xsize as distance between left and right
 	GetMarquee/K $vAxis, $hAxis
-	variable xSize = abs ((V_right - V_left))
+	variable xSize = abs((V_right - V_left))
 	//Chop xSize to a nice round number to draw a scalebar
-	if ((xSize < 2e06) && (xSize > 1e06))
+	if((xSize < 2e06) &&(xSize > 1e06))
 		xSize = 1e06
-	elseif (xSize > 5e05)
+	elseif(xSize > 5e05)
 		xSize = 5e05
-	elseif (xSize > 2e05)
+	elseif(xSize > 2e05)
 		xSize = 2e05
-	elseif (xSize > 1e05)
+	elseif(xSize > 1e05)
 		xSize = 1e05
-	elseif (xSize > 5e04)
+	elseif(xSize > 5e04)
 		xSize = 5e04
-	elseif (xSize > 2e04)
+	elseif(xSize > 2e04)
 		xSize = 2e04
-	elseif (xSize > 1e04)
+	elseif(xSize > 1e04)
 		xSize = 1e04
-	elseif (xSize > 5e03)
+	elseif(xSize > 5e03)
 		xSize = 5e03
-	elseif (xSize > 2e03)
+	elseif(xSize > 2e03)
 		xSize = 2e03
-	elseif (xSize > 1e03)
+	elseif(xSize > 1e03)
 		xSize = 1e03
-	elseif (xSize > 5e02)
+	elseif(xSize > 5e02)
 		xSize = 5e02
-	elseif (xSize > 2e02)
+	elseif(xSize > 2e02)
 		xSize = 2e02
-	elseif (xSize > 1e02)
+	elseif(xSize > 1e02)
 		xSize = 1e02
-	elseif (xSize > 5e01)
+	elseif(xSize > 5e01)
 		xSize = 5e01
-	elseif (xSize > 2e01)
+	elseif(xSize > 2e01)
 		xSize = 2e01
-	elseif (xSize > 1e01)
+	elseif(xSize > 1e01)
 		xSize = 1e01
-	elseif (xSize > 5)
+	elseif(xSize > 5)
 		xSize = 5
-	elseif (xSize > 2)
+	elseif(xSize > 2)
 		xSize = 2
-	elseif (xSize > 1)
+	elseif(xSize > 1)
 		xSize = 1
-	elseif (xSize > 5e-01)
+	elseif(xSize > 5e-01)
 		xSize = 5e-01
-	elseif (xSize > 2e-01)
+	elseif(xSize > 2e-01)
 		xSize = 2e-01
-	elseif (xSize > 1e-01)
+	elseif(xSize > 1e-01)
 		xSize = 1e-01
-	elseif (xSize > 5e-02)
+	elseif(xSize > 5e-02)
 		xSize = 5e-02
-	elseif (xSize > 2e-02)
+	elseif(xSize > 2e-02)
 		xSize = 2e-02
-	elseif (xSize > 1e-02)
+	elseif(xSize > 1e-02)
 		xSize = 1e-02
-	elseif (xSize > 5e-03)
+	elseif(xSize > 5e-03)
 		xSize = 5e-03
-	elseif (xSize > 2e-03)
+	elseif(xSize > 2e-03)
 		xSize = 2e-03
-	elseif (xSize > 1e-03)
+	elseif(xSize > 1e-03)
 		xSize = 1e-03
-	elseif (xSize > 5e-04)
+	elseif(xSize > 5e-04)
 		xSize = 5e-04
-	elseif (xSize > 2e-04)
+	elseif(xSize > 2e-04)
 		xSize = 2e-01
-	elseif (xSize > 1e-04)
+	elseif(xSize > 1e-04)
 		xSize = 1e-04
-	elseif (xSize > 5e-05)
+	elseif(xSize > 5e-05)
 		xSize = 5e-05
-	elseif (xSize > 2e-05)
+	elseif(xSize > 2e-05)
 		xSize = 2e-05
-	elseif (xSize > 1e-05)
+	elseif(xSize > 1e-05)
 		xSize = 1e-05
-	elseif (xSize > 5e-06)
+	elseif(xSize > 5e-06)
 		xSize = 5e-06
-	elseif (xSize > 2e-06)
+	elseif(xSize > 2e-06)
 		xSize = 2e-06
-	elseif (xSize > 1e-06)
+	elseif(xSize > 1e-06)
 		xSize = 1e-06
-	elseif (xSize > 5e-07)
+	elseif(xSize > 5e-07)
 		xSize = 5e-06
-	elseif (xSize > 2e-07)
+	elseif(xSize > 2e-07)
 		xSize = 2e-06
-	elseif (xSize > 1e-07)
+	elseif(xSize > 1e-07)
 		xSize = 1e-07
-	elseif (xSize > 5e-08)
+	elseif(xSize > 5e-08)
 		xSize = 5e-08
-	elseif (xSize > 2e-08)
+	elseif(xSize > 2e-08)
 		xSize = 2e-08
-	elseif (xSize > 1e-08)
+	elseif(xSize > 1e-08)
 		xSize = 1e-08
-	elseif (xSize > 5e-09)
+	elseif(xSize > 5e-09)
 		xSize = 5e-09
-	elseif (xSize > 2e-09)
+	elseif(xSize > 2e-09)
 		xSize = 2e-09
-	elseif (xSize > 1e-09)
+	elseif(xSize > 1e-09)
 		xSize = 1e-09
-	elseif (xSize > 5e-10)
+	elseif(xSize > 5e-10)
 		xSize = 5e-10
-	elseif (xSize > 2e-10)
+	elseif(xSize > 2e-10)
 		xSize = 2e-10
-	elseif (xSize > 1e-10)
+	elseif(xSize > 1e-10)
 		xSize = 1e-10
 	endif
 	//The average y-position of the selected area will be horizontal position of scalebar
-	variable yPos = (V_bottom + V_top)/2
+	variable yPos =(V_bottom + V_top)/2
 	//Draw the scalebar
-	if (getkeyState (0) & 4)
-		SetDrawLayer/K ProgFront // using /K kills any old drawing (like previous scalebar) that might be lying around
+	if(getkeyState(0) & 4)
+		SetDrawLayer/K ProgFront // using /K kills any old drawing(like previous scalebar) that might be lying around
 	else
 		SetDrawLayer ProgFront 
 	endif
 	SetDrawEnv xcoord=$hAxis, ycoord=$Vaxis // need to use graph axis coordinates 
 	SetDrawEnv linethick=5
-	SetDrawEnv linefgc= (65535,65535,65535) // color = white
-	DrawLine  V_left, yPos, (V_left + xSize), yPos
+	SetDrawEnv linefgc=(65535,65535,65535) // color = white
+	DrawLine  V_left, yPos,(V_left + xSize), yPos
 	// print scalebar length a little bit above the scale bar, so add a return on the end and middle align text for Y
 	// center adjust text for X to position in center of scale bar
 	string valueStr
 	sprintf valueStr "%.0W1P%s\r", xSize, bottomAxisUnits
-	SetDrawEnv textrgb= (65535,65535,65535),textxjust = 1, textyjust=1, xcoord=$hAxis, ycoord=$vAxis,fstyle=1
-	DrawText V_left + (xSize/2),yPos,valueStr
+	SetDrawEnv textrgb=(65535,65535,65535),textxjust = 1, textyjust=1, xcoord=$hAxis, ycoord=$vAxis,fstyle=1
+	DrawText V_left +(xSize/2),yPos,valueStr
 	// If left and bottom axes are in different units, draw a scalebar for left axis as well
-	if (cmpStr (leftAxisUnits, bottomAxisUnits) != 0)
-		variable ySize = abs ((V_bottom - V_top))
-		variable xPos = (V_left + V_right)/2
+	if(cmpStr(leftAxisUnits, bottomAxisUnits) != 0)
+		variable ySize = abs((V_bottom - V_top))
+		variable xPos =(V_left + V_right)/2
 		//Chop ySize to a nice round number to draw a scalebar
-		if ((ySize < 2e06) && (ySize > 1e06))
+		if((ySize < 2e06) &&(ySize > 1e06))
 			ySize = 1e06
-		elseif (ySize > 5e05)
+		elseif(ySize > 5e05)
 			ySize = 5e05
-		elseif (ySize > 2e05)
+		elseif(ySize > 2e05)
 			ySize = 2e05
-		elseif (ySize > 1e05)
+		elseif(ySize > 1e05)
 			ySize = 1e05
-		elseif (ySize > 5e04)
+		elseif(ySize > 5e04)
 			ySize = 5e04
-		elseif (ySize > 2e04)
+		elseif(ySize > 2e04)
 			ySize = 2e04
-		elseif (ySize > 1e04)
+		elseif(ySize > 1e04)
 			ySize = 1e04
-		elseif (ySize > 5e03)
+		elseif(ySize > 5e03)
 			ySize = 5e03
-		elseif (ySize > 2e03)
+		elseif(ySize > 2e03)
 			ySize = 2e03
-		elseif (ySize > 1e03)
+		elseif(ySize > 1e03)
 			ySize = 1e03
-		elseif (ySize > 5e02)
+		elseif(ySize > 5e02)
 			ySize = 5e02
-		elseif (ySize > 2e02)
+		elseif(ySize > 2e02)
 			ySize = 2e02
-		elseif (ySize > 1e02)
+		elseif(ySize > 1e02)
 			ySize = 1e02
-		elseif (ySize > 5e01)
+		elseif(ySize > 5e01)
 			ySize = 5e01
-		elseif (ySize > 2e01)
+		elseif(ySize > 2e01)
 			ySize = 2e01
-		elseif (ySize > 1e01)
+		elseif(ySize > 1e01)
 			ySize = 1e01
-		elseif (ySize > 5)
+		elseif(ySize > 5)
 			ySize = 5
-		elseif (ySize > 2)
+		elseif(ySize > 2)
 			ySize = 2
-		elseif (ySize > 1)
+		elseif(ySize > 1)
 			ySize = 1
-		elseif (ySize > 5e-01)
+		elseif(ySize > 5e-01)
 			ySize = 5e-01
-		elseif (ySize > 2e-01)
+		elseif(ySize > 2e-01)
 			ySize = 2e-01
-		elseif (ySize > 1e-01)
+		elseif(ySize > 1e-01)
 			ySize = 1e-01
-		elseif (ySize > 5e-02)
+		elseif(ySize > 5e-02)
 			ySize = 5e-02
-		elseif (ySize > 2e-02)
+		elseif(ySize > 2e-02)
 			ySize = 2e-02
-		elseif (ySize > 1e-02)
+		elseif(ySize > 1e-02)
 			ySize = 1e-02
-		elseif (ySize > 5e-03)
+		elseif(ySize > 5e-03)
 			ySize = 5e-03
-		elseif (ySize > 2e-03)
+		elseif(ySize > 2e-03)
 			ySize = 2e-03
-		elseif (ySize > 1e-03)
+		elseif(ySize > 1e-03)
 			ySize = 1e-03
-		elseif (ySize > 5e-04)
+		elseif(ySize > 5e-04)
 			ySize = 5e-04
-		elseif (ySize > 2e-04)
+		elseif(ySize > 2e-04)
 			ySize = 2e-01
-		elseif (ySize > 1e-04)
+		elseif(ySize > 1e-04)
 			ySize = 1e-04
-		elseif (ySize > 5e-05)
+		elseif(ySize > 5e-05)
 			ySize = 5e-05
-		elseif (ySize > 2e-05)
+		elseif(ySize > 2e-05)
 			ySize = 2e-05
-		elseif (ySize > 1e-05)
+		elseif(ySize > 1e-05)
 			ySize = 1e-05
-		elseif (ySize > 5e-06)
+		elseif(ySize > 5e-06)
 			ySize = 5e-06
-		elseif (ySize > 2e-06)
+		elseif(ySize > 2e-06)
 			ySize = 2e-06
-		elseif (ySize > 1e-06)
+		elseif(ySize > 1e-06)
 			ySize = 1e-06
-		elseif (ySize > 5e-07)
+		elseif(ySize > 5e-07)
 			ySize = 5e-06
-		elseif (ySize > 2e-07)
+		elseif(ySize > 2e-07)
 			ySize = 2e-06
-		elseif (ySize > 1e-07)
+		elseif(ySize > 1e-07)
 			ySize = 1e-07
-		elseif (ySize > 5e-08)
+		elseif(ySize > 5e-08)
 			ySize = 5e-08
-		elseif (ySize > 2e-08)
+		elseif(ySize > 2e-08)
 			ySize = 2e-08
-		elseif (ySize > 1e-08)
+		elseif(ySize > 1e-08)
 			ySize = 1e-08
-		elseif (ySize > 5e-09)
+		elseif(ySize > 5e-09)
 			ySize = 5e-09
-		elseif (ySize > 2e-09)
+		elseif(ySize > 2e-09)
 			ySize = 2e-09
-		elseif (ySize > 1e-09)
+		elseif(ySize > 1e-09)
 			ySize = 1e-09
-		elseif (ySize > 5e-10)
+		elseif(ySize > 5e-10)
 			ySize = 5e-10
-		elseif (ySize > 2e-10)
+		elseif(ySize > 2e-10)
 			ySize = 2e-10
-		elseif (ySize > 1e-10)
+		elseif(ySize > 1e-10)
 			ySize = 1e-10
 		endif
 		//Draw the scalebar
 		SetDrawLayer ProgFront
-		SetDrawEnv xcoord=$hAxis, ycoord=$vAxis // need to use graph axis coordinates (this will fail if data are plotted on other axes than bottom and left)
+		SetDrawEnv xcoord=$hAxis, ycoord=$vAxis // need to use graph axis coordinates(this will fail if data are plotted on other axes than bottom and left)
 		SetDrawEnv linethick=5
-		SetDrawEnv linefgc= (65535,65535,65535) // color = white
-		DrawLine  V_left, yPos, V_left, (yPos + ySize)
+		SetDrawEnv linefgc=(65535,65535,65535) // color = white
+		DrawLine  V_left, yPos, V_left,(yPos + ySize)
 		
 		sprintf valueStr "%.0W1P%s\r", ySize, leftAxisUnits
-		SetDrawEnv textrgb= (65535,65535,65535),textxjust = 1, textyjust=1, textrot=90, xcoord=$hAxis, ycoord=$vAxis,fstyle=1
-		DrawText V_left ,yPos + (ySize/2),valueStr
+		SetDrawEnv textrgb=(65535,65535,65535),textxjust = 1, textyjust=1, textrot=90, xcoord=$hAxis, ycoord=$vAxis,fstyle=1
+		DrawText V_left ,yPos +(ySize/2),valueStr
 		SetDrawLayer UserFront
 	endif
 end
@@ -3441,17 +3441,17 @@ end
 // Last Modified May 25 2010 by Jamie Boyd
 Function NQ_MeasureMarquee()
 	string vAxis = "left", hAxis = "bottom"
-	string axes = axislist ("")
-	if ((whichlistItem ("left", axes, ";")) == -1)
-		if ((whichlistItem ("right", axes, ";")) == -1)
+	string axes = axislist("")
+	if((whichlistItem("left", axes, ";")) == -1)
+		if((whichlistItem("right", axes, ";")) == -1)
 			doAlert 0, "Neither left nor right vertical axes were found."
 			return 1
 		else
 			vAxis = "right"
 		endif
 	endif
-	if ((whichlistItem ("bottom", axes, ";")) == -1)
-		if ((whichlistItem ("top", axes, ";")) == -1)
+	if((whichlistItem("bottom", axes, ";")) == -1)
+		if((whichlistItem("top", axes, ";")) == -1)
 			doAlert 0, "Neither top nor bottom horizontal axes were found."
 			return 1
 		else
@@ -3460,16 +3460,16 @@ Function NQ_MeasureMarquee()
 	endif
 	//Get the marquee coordinates and calculate xsize as distance between left and right
 	GetMarquee/K $vAxis, $hAxis
-	string leftAxisUnits = stringByKey ("UNITS", AxisInfo("", vAxis), ":", ";")
-	string bottomAxisUnits = stringByKey ("UNITS", AxisInfo("", hAxis), ":", ";")
-	variable xSize = abs ((V_right - V_left))
-	variable ySize = abs ((V_bottom - V_top))
+	string leftAxisUnits = stringByKey("UNITS", AxisInfo("", vAxis), ":", ";")
+	string bottomAxisUnits = stringByKey("UNITS", AxisInfo("", hAxis), ":", ";")
+	variable xSize = abs((V_right - V_left))
+	variable ySize = abs((V_bottom - V_top))
 	printf  "The meaured X distance was %.2W1P%s\r", xSize, bottomAxisUnits
 	printf  "The meaured Y distance was %.2W1P%s\r", ySize, leftAxisUnits
-	if (cmpStr (leftAxisUnits, bottomAxisUnits) == 0)
-		printf "The diagonal distance was %.2W1P%s\r", sqrt (xSize^2 + ySize^2), leftAxisUnits
+	if(cmpStr(leftAxisUnits, bottomAxisUnits) == 0)
+		printf "The diagonal distance was %.2W1P%s\r", sqrt(xSize^2 + ySize^2), leftAxisUnits
 	else
-		printf "Velocity (rise/run) = %.2W1P%s/%s\r", xSize/ysize, bottomAxisUnits, leftAxisUnits
+		printf "Velocity(rise/run) = %.2W1P%s/%s\r", xSize/ysize, bottomAxisUnits, leftAxisUnits
 	endif
 end
 

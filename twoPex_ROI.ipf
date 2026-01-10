@@ -189,7 +189,7 @@ Function NQexROI_add (able)
 	CheckBox ROICurScanCheck win=twoP_Controls,disable = able
 	SetVariable NameMatchSetVar win=twoP_Controls,pos={222.00,616.00},size={110.00,18.00},title=" "
 	SetVariable NameMatchSetVar win=twoP_Controls,help={"Selects scans with this key in key=value;pairs in exp note."}
-	SetVariable NameMatchSetVar,value=root:packages:twoP:examine:ROIScanMatchStr, fsize=12
+	SetVariable NameMatchSetVar win=twoP_Controls,value=root:packages:twoP:examine:ROIScanMatchStr, fsize=12
 	SetVariable NameMatchSetVar win=twoP_Controls,disable=able
 
 	// ROInameMatchCheck

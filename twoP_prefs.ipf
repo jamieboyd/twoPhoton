@@ -693,7 +693,7 @@ Function twoP_PrefsCheckButtonProc(ba) : ButtonControl
 
 	switch( ba.eventCode )
 		case 2: // mouse up
-			twoP_PrefsTest()
+			twoP_PrefsTest(0)
 			break
 		case -1: // control being killed
 			break
@@ -706,7 +706,8 @@ End
 // checks the vaidity of the loaded preference values by initializing NIDAQ tasks, loading stage procedure
 // also sets board gain strings which are not saved in preferences
 // Last modified 2025/07/10 by Jamie Boyd
-Function twoP_PrefsTest()
+Function twoP_PrefsTest(makePanel)
+	variable makePanel
 	string tempStr
 	for (tempStr = fDAQmx_ErrorString (); CmpStr (tempStr, "") != 0;tempStr = fDAQmx_ErrorString ())  // clearNIDAQ error messgs
 	endfor
@@ -739,11 +740,17 @@ Function twoP_PrefsTest()
 	// load stage procedure and start Stage
 	SVAR stageProc = root:packages:twoP:acquire:StageProc
 	SVAR stagePort = root:packages:twoP:acquire:StagePort
+	if (makePanel)
+		Execute/P/Q/Z "INSERTINCLUDE \"twoP_acquire\""
+	endif
 	Execute/P/Q/Z "INSERTINCLUDE \"" + "Stages\""
 	Execute/P/Q/Z "INSERTINCLUDE \"" + stageProc + "_Stage\""
 	Execute/P/Q/Z "COMPILEPROCEDURES "
 	sprintf tempStr, "StageStartStage(\"%s\", thePort = \"%s\") ", stageProc, stagePort
 	execute/P/Q/Z tempStr
+	if (makePanel)
+		Execute/P/Q/Z "twoP_ExamineMakePanel ()"
+	endif
 	// shutter task
 	NVAR shutterOPenLevel=root:Packages:twoP:Acquire:shutterOpenLevel
 	NVAR shutterDelay = root:Packages:twoP:Acquire:shutterDelay
