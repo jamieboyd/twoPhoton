@@ -1,7 +1,7 @@
 ﻿#pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2025/08/15 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2026/06/10 by Jamie Boyd.
 #pragma IgorVersion = 7
 
 #include "GUIPControls"
@@ -15,7 +15,20 @@ Menu "Macros"
 end
 constant kTwoPPrefsVers = 111 // Preferences structure version number
 
-constant kPrefsNQePhysCounterSize = 24
+// Constants that are not (yet) set from preferences.
+// Size of counters on NI boards. These limit size that can be aquired at one shot. Older boards are 24, newer boards might be 32
+CONSTANT kNQImageCounterSize = 24
+constant kNQePhysCounterSize = 24
+// bit depth of acquired data. Older(fast, simultaneous sampling) image boards are 12 bits, newer image boards might be 16 bits.
+// ePhys boards are all expected to be 16 bits. 
+CONSTANT kNQimageBits = 16
+CONSTANT kNQtoUnsigned = 32768 //number to add to signed acquistion to convert to unsigned representation = 2^(kNQimageBits-1) 
+
+// when desired acquisition size is larger than counter size, we use
+// continuous acquisition into a buffer and copy the buffer into the scan waves
+// the multiplier multplies minimum live frame time to set buffer size
+// minimum live frame time is an empirical estimate of how often an end-of-scan function can be called without loss of data
+CONSTANT kNQtBufferMult = 1
 
 // **************************************************************************************************************
 // for storing imformation about twoP settings
@@ -511,7 +524,7 @@ function twoP_PrefsSetEphysMax (sva) : SetVariableControl
 			Variable dval = sva.dval
 			String sval = sva.sval
 			if (cmpStr ("twoP_Controls", WinList("twoP_Controls", "", "WIN:64" )) ==0)
-				GUIPSISetVarSetMax ("twoP_Controls", "ePhysOnlyTimeSetVar", (2^kPrefsNQePhysCounterSize/sva.dval))
+				GUIPSISetVarSetMax ("twoP_Controls", "ePhysOnlyTimeSetVar", (2^kNQePhysCounterSize/sva.dval))
 			endif
 			break
 		case -1: // control being killed

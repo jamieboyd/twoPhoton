@@ -3,11 +3,13 @@
 #pragma version = 2.1  // Last Modified: 2025/10/07 by Jamie Boyd
 
 #include <SaveRestoreWindowCoords>
-#include "twoP_ExConstants"
 #include "GUIPControls"
 #include "GUIPList"
 #include "GUIPProtoFuncs"
 #include "GUIPSubWinUtils"
+
+STATIC CONSTANT kNQimageBits = 16 	// defined here because as well as in prefs
+											// because prefs are only for acquisition
 
 //constants for scanning mode
 Constant kLiveMode = 0
@@ -17,9 +19,7 @@ Constant kLineScan = 3
 Constant kZSeries = 4
 Constant kePhysOnly = 5
 COnstant kMultiAq = 6
-// bit width of images, used when making displays for histograms and slider, etc.
-// either 12 for old school PCI boards or 16 for some new PCIe boards 
-constant kNQimageBits = 12
+
 // Tabs on examine tab control at startup
 strConstant kNQexTabList = "export;stacks;fourD;ROI;"
 // path to where we load ipf files for examine Tab, relative to Igor Pro User Files
@@ -80,7 +80,7 @@ Function twoP_ExamineMakeFolder()
 	// Wave is used by the ListBox on the Examine Panel to display the experiment note of the currently selected scan.
 	make/t/n=0 root:Packages:twoP:examine:NoteListWave
 	// Wave for Histogram
-	String/G root:packages:twoP:examine:HistGraphSelChans = "ch1;"
+	String/G root:packages:twoP:examine:HistGraphSelChans = "ch1,"
 	make/o/n =(2^kNQimageBits) root:Packages:twoP:Examine:HistWaveCh1
 	WAVE HistWaveCh1 = root:Packages:twoP:Examine:HistWaveCh1
 	setscale/p x, 0, 1	, "", HistWaveCh1
@@ -90,7 +90,7 @@ Function twoP_ExamineMakeFolder()
 	make/o root:Packages:twoP:examine:ImRangeRightxCh1 = {(0.95 * 2^kNQimageBits) ,(0.95 * 2^kNQimageBits)}
 	make/o root:Packages:twoP:examine:ImRangeRightyCh1 = {0.1,inf}
 	// Values to control which channels to show in the ScanGraph
-	string/G root:packages:twoP:examine:ScanGraphSelChans = "ch1;"
+	string/G root:packages:twoP:examine:ScanGraphSelChans = "ch1,"
 	variable/G root:packages:twoP:examine:ShowScanGraphAxes
 	// Waves to show frames from 3D waves in the scanGraph
 	make/w/u/o/n =(500,500) root:packages:twoP:examine:scanGraph_ch1
@@ -263,18 +263,16 @@ Function twoP_ExamineAddControls(able)
 	CheckBox LUTautoCheck win = twoP_Controls,variable=root:packages:twoP:examine:ch2LUTauto
 	CheckBox LUTautoCheck win = twoP_Controls,disable=able
 	// LUT slider
-	CustomControl LUTslider win = twoP_Controls, pos={3.00,222.00},size={333.00,30.00},proc=MinMaxSlider_thumbFunc
-	CustomControl LUTslider win = twoP_Controls,userdata=A"!!<6!!\"&`oz7=Xe,!!N?&5uCTF!\"&]5z!CHlT7=Xe,!!!!$"
-	CustomControl LUTslider win = twoP_Controls, userdata(FUNCSTR)="twoP_LUTSliderAction",frame=0, focusRing=0
-	CustomControl LUTslider win = twoP_Controls, disable =able
+	MinMaxSlider_make ("twoP_Controls", "LUTslider", 3, 222, 313, 0, ((2^kNQimageBits)-1), 7, 0, "twoP_LUTSliderAction", 3)
+	CustomControl LUTslider win = twoP_Controls,frame=0, focusRing=0, disable=able
 	// LUT first/last setvars
 	SetVariable LUTFirstValueSetVar win = twoP_Controls,pos={55.00,197.00},size={86.00,18.00},proc=twoP_LUTValsSetVarProc
 	SetVariable LUTFirstValueSetVar win = twoP_Controls,title="First",fSize=12,format="%d"
-	SetVariable LUTFirstValueSetVar win = twoP_Controls,limits={1,4094,1},value=root:Packages:twoP:examine:Ch2FirstLUTColor
+	SetVariable LUTFirstValueSetVar win = twoP_Controls,limits={1,((2^kNQimageBits)-2),1},value=root:Packages:twoP:examine:Ch2FirstLUTColor
 	SetVariable LUTFirstValueSetVar win = twoP_Controls,disable=able
 	SetVariable LUTLastValueSetVar win = twoP_Controls,pos={142.00,197.00},size={84.00,18.00},proc=twoP_LUTValsSetVarProc
 	SetVariable LUTLastValueSetVar win = twoP_Controls,title="Last",fSize=12,format="%d"
-	SetVariable LUTLastValueSetVar win = twoP_Controls,limits={1,4094,1},value=root:Packages:twoP:examine:Ch2LastLUTColor
+	SetVariable LUTLastValueSetVar win = twoP_Controls,limits={1,((2^kNQimageBits)-2),1},value=root:Packages:twoP:examine:Ch2LastLUTColor
 	SetVariable LUTLastValueSetVar win = twoP_Controls,disable=able
 	// adjust first/last to data range
 	Button LUTtoDataButton win = twoP_Controls,pos={229.00,194.00},size={50.00,23.00},proc=twoP_LUTtoDataProc
@@ -1283,19 +1281,18 @@ Function twoP_ImGraphNew(curScan)
 	// first last
 	SetVariable LUTFirstValueSetVar win=twoPscanGraph#controlPanel,pos={100.00,35.00},size={86.00,18.00},proc=twoP_LUTValsSetVarProc
 	SetVariable LUTFirstValueSetVar win=twoPscanGraph#controlPanel,title="First",fSize=12,format="%d"
-	SetVariable LUTFirstValueSetVar win=twoPscanGraph#controlPanel,limits={1,4094,1},value=root:Packages:twoP:examine:Ch1FirstLUTColor
+	SetVariable LUTFirstValueSetVar win=twoPscanGraph#controlPanel,limits={1,((2^kNQimageBits)-1),1},value=root:Packages:twoP:examine:Ch1FirstLUTColor
 	SetVariable LUTLastValueSetVar win=twoPscanGraph#controlPanel,pos={187.00,35.00},size={84.00,18.00},proc=twoP_LUTValsSetVarProc
 	SetVariable LUTLastValueSetVar win=twoPscanGraph#controlPanel,title="Last",fSize=12,format="%d"
-	SetVariable LUTLastValueSetVar win=twoPscanGraph#controlPanel,limits={1,4094,1},value=root:Packages:twoP:examine:Ch1LastLUTColor
+	SetVariable LUTLastValueSetVar win=twoPscanGraph#controlPanel,limits={1,((2^kNQimageBits)-1),1},value=root:Packages:twoP:examine:Ch1LastLUTColor
 	Button LUTtoDataButton win=twoPscanGraph#controlPanel,pos={272.00,32.00},size={50.00,23.00},proc=twoP_LUTtoDataProc
 	Button LUTtoDataButton win=twoPscanGraph#controlPanel,title="to Data",fSize=12
 	CheckBox LUT96check win=twoPscanGraph#controlPanel,pos={324.00,36.00},size={38.00,15.00},proc=twoP_LUT96CheckProc
 	CheckBox LUT96check win=twoPscanGraph#controlPanel,title="96%",fSize=12
 	CheckBox LUT96check win=twoPscanGraph#controlPanel,variable=root:Packages:twoP:examine:Ch1LUTto96
 	//LUT slider
-	CustomControl LUTslider win=twoPscanGraph#controlPanel,pos={3.00,59.00},size={356.00,33.00},proc=MinMaxSlider_thumbFunc
-	CustomControl LUTslider win=twoPscanGraph#controlPanel,userdata=A"!!<4(!\"&a1z7=Xe,!!`K(5skVP!\"&]5z!EoM-7=Xe,!!!!$"
-	CustomControl LUTslider win=twoPscanGraph#controlPanel,userdata(FUNCSTR)="twoP_LUTSliderAction",frame=0,focusRing=0
+	MinMaxSlider_make ("twoPscanGraph#controlPanel", "LUTslider", 3, 59, 336, 0, ((2^kNQimageBits)-1), 7, 0, "twoP_LUTSliderAction", 3)
+	CustomControl LUTslider win=twoPscanGraph#controlPanel,frame=0,focusRing=0
 	// Set window hook function
 	SetWindow twoPscanGraph hook(infoHook)= twoP_imGraphHookProc, hookevents = 3
 	WC_WindowCoordinatesRestore(us.graphName)
@@ -2556,15 +2553,15 @@ Function twoP_LUTtoDataProc(ba) : ButtonControl
 			// check for limiting to 96% - we need a full histogram, else just max and min
 			NVAR LutTo96 =  $"root:packages:twoP:examine:" + LUTchan + "LUTto96"
 			if(LutTo96)
-				make/I/U/n=4096/FREE histWave
-				setscale x 0, 4095, "", histWave
+				make/I/U/n=((2^kNQimageBits)-1)/FREE histWave
+				setscale x 0, ((2^kNQimageBits)-1), "", histWave
 				histogram/B=2 scanWave, histWave
 				variable theSum =  sum(histWave)
 				variable ii, runningSum, val2 = theSum * 0.02, val98 = theSum * 0.98
 				for(ii =0, runningSum = 0; runningSum < val2; ii += 1, runningSum += histWave [ii])
 				endfor
 				FirstColor = round(pnt2x(histWave, ii))
-				for(ii =4095, runningSum = theSum;  runningSum >val98 ; ii -= 1, runningSum -= histWave [ii])
+				for(ii =((2^kNQimageBits)-1), runningSum = theSum;  runningSum >val98 ; ii -= 1, runningSum -= histWave [ii])
 				endfor
 				LastColor = round(pnt2x(histWave, ii))
 			else //NOt 96%,just min and max

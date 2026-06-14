@@ -1,7 +1,7 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2026/01/06 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2026/06/06 by Jamie Boyd.
 #pragma IgorVersion = 7			//Not sure about this. Perhaps some Igor 9isms have slipped in
 
 #include "twoP_Prefs"
@@ -15,16 +15,6 @@
 
 // define for input trigger to use background task versus waiting in a loop
 #define TRIG_IS_BKG
-
-// Constants that are not(yet) set from peferences
-// Size of counters on NI boards. These limit size that can be aquired at one shot. Older boards are 24, newer boards might be 32
-CONSTANT kNQImageCounterSize = 24
-CONSTANT kNQePhysCounterSize = 24
-// when desired acquisition size is larger than counter size, we use
-// continuous acquisition into a buffer and copy the buffer into the scan waves
-// the multiplier multplies minimum live frame time to set buffer size
-// minimum live frame time is an empirical estimate of how often an end-of-scan function can be called without loss of data
-STATIC CONSTANT kNQtBufferMult =1
 
 //Defined constants for multiacquisition mode
 CONSTANT kMultiUsePeriod = 0
@@ -1338,7 +1328,7 @@ Function twoP_SetTimes()
 				NVAR ephysOnlyTime = root:packages:twoP:acquire:ephysOnlyTime
 				ePhysRunTime = ephysOnlyTime
 			endif
-			if(ePhysRunTime *ePhysFreq > 2^kNQEphysCounterSize)
+			if(ePhysRunTime *ePhysFreq > 2^kNQePhysCounterSize)
 				doAlert 0, "The selected scan time and ePhys sampling rate exceeds the 24 bit count for ePhys data collection."
 				
 			endif
@@ -5359,7 +5349,7 @@ Function twoP_MakeLiveRawGraph(s)
 	endfor
 	variable nAxes=Itemsinlist(axisStr, ";")
 	// Display Graph
-	Display/N=twoPLiveRawGraph as "Live Raw A/D Graph: " +s.newScanName
+	Display/k=1/N=twoPLiveRawGraph as "Live Raw A/D Graph: " +s.newScanName
 	variable iAxis, axisFrac =(1-.04*(nAxes-1))/nAxes
 	string anAxis
 	for(iAxis =0; iAxis < nAxes; iAxis += 1)
@@ -6985,7 +6975,7 @@ Function NQ_MultiStartProc(ba) : ButtonControl
 			TabControl SmodeTabControl disable=2
 			Button AqStartButton disable=2
 			CtrlNamedBackground multAqBKG, period=20, proc=NQ_MultiBkg, start
-			Button MultiStartButton, win = twoP_Controls_new, fColor=(65280,65280,0), title = "Abort Multi", proc = NQ_Muli_AbortProc
+			Button MultiStartButton, win = twoP_Controls, fColor=(65280,65280,0), title = "Abort Multi", proc = NQ_Muli_AbortProc
 
 			break
 		case -1: // control being killed
@@ -7002,7 +6992,7 @@ Function NQ_Muli_AbortProc(ba) : ButtonControl
 	switch( ba.eventCode )
 		case 2: // mouse up
 			TabControl SmodeTabControl disable=0
-			Button MultiStartButton, win = twoP_Controls_new, fColor=(65280,65280,0), title = "Start Multi", proc = NQ_Muli_StartProc
+			Button MultiStartButton, win = twoP_Controls, fColor=(65280,65280,0), title = "Start Multi", proc = NQ_Muli_StartProc
 			// cleanup code here
 		break
 		case -1: // control being killed
