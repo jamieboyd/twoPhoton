@@ -21,8 +21,8 @@ CONSTANT kNQImageCounterSize = 24
 constant kNQePhysCounterSize = 24
 // bit depth of acquired data. Older(fast, simultaneous sampling) image boards are 12 bits, newer image boards might be 16 bits.
 // ePhys boards are all expected to be 16 bits. 
-CONSTANT kNQimageBits = 16
-CONSTANT kNQtoUnsigned = 32768 //number to add to signed acquistion to convert to unsigned representation = 2^(kNQimageBits-1) 
+CONSTANT kNQimageBits = 12
+CONSTANT kNQtoUnsigned = 2048 //number to add to signed acquistion to convert to unsigned representation = 2^(kNQimageBits-1) 
 
 // when desired acquisition size is larger than counter size, we use
 // continuous acquisition into a buffer and copy the buffer into the scan waves
