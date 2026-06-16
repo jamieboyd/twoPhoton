@@ -358,7 +358,7 @@ Function NQ_ProjSubtracter (ba) : ButtonControl
 			endif
 			Proj1 -= Proj2
 			redimension/w proj1
-			proj1 -= (kNQtoUnsigned)
+			//proj1 -= (kNQtoUnsigned)
 			string temp = note (proj1)
 			temp = ReplaceStringByKey("ProjType", temp, "Subtr", ":" , "\r")
 			variable subStart = NumberByKey("startFrame", note (proj2) , ":" , "\r") 

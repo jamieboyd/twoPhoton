@@ -8,8 +8,8 @@
 #include "GUIPProtoFuncs"
 #include "GUIPSubWinUtils"
 
-STATIC CONSTANT kNQimageBits = 16 	// defined here because as well as in prefs
-											// because prefs are only for acquisition
+STATIC CONSTANT kNQimageBits = 12 	// defined here because as well as in prefs
+										// because prefs are only for acquisition
 
 //constants for scanning mode
 Constant kLiveMode = 0
@@ -263,7 +263,7 @@ Function twoP_ExamineAddControls(able)
 	CheckBox LUTautoCheck win = twoP_Controls,variable=root:packages:twoP:examine:ch2LUTauto
 	CheckBox LUTautoCheck win = twoP_Controls,disable=able
 	// LUT slider
-	MinMaxSlider_make ("twoP_Controls", "LUTslider", 3, 222, 313, 0, ((2^kNQimageBits)-1), 7, 0, "twoP_LUTSliderAction", 3)
+	MinMaxSlider_make ("twoP_Controls", "LUTslider", 3, 222, 313, 1, ((2^kNQimageBits)-2), 7, 0, "twoP_LUTSliderAction", 3)
 	CustomControl LUTslider win = twoP_Controls,frame=0, focusRing=0, disable=able
 	// LUT first/last setvars
 	SetVariable LUTFirstValueSetVar win = twoP_Controls,pos={55.00,197.00},size={86.00,18.00},proc=twoP_LUTValsSetVarProc
@@ -1291,7 +1291,7 @@ Function twoP_ImGraphNew(curScan)
 	CheckBox LUT96check win=twoPscanGraph#controlPanel,title="96%",fSize=12
 	CheckBox LUT96check win=twoPscanGraph#controlPanel,variable=root:Packages:twoP:examine:Ch1LUTto96
 	//LUT slider
-	MinMaxSlider_make ("twoPscanGraph#controlPanel", "LUTslider", 3, 59, 336, 0, ((2^kNQimageBits)-1), 7, 0, "twoP_LUTSliderAction", 3)
+	MinMaxSlider_make ("twoPscanGraph#controlPanel", "LUTslider", 3, 59, 336, 1, ((2^kNQimageBits)-2), 7, 0, "twoP_LUTSliderAction", 3)
 	CustomControl LUTslider win=twoPscanGraph#controlPanel,frame=0,focusRing=0
 	// Set window hook function
 	SetWindow twoPscanGraph hook(infoHook)= twoP_imGraphHookProc, hookevents = 3
