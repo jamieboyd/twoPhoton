@@ -354,7 +354,7 @@ Function twoP_ExamineAddControls(able)
 	TitleBox SelDROIChansTitle win = twoP_Controls,variable=root:packages:twoP:examine:DROISelChans
 	TitleBox SelDROIChansTitle win = twoP_Controls,disable=able
 	
-	PopupMenu dROItopChanPopUp win = twoP_Controls,pos={173.00,365.00},size={45.00,20.00},bodyWidth=45,proc=NQ_ROIPopMenuProc
+	PopupMenu dROItopChanPopUp win = twoP_Controls,pos={173.00,365.00},size={45.00,20.00},bodyWidth=45,proc=twoP_dROIRatioPopMenuProc
 	PopupMenu dROItopChanPopUp win = twoP_Controls,title="top",fSize=12
 	PopupMenu dROItopChanPopUp win = twoP_Controls,mode=0,value=#"twoP_ScanListImChans()"
 	PopupMenu dROItopChanPopUp win = twoP_Controls,disable=able
@@ -368,7 +368,7 @@ Function twoP_ExamineAddControls(able)
 	TitleBox dROIBottomChanTitle win = twoP_Controls,disable=able
 	
 	
-	PopupMenu dROIbottomChanPopUp win = twoP_Controls,pos={263.00,365.00},size={45.00,20.00},bodyWidth=45,proc=NQ_ROIPopMenuProc
+	PopupMenu dROIbottomChanPopUp win = twoP_Controls,pos={263.00,365.00},size={45.00,20.00},bodyWidth=45,proc=twoP_dROIRatioPopMenuProc
 	PopupMenu dROIbottomChanPopUp win = twoP_Controls,title="bot",fSize=12
 	PopupMenu dROIbottomChanPopUp win = twoP_Controls,mode=0,value=#"twoP_ScanListImChans()"
 	PopupMenu dROIbottomChanPopUp win = twoP_Controls,disable=able
@@ -1504,7 +1504,7 @@ end
 //******************************************************************************************************
 // This hook function  for the scangraph window shows the value under the mouse pointer when the shift key is held down and the mouse is moved around.
 // Also makes sure that info about where the graph was is saved when closing the graph.
-// Last modified 2025/08/04 by Jamie Boyd
+// Last modified 2026/06/16 by Jamie Boyd
 Function twoP_imGraphHookProc(s)
 	STRUCT WMWinHookStruct &s
 
@@ -1522,84 +1522,76 @@ Function twoP_imGraphHookProc(s)
 			// if shift. show value at position under mouse for any scan
 			// if dynamic ROI is checked, do ROI for area under cursor, for time and z series
 			NVAR dodROI = root:packages:twoP:examine:doDROI
-			if(!((dodROI) ||(s.eventMod == 2)))
-				return 0
-			endif
-			variable xpos = AxisvalFromPixel(s.winName, "bottom", s.mouseLoc.h)
-			variable ypos =  AxisvalFromPixel(s.winName, "left", s.mouseLoc.v)
-			SVAR curScan = root:Packages:twoP:examine:CurScan
-			SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-			variable scanMode = numberbykey("Mode", scanStr, ":", "\r")
-			variable xPixSIze = numberbykey("xPixSize", scanStr, ":", "\r")
-			variable xOffset = numberbykey("XOffset", scanStr, ":", "\r")
-			variable xPixPos = round((xpos - xOffset)/xPixSIze)
-			variable yPixSize = numberbykey("yPixSize", scanStr, ":", "\r")
-			variable pixHeight = numberbykey("PixHeight", scanStr, ":", "\r")
-			variable yOffset = numberbykey("YOffset", scanStr, ":", "\r")
-			variable yPixPos = round((yPos - yOffset)/yPixSize)
-			variable pixWidth = numberbykey("PixWidth", scanStr, ":", "\r")
-			if(!((((yPixPos > 0) &&(yPixPos < PixHeight)) &&(xPixPos > 0)) &&(xPixPos < PixWidth)))
-				return 1
-			endif
-			string aChan
-			SVAR selImChans = root:packages:twoP:examine:scanGraphSelchans
-			variable iChan, nChans = itemsInList(selImChans, ","), chanValue
-			variable ImChans = numberbykey("ImChans", scanStr, ":", "\r")
-			string theSubWin, SubWinList = ChildWindowList(stringfromlist(0, s.winName, "#"))
-			NVAR DROIrad = root:packages:twoP:examine:dROIRad
-			// shift-click  - value under mouse
-			if(s.eventMod == 2)
-				for(iChan =0; iChan < nChans; iChan +=1)
-					aChan = stringfromList(iChan, selImChans, ",")
-					if((scanMode == kTimeSeries) ||(ScanMode == kZseries)) // 3D image, only a plane displayed at a time
-						WAVE thescanwave  = $"root:Packages:twoP:examine:scanGraph_" + aChan
-					else  // for 2D images, scan is scan
-						WAVE thescanwave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
-					endif
-					if(DROIrad== 0)
-						chanValue = thescanwave [xPixpos] [yPixpos]
-					else
-						imagestats/G={xpixpos -DROIrad , xPixpos +  DROIrad, yPixpos -DROIrad, yPixpos +DROIrad}/M =1 thescanwave
-						chanValue = V_avg
-					endif
-					if(WhichListItem("G" + aChan, SubWinList, ";") > -1)
-						TextBox/W = $"twoPscanGraph#G" + aChan/C/N=PosText/F=0/A=LT/X=0.00/Y=0.00 aChan + ": " + num2str(chanValue)
-					endif
-				endfor
-			elseif((scanMode == kTimeSeries) ||(ScanMode == kZseries)) // do dynamic ROI for 3D scans only
-				NVAR doDROI = root:Packages:twoP:examine:doDROI
-				if(doDROI)
-					SVAR seldROIChans=root:Packages:twoP:examine:DROISelChans
-					variable nROIchans=itemsinlist(seldROIChans, ",")
-					variable doRatio
-					string chanList = seldROIChans
+			if((dodROI) ||(s.eventMod == 2))
+				NVAR DROIRad = root:Packages:twoP:examine:DROIRad
+				variable xpos = AxisvalFromPixel(s.winName, "bottom", s.mouseLoc.h)
+				variable ypos =  AxisvalFromPixel(s.winName, "left", s.mouseLoc.v)
+				SVAR curScan = root:Packages:twoP:examine:CurScan
+				SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
+				variable scanMode = numberbykey("Mode", scanStr, ":", "\r")
+				variable xPixSIze = numberbykey("xPixSize", scanStr, ":", "\r")
+				variable xOffset = numberbykey("XOffset", scanStr, ":", "\r")
+				variable xPixPos = round((xpos - xOffset)/xPixSIze)
+				variable yPixSize = numberbykey("yPixSize", scanStr, ":", "\r")
+				variable pixHeight = numberbykey("PixHeight", scanStr, ":", "\r")
+				variable yOffset = numberbykey("YOffset", scanStr, ":", "\r")
+				variable yPixPos = round((yPos - yOffset)/yPixSize)
+				variable pixWidth = numberbykey("PixWidth", scanStr, ":", "\r")
+				if(!((((yPixPos > 0) && (yPixPos < PixHeight)) && (xPixPos > 0)) &&(xPixPos < PixWidth)))
+					return 1
+				endif
+				string aChan
+				variable iChan, nChans, chanValue
+				string SubWinList = childwindowlist("twoPscanGraph")
+				// shift-click  - value under mouse
+				if(s.eventMod == 2)
+					SVAR selImChans = root:packages:twoP:examine:scanGraphSelchans
+					nChans = itemsinlist(selImChans, ",")
+					for(iChan =0; iChan < nChans; iChan +=1)
+						aChan = stringfromList(iChan, selImChans, ",")
+						if((scanMode == kTimeSeries) ||(ScanMode == kZseries)) // 3D image, only a plane displayed at a time
+							WAVE thescanwave  = $"root:Packages:twoP:examine:scanGraph_" + aChan
+						else  // for 2D images, scan is scan
+							WAVE thescanwave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
+						endif
+						if(DROIrad== 0)
+							chanValue = thescanwave [xPixpos] [yPixpos]
+						else
+							imagestats/G={xpixpos -DROIrad , xPixpos +  DROIrad, yPixpos -DROIrad, yPixpos +DROIrad}/M =1 thescanwave
+							chanValue = V_avg
+						endif
+						if(WhichListItem("G" + aChan, SubWinList, ";") > -1)
+							TextBox/W = $"twoPscanGraph#G" + aChan/C/N=PosText/F=0/A=LT/X=0.00/Y=0.00 aChan + ": " + num2str(chanValue)
+						endif
+					endfor
+				endif
+				if (dodROI && ((scanMode == kTimeSeries) || (ScanMode == kZseries))) // do dynamic ROI for 3D scans only
+					SVAR DROISelChans = root:Packages:twoP:examine:DROISelChans
+					string chanList = DROISelChans
+					
+					string scanChans = StringByKey("imChanDesc", scanStr, ":", "\r")
+					variable doRatio =0
 					if(WhichListItem("ratio", chanList, ",") > -1)
 						chanList = RemoveFromList("ratio",chanList, ",")
-						doRatio=1
 						SVAR TopChan = root:packages:twoP:examine:DROITopChan
 						SVAR BottomChan = root:packages:twoP:examine:DROIBottomChan
-						if(WhichListItem(topChan, selImChans , ",") > -1)
+						if ((WhichListItem(topChan, scanChans , ",") > -1) && (WhichListItem(BottomChan, scanChans , ",") > -1))
+							doRatio=1							
 							if(WhichListItem(topChan, chanList , ",") == -1)
 								chanList = AddListItem(topChan, chanList, ",")
 							endif
 							WAVE topWave=$"root:packages:twoP:examine:DROI_" + TopChan
-						else
-							doRatio=0
-						endif
-						if(WhichListItem(bottomChan, selImChans , ",") > -1)
-							if(WhichListItem(bottomChan, chanList , ",") == -1)
-								chanList = AddListItem(bottomChan, chanList, ",")
+							if(WhichListItem(BottomChan, chanList , ",") == -1)
+								chanList = AddListItem(BottomChan, chanList, ",")
 							endif
-							WAVE bottomWave=$"root:packages:twoP:examine:DROI_" + bottomChan
-						else
-							doRatio=0
+							WAVE bottomWave=$"root:packages:twoP:examine:DROI_" + BottomChan
+							WAVE dROIratioWave = root:packages:twoP:examine:DROI_ratio
 						endif
-						if(doRatio)
-							WAVE dROIratio = $"root:packages:twoP:examine:DROI_ratio"
-						endif
+						
 					endif
-					nchans=itemsInList(chanList,",")
-					variable iFrame, nFrames=NumberByKey("numFrames", scanStr, ":", "\r")
+					
+					variable iFrame, nFrames = NumberByKey("numFrames", scanStr, ":", "\r")
+					nChans = itemsInList(chanList, ",")
 					for(iChan=0;iCHan < nCHans; iCHan +=1)
 						aChan=stringFromList(iChan, chanList, ",")
 						WAVE scanWave=$"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
@@ -1616,10 +1608,11 @@ Function twoP_imGraphHookProc(s)
 						endif
 					endfor
 					if(doRatio)
-						dROIratio = topWave/bottomWave
+						dROIratioWave = topWave/bottomWave
 					endif
-				endif
+				endif	
 			endif
+
 			break
 			hookResult =1
 		case 5: //mouse up
@@ -2842,6 +2835,27 @@ Function twoP_DROIChansPopMenuProc(pa) : PopupMenuControl
 	return 0
 End
 
+
+
+// ***********************************************************************************
+// Sets top channel or bottom channel for doing a ratio for dynamic ROI
+// Last Modified: 2026/06/16 by Jamie Boyd
+Function twoP_dROIRatioPopMenuProc(pa) : PopupMenuControl
+	STRUCT WMPopupAction &pa
+
+	switch( pa.eventCode )
+		case 2: // mouse up
+			if (cmpStr (pa.ctrlName, "dROItopChanPopUp") ==0)
+				SVAR Chan = root:packages:twoP:examine:DROITopChan
+			elseif (cmpStr (pa.ctrlName, "dROIbottomChanPopUp") ==0)
+				SVAR Chan = root:packages:twoP:examine:DROIBottomChan
+			endif
+			Chan =  pa.popStr
+			break
+	endswitch
+	return 0
+End
+
 // **********************************************************************************
 // shares left axis space for all the channels - run after adding or removing a channel
 // Last Modified: 2025/08/02 by Jamie Boyd
@@ -3469,5 +3483,7 @@ Function NQ_MeasureMarquee()
 		printf "Velocity(rise/run) = %.2W1P%s/%s\r", xSize/ysize, bottomAxisUnits, leftAxisUnits
 	endif
 end
+
+
 
 

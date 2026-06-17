@@ -39,7 +39,7 @@ CONSTANT kMultiUseTrigger =2
 Menu "Macros"
 	Submenu "twoP"
 		submenu "Acquire"
-			"Reset the NI Boards",/Q,  twoP_ResetBoards()
+			"Reset the NI Boards",/Q,  twoP_ReSetBoards()
 			"Zero the Galvos", /Q, twoP_ZeroGalvos()
 		end
 	end
@@ -68,7 +68,7 @@ end
 function twoP_AcquireInit()
 	twoP_AcquireMakeFolder()
 	twoP_AcquireAddControls()
-	twoP_reSetBoards()
+	twoP_ReSetBoards()
 end
 
 
@@ -3337,7 +3337,7 @@ end
 // ***********************************************************************
 // Does a hardware reset of the NI boards and sets up image board shutter. Sets trigger outputs on ephys board to low state
 // Last Modified 2025/08/11 by Jamie boyd
-Function twoP_reSetBoards()
+Function twoP_ReSetBoards()
 	SVAR ImageBoard = root:packages:twoP:acquire:ImageBoard
 	SVAR ephysBoard = root:packages:twoP:acquire:ephysBoard
 	NVAR shutterTaskNum = root:packages:twoP:Acquire:shutterTaskNum
@@ -3757,7 +3757,7 @@ Function  twoP_StartScan(ba) : ButtonControl
 			// set up triggers
 			if(s.trigChans)
 				if(twoP_doTriggers(s))
-					twoP_reSetBoards()
+					twoP_ReSetBoards()
 					released = threadgroupRelease(gThreadGroupID)
 					Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65280, 0), proc= twoP_StartScan
 					return 1
@@ -3767,7 +3767,7 @@ Function  twoP_StartScan(ba) : ButtonControl
 			// set up voltage waves
 			if(s.vOutChans)
 				if(NQ_DoVoltagePulseWaves(s))
-					twoP_reSetBoards()
+					twoP_ReSetBoards()
 					released = threadgroupRelease(gThreadGroupID)
 					Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65280, 0), proc= twoP_StartScan
 					return 1
@@ -3777,7 +3777,7 @@ Function  twoP_StartScan(ba) : ButtonControl
 			// Init NI-DAQ for ePhys. If ePhys only and starts on trigger, waits for trigger on /imageBoard/PFI6
 			if(itemsinlist(s.selEphysChanList, ";") > 0)
 				if(NQ_doEphysInit(s))
-					twoP_reSetBoards()
+					twoP_ReSetBoards()
 					released = threadgroupRelease(gThreadGroupID)
 					Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65280, 0), proc= twoP_StartScan
 					return 1
@@ -3788,7 +3788,7 @@ Function  twoP_StartScan(ba) : ButtonControl
 			if(s.scanmode != kephysOnly)
 				if(twoP_ScanInit(s))
 					print fdaqmx_errorString()
-					twoP_reSetBoards()
+					twoP_ReSetBoards()
 					NVAR gThreadGroupID = root:packages:twoP:Acquire:gThreadGroupID
 					released = threadgroupRelease(gThreadGroupID)
 					Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65280, 0), proc= twoP_StartScan
@@ -5410,7 +5410,7 @@ Function  NQ_ScanEnd(scanMode, ScanIsAbort)
 	if(ScanIsAbort > 1)
 		errStr =fdaqMx_ErrorString()
 		printf "Scanning was aborted and NI boards reset because an error occured. The error message was:\r%s\r",  errStr
-		twoP_ResetBoards()
+		twoP_ReSetBoards()
 	else
 		try
 			// shutDown the image hardware, if an image scan
