@@ -5366,7 +5366,7 @@ Function twoP_MakeLiveRawGraph(s)
 		ModifyGraph btLen($"L_" + anAxis)=4
 		SetDrawEnv dash=2, ycoord= $"L_" + anAxis
 		DrawLine 0,0,1,0
-		Setaxis $"L_" + anAxis -2048, 4095
+		Setaxis $"L_" + anAxis -(kNQtoUnsigned), ((2^kNQimageBits)-1)
 		
 	endfor
 	// Don't really have a time scaling on bottom axis because of pause triggerfor flyback
