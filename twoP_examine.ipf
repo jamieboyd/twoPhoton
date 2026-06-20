@@ -263,7 +263,7 @@ Function twoP_ExamineAddControls(able)
 	CheckBox LUTautoCheck win = twoP_Controls,variable=root:packages:twoP:examine:ch2LUTauto
 	CheckBox LUTautoCheck win = twoP_Controls,disable=able
 	// LUT slider
-	MinMaxSlider_make ("twoP_Controls", "LUTslider", 3, 222, 313, 1, ((2^kNQimageBits)-2), 7, 0, "twoP_LUTSliderAction", 3)
+	MinMaxSlider_make ("twoP_Controls", "LUTslider", 3, 222, 313, 1, ((2^kNQimageBits)-2), 7, 0, "twoP_LUTSliderAction_CP", 3)
 	CustomControl LUTslider win = twoP_Controls,frame=0, focusRing=0, disable=able
 	// LUT first/last setvars
 	SetVariable LUTFirstValueSetVar win = twoP_Controls,pos={55.00,197.00},size={86.00,18.00},proc=twoP_LUTValsSetVarProc
@@ -1291,7 +1291,7 @@ Function twoP_ImGraphNew(curScan)
 	CheckBox LUT96check win=twoPscanGraph#controlPanel,title="96%",fSize=12
 	CheckBox LUT96check win=twoPscanGraph#controlPanel,variable=root:Packages:twoP:examine:Ch1LUTto96
 	//LUT slider
-	MinMaxSlider_make ("twoPscanGraph#controlPanel", "LUTslider", 3, 59, 336, 1, ((2^kNQimageBits)-2), 7, 0, "twoP_LUTSliderAction", 3)
+	MinMaxSlider_make ("twoPscanGraph#controlPanel", "LUTslider", 3, 59, 336, 1, ((2^kNQimageBits)-2), 7, 0, "twoP_LUTSliderAction_SG", 3)
 	CustomControl LUTslider win=twoPscanGraph#controlPanel,frame=0,focusRing=0
 	// Set window hook function
 	SetWindow twoPscanGraph hook(infoHook)= twoP_imGraphHookProc, hookevents = 3
@@ -2307,16 +2307,16 @@ Function twoP_LUTchanPopMenuProc(pa) : PopupMenuControl
 			setvariable LUTFirstValueSetVar win=twoP_Controls, variable = FirstLUTColor
 			setvariable LUTLastValueSetVar win=twoP_Controls, variable = LastLutColor
 			// Adjust MinMax slider
-			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kLeftThumb, FirstLUTColor)
-			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kRightThumb, LastLutColor)
+			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kLeftThumb, FirstLUTColor,skipUpdate=1)
+			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kRightThumb, LastLutColor,skipUpdate=1)
 			// Adjust LUT autoCheck
 			checkbox LUTautoCheck win=twoP_Controls, variable = $"root:packages:twoP:examine:" + LUTChan + "LUTauto"
 			checkbox LUT96check win=twoP_Controls, variable = $"root:packages:twoP:examine:" + LUTChan + "LUTto96"
 			if(hasScanGraph)
 				setvariable LUTFirstValueSetVar win=twoPscanGraph#controlPanel, variable = FirstLUTColor
 				setvariable LUTLastValueSetVar win=twoPscanGraph#controlPanel, variable = LastLutColor
-				MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kLeftThumb, FirstLUTColor)
-				MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, LastLutColor)
+				MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kLeftThumb, FirstLUTColor,skipUpdate=1)
+				MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, LastLutColor,skipUpdate=1)
 				checkbox LUT96check  win=twoPscanGraph#controlPanel, variable = $"root:packages:twoP:examine:" + LUTChan + "LUTto96"
 			endif
 
@@ -2455,10 +2455,10 @@ Function twoP_LUTValsSetVarProc(sva) : SetVariableControl
 				endif
 				rightWave = LastColor
 			endif
-			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kLeftThumb, FirstColor)
-			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kRightThumb, LastColor)
-			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kLeftThumb, FirstColor)
-			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, LastColor)
+			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kLeftThumb, FirstColor, skipUpdate =1,skipUpdate=1)
+			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kRightThumb, LastColor, skipUpdate =1,skipUpdate=1)
+			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kLeftThumb, FirstColor,skipUpdate =1)
+			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, LastColor,skipUpdate =1)
 			// apply image settings
 			string SubWinList = childwindowlist("twoPscanGraph")
 			if(WhichListItem("G"+LUTchan, SubWinList, ";", 0,0) > -1)
@@ -2468,6 +2468,46 @@ Function twoP_LUTValsSetVarProc(sva) : SetVariableControl
 	endswitch
 	return 0
 End
+
+
+//******************************************************************************************************
+// Function for the LUT first and last values Slider on main control panel.  Calls Apply Image settings procedure for selected channel
+// Last Modified 2026/06/20 by Jamie Boyd
+Function twoP_LUTSliderAction_CP(leftThumb, rightThumb, event, thumb)
+	variable leftThumb		// value left thumb is pointing to
+	variable rightThumb	// value right thumb is pointing to
+	variable event			// type of event(thumb up or thumb moved
+	variable thumb			// 1 if a left thumb was just moved or 2 for a right thumb
+		
+	twoP_LUTSliderAction(leftThumb, rightThumb, event, thumb)
+	if (thumb == kleftThumb)
+		MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kleftThumb, leftThumb, skipUpdate =1)
+	else
+		MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, rightThumb, skipUpdate =1)
+	endif
+	
+end
+
+
+//******************************************************************************************************
+// Function for the LUT first and last values Slider on twoPScanGraph.  Calls Apply Image settings procedure for selected channel
+// Last Modified 2026/06/20 by Jamie Boyd
+Function twoP_LUTSliderAction_SG(leftThumb, rightThumb, event, thumb)
+	variable leftThumb		// value left thumb is pointing to
+	variable rightThumb	// value right thumb is pointing to
+	variable event			// type of event(thumb up or thumb moved
+	variable thumb			// 1 if a left thumb was just moved or 2 for a right thumb
+	
+	twoP_LUTSliderAction(leftThumb, rightThumb, event, thumb)
+	if (thumb == kleftThumb)
+		MinMaxSlider_Manual("twoP_Controls", "LUTslider", kleftThumb, leftThumb, skipUpdate =1)
+	else
+		MinMaxSlider_Manual("twoP_Controls", "LUTslider", kRightThumb, rightThumb,  skipUpdate =1)
+	endif
+
+end
+
+
 
 //******************************************************************************************************
 // Function for the LUT first and last values Slider.Calls Apply Image settings procedure for selected channel
@@ -2553,22 +2593,22 @@ Function twoP_LUTtoDataProc(ba) : ButtonControl
 				variable ii, runningSum, val2 = theSum * 0.02, val98 = theSum * 0.98
 				for(ii =0, runningSum = 0; runningSum < val2; ii += 1, runningSum += histWave [ii])
 				endfor
-				FirstColor = round(pnt2x(histWave, ii))
+				FirstColor = max (1, round(pnt2x(histWave, ii)))
 				for(ii =((2^kNQimageBits)-1), runningSum = theSum;  runningSum >val98 ; ii -= 1, runningSum -= histWave [ii])
 				endfor
 				LastColor = round(pnt2x(histWave, ii))
 			else //NOt 96%,just min and max
 				WaveStats/M=1/Q scanWave
-				FirstColor = V_min
+				FirstColor = max (1,V_min)
 				LastColor = V_max
 			endif
 			// apply first color and last color to dragger waves
 			leftWave = FirstColor
 			rightWave = LastColor
-			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kLeftThumb, FirstColor)
-			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kLeftThumb, FirstColor)
-			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kRightThumb, LastColor)
-			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, LastColor)
+			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kLeftThumb,  FirstColor,skipUpdate=1)
+			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kLeftThumb, FirstColor,skipUpdate=1)
+			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kRightThumb, LastColor,skipUpdate=1)
+			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, LastColor,skipUpdate=1)
 			// Apply image settings
 			if(WhichListItem("G" + LUTChan, childwindowlist("twoPscanGraph"), ";", 0,0) > -1)
 				twoP_LUTApplysettings(LUTChan)

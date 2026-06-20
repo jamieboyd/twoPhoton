@@ -1,7 +1,7 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2026/06/06 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2026/06/18 by Jamie Boyd.
 #pragma IgorVersion = 7			//Not sure about this. Perhaps some Igor 9isms have slipped in
 
 #include "twoP_Prefs"
@@ -657,7 +657,7 @@ Function twoP_AcquireAddControls()
 	GUIPTabAddCtrls("twoP_Controls", "SmodeTabControl", "Zser", "Button FirstZButton;SetVariable zFirstZSetVar;Button LastZButton;SetVariable ZLastZSetVar;SetVariable zStepSizeSetvar;")
 	GUIPTabAddCtrls("twoP_Controls", "SmodeTabControl", "Zser", "SetVariable NumZframesSetvar 2;SetVariable zKalmanAvgSetvar;PopupMenu ZdjustPopMenu")
 	// Muti specific
-	PopupMenu multiAqDataModePopUp,disable =1,pos={10.00,229.00},size={115.00,19.00},proc=NQ_MultiAqDataModePopMenuProc
+	PopupMenu multiAqDataModePopUp,disable =1,pos={10.00,229.00},size={115.00,19.00},proc=twoP_MultiAqDataModePopMenuProc
 	PopupMenu multiAqDataModePopUp,title="Mode"
 	PopupMenu multiAqDataModePopUp,mode=1,popvalue="Time Series",value=#"\"Time Series;Average;Line Scan;Z series;ePhys Only\""
 	// period
@@ -670,10 +670,10 @@ Function twoP_AcquireAddControls()
 	SetVariable MultiAqPeriodNumSetVar,disable =1,pos={9.00,276.00},size={76.00,18.00}
 	SetVariable MultiAqPeriodNumSetVar,title="Num",fSize=12
 	SetVariable MultiAqPeriodNumSetVar,limits={2,inf,1},value=root:Packages:twoP:Acquire:multiAqPeriodNum
-	SetVariable MultAqPeriodPeriodSetVar disable =1,pos={9.00,299.00},size={103.00,18.00},proc=NQ_MultiAqTimeSetVarProc
+	SetVariable MultAqPeriodPeriodSetVar disable =1,pos={9.00,299.00},size={103.00,18.00},proc=twoP_MultiAqTimeSetVarProc
 	SetVariable MultAqPeriodPeriodSetVar,title="Period ",fSize=12
 	SetVariable MultAqPeriodPeriodSetVar,limits={0,inf,0.5},value=root:Packages:twoP:Acquire:multiAqPeriodPeriodStr
-	SetVariable MultiAqPeriodDelaySetVar,disable =1,pos={9.00,323.00},size={102.00,18.00},proc=NQ_MultiAqTimeSetVarProc
+	SetVariable MultiAqPeriodDelaySetVar,disable =1,pos={9.00,323.00},size={102.00,18.00},proc=twoP_MultiAqTimeSetVarProc
 	SetVariable MultiAqPeriodDelaySetVar,title="Delay",fSize=12
 	SetVariable MultiAqPeriodDelaySetVar,value=root:Packages:twoP:Acquire:multiAqPeriodDelayStr
 	// Wave
@@ -683,11 +683,11 @@ Function twoP_AcquireAddControls()
 	CheckBox MultiWaveCheck,title="Wave"
 	CheckBox MultiWaveCheck,userdata="root:packages:twoP:acquire:multiAqTimeMode=1;MultiPeriodCheck;MultiTriggerCheck;"
 	CheckBox MultiWaveCheck,value=0,mode=1
-	Button MultiAqWaveEditButton,disable =1,pos={120.00,317.00},size={46.00,18.00},proc=NQ_MultiWaveEditButtonProc
+	Button MultiAqWaveEditButton,disable =1,pos={120.00,317.00},size={46.00,18.00},proc=twoP_MultiWaveEditButtonProc
 	Button MultiAqWaveEditButton,title="Edit",fSize=10
-	Button MultiAqWaveDeleteButton,disable =1,pos={172.00,317.00},size={47.00,18.00},proc=NQ_MultiWaveDeleteButtonProc
+	Button MultiAqWaveDeleteButton,disable =1,pos={172.00,317.00},size={47.00,18.00},proc=twoP_MultiWaveDeleteButtonProc
 	Button MultiAqWaveDeleteButton,title="Delete",fSize=10
-	PopupMenu MultiAqWavePopup,disable =1,pos={121.00,276.00},size={94.00,19.00},proc=NQ_MultiWaveWavePopMenuProc
+	PopupMenu MultiAqWavePopup,disable =1,pos={121.00,276.00},size={94.00,19.00},proc=twoP_MultiAqDataModePopMenuProc
 	PopupMenu MultiAqWavePopup,title="Timing Wave:"
 	PopupMenu MultiAqWavePopup,disable =1,mode=0,value=#"GUIPListObjs(\"root:packages:twoP:acquire:multiAqWaves\",1,\"!maq_seconds\",0,\"\\\\M1(no timing waves;\")+\"\\\\M1-);New Timing Wave\""
 	TitleBox MultiAqWaveTitleBox,disable =1,pos={122.00,298.00},size={19.00,15.00},frame=0
@@ -711,9 +711,9 @@ Function twoP_AcquireAddControls()
 	ValDisplay multiAqProgressDisplay,limits={0,10,0},barmisc={10,30},highColor=(0,65280,0),lowColor=(65280,0,0)
 	ValDisplay multiAqProgressDisplay,value=#"root:packages:twoP:acquire:multiAqiAq"
 	// start
-	Button MultiPreMakeButton, disable =1,pos={22.00,438.00},size={99.00,20.00},proc=NQ_MultiPreMakeProc
+	Button MultiPreMakeButton, disable =1,pos={22.00,438.00},size={99.00,20.00},proc=twoP_MultiPreMakeProc
 	Button MultiPreMakeButton,title="PreMake Waves"
-	Button MultiStartButton, disable =1,pos={217.00,433.00},size={113.00,29.00},proc=NQ_MultiStartProc
+	Button MultiStartButton, disable =1,pos={217.00,433.00},size={113.00,29.00},proc=twoP_MultiStartProc
 	Button MultiStartButton,title="Start Multi"
 	Button MultiStartButton,help={"Starts or Aborts a series of multiple scans"}
 	Button MultiStartButton,userdata="Start Multi",fSize=16,fStyle=1
@@ -722,12 +722,14 @@ Function twoP_AcquireAddControls()
 	GUIPTabAddCtrls("twoP_Controls", "SmodeTabControl", "Multi", "SetVariable MultAqPeriodPeriodSetVar;SetVariable MultiAqPeriodDelaySetVar;GroupBox MultModeWaveGrp;CheckBox MultiWaveCheck;")
 	GUIPTabAddCtrls("twoP_Controls", "SmodeTabControl", "Multi", "Button MultiAqWaveEditButton;PopupMenu MultiAqWavePopup;TitleBox MultiAqWaveTitleBox;GroupBox MultModeTriggerGrp;")
 	GUIPTabAddCtrls("twoP_Controls", "SmodeTabControl", "Multi", "CheckBox MultiTriggerCheck;SetVariable MultiAqTriggerNumSetVar;TitleBox MultiAqTimeToNextTitle;ValDisplay multiAqProgressDisplay;")
-	GUIPTabAddCtrls("twoP_Controls", "SmodeTabControl", "Multi", "Button MultiPreMakeButton;Button MultiStartButton;")
+	GUIPTabAddCtrls("twoP_Controls", "SmodeTabControl", "Multi", "Button MultiAqWaveDeleteButton;Button MultiPreMakeButton;Button MultiStartButton;")
 	// set times
 	twoP_SetTimes()
 end
  
- // ***************************************************************************************
+ 
+ 
+// ***************************************************************************************
 // Lists channels that can be selected for scanning, marking already selected ones with checks
 // last modified 2025/07/25 by Jamie Boyd
 function/S twoP_listActiveChans(type)
@@ -1144,7 +1146,7 @@ Function twoP_SetTimes()
 	variable scanMode
 	NVAR scanmodeG =  root:packages:twoP:Acquire:ScanMode
 	if(scanmodeG == kMultiAq)
-		NVAR multiAqTimeMode = root:packages:twoP:acquire:multiAqTimeMode
+		NVAR multiAqTimeMode = root:packages:twoP:acquire:multiAqScanMode
 		scanMode = multiAqTimeMode
 	else
 		scanMode = scanmodeG
@@ -2289,20 +2291,22 @@ endStructure
 Function twoP_LoadScanStruct(s)
 	STRUCT twoP_ScanStruct &s
 	
-	// scan mode
-	NVAR scanMode = root:packages:twoP:Acquire:ScanMode
-	s.ScanMode = scanMode
+	// multiAq stuff
+	NVAR isMulti = root:packages:twoP:acquire:multiModeIsMulti
+	s.isMulti = isMulti
+	if(isMulti)
+		NVAR multiAqScanMode =root:packages:twoP:acquire:multiAqScanMode
+		NVAR multiAqNaqs = root:packages:twoP:acquire:multiAqNaqs
+		NVAR multiAqiaq =root:packages:twoP:acquire:multiAqiaq
+		s.multiAqiAq = multiAqiaq
+		s.multiAqNaqs = multiAqNaqs
+		s.ScanMode = multiAqScanMode
+	else
+		NVAR scanMode = root:packages:twoP:Acquire:ScanMode
+		s.ScanMode = scanMode
+	endif
 	// Scan name and general checks for imaging and/or ephys not applicable to live mode
-	if(scanMode != kLiveMode)
-		// multiAq stuff
-		NVAR isMulti = root:packages:twoP:acquire:multiModeIsMulti
-		s.isMulti = isMulti
-		if(isMulti)
-			NVAR multiAqNaqs = root:packages:twoP:acquire:multiAqNaqs
-			NVAR multiAqiaq =root:packages:twoP:acquire:multiAqiaq
-			s.multiAqiAq = multiAqiaq
-			s.multiAqNaqs = multiAqNaqs
-		endif
+	if(s.scanMode != kLiveMode)
 		// Scan Name
 		SVAR newScanName = root:Packages:twoP:acquire:NewScanName
 		s.NewScanName = NewScanName
@@ -2325,7 +2329,7 @@ Function twoP_LoadScanStruct(s)
 	// settings for image scan, live mode or otherwise
 	SVAR imageBoard = root:packages:twoP:acquire:imageBoard
 	s.imageBoard = imageBoard
-	if(scanMode != kEPhysOnly)
+	if(s.scanMode != kEPhysOnly)
 		SVAR selImageChanList = root:packages:twoP:acquire:selImageChanList
 		s.selImageChanList = SelImageChanList
 		variable iChan,nChans= itemsInlist(s.selImageChanList, ";")
@@ -2343,7 +2347,7 @@ Function twoP_LoadScanStruct(s)
 		s.obj = obj
 		s.ObjNum = objNum
 		// Reference PixWidth and height, voltage scaling based on scan mode
-		if(s.ScanMode == kLineScan)
+		if(s.scanMode == kLineScan)
 			NVAR PixWidth =root:Packages:twoP:Acquire:LSWidth
 			NVAR PixHeight =root:Packages:twoP:Acquire:LSHeight
 			NVAR XSV =  root:Packages:twoP:Acquire:LSStartVolts
@@ -2398,7 +2402,7 @@ Function twoP_LoadScanStruct(s)
 		s.minLiveFrameTime = minLiveFrameTime
 		s.scanIsCyclic = scanIsCyclic
 		// Live ROI for live mode or time series
-		if((scanmode == kLiveMode) ||(scanMode == kTimeSeries) ||(scanMode == kLineScan))
+		if((s.scanmode == kLiveMode) ||(s.scanMode == kTimeSeries) ||(s.scanMode == kLineScan))
 			NVAR liveROICheck =  root:Packages:twoP:Acquire:liveROICheck
 			s.liveROI = liveROICheck
 			if(liveROICheck)
@@ -2428,7 +2432,7 @@ Function twoP_LoadScanStruct(s)
 		endif
 	endif
 	// board and channels for ePhys, triggers, and voltage waves
-	if(((scanMode == kTimeSeries) ||(scanMode == kLinescan)) ||(scanMode == kephysOnly))
+	if(((s.scanMode == kTimeSeries) ||(s.scanMode == kLinescan)) ||(s.scanMode == kephysOnly))
 		SVAR ephysBoard = root:packages:twoP:acquire:ePhysBoard
 		s.ePhysBoard = ephysBoard
 		SVAR selePhysChanList = root:packages:twoP:acquire:selePhysChanList
@@ -2470,7 +2474,7 @@ Function twoP_LoadScanStruct(s)
 		endif
 	endif
 	// switch for things specific to one scan mode
-	switch(scanMode)
+	switch(s.scanMode)
 		case kLiveMode:	// Live mode specific - average frames and live histogram
 			s.NewScanName = "LiveScan"
 			NVAR liveHistCheck = root:Packages:twoP:acquire:liveHistCheck
@@ -3321,7 +3325,6 @@ Function twoP_MakeImageScanWaves(s)
 				threadData[numThreadWaves*iChan + 3] = scanGraphWave
 				break
 		endswitch
-
 
 		s.scanWavePath += ", " + ai + "/" + type + ", -" +  range + ", " + range + ", " + scaling + ", " + offset + ";"
 
@@ -5380,16 +5383,10 @@ end
 
 
 
-"NQ_ScanEnd(%d, \"%s\", 0)", s.ScanMode, BKGtaskStr 
-
-
-
 Function twoP_ScanErr(scanMode)
 	variable scanMode
 	
 	string errStr =fdaqMx_ErrorString()
-	
-	
 	
 	printf "Scanning was aborted and NI boards reset because an error occured. The error message was:\r%s\r",  errStr
 end
@@ -5544,7 +5541,6 @@ Function  NQ_ScanEnd(scanMode, ScanIsAbort)
 				break
 			case kSingleImage: // do Kalman averaging
 				// stop background task
-				//GUIPbkg_RemoveTask("NQ_SingleImage_Bkg(*)")
 				if(scanChans & 1)
 					WAVE dataWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_ch1"
 					KalmanWaveToFrame(dataWave, 8)
@@ -5757,24 +5753,7 @@ Function twoP_SetScanSize(type)
 	endif
 end
 
-//********************************************************************************************
-// Calls make histogram graph procedure when checked
-// last modified Jul 29 2011 by Jamie Boyd
-Function NQ_LiveHistCheckProc(cba) : CheckBoxControl
-	STRUCT WMCheckboxAction &cba
 
-	switch( cba.eventCode )
-		case 2: // mouse up
-			if(cba.checked)
-				twoP_HistMakeGraph()
-			endif
-			break
-		case -1: // control being killed
-			break
-	endswitch
-
-	return 0
-End
 
 //******************************************************************************************************
 // sets global variable for exporting after completing a scan
@@ -5892,8 +5871,217 @@ end
 // Code for MultiAcquisition
 
 //******************************************************************************************************
+
+
+//******************************************************************************************************
+// Sets scanMode global variable for MultiAcq acquistion mode
+// 1 = Time Series, 2=Average, 3=Line Scan, 4=Z series, 5=ePhys Only"
+// Last modified 2026/06/18 by Jamie Boyd
+Function twoP_MultiAqDataModePopMenuProc(pa) : PopupMenuControl
+	STRUCT WMPopupAction &pa
+
+	switch( pa.eventCode )
+		case 2: // mouse up
+			NVAR multiAqScanMode = root:packages:twoP:acquire:multiAqScanMode
+			multiAqScanMode = pa.popNum
+			twoP_SetTimes()
+			break
+	endswitch
+	return 0
+End
+
+
+//******************************************************************************************************
+// sets string to name of chosen wave or makes a new wave in the datafolder for timing waves
+// Last Modified 2025/07/11 by Jamie Boyd
+Function twoP_MultiWaveWavePopMenuProc(pa) : PopupMenuControl
+	STRUCT WMPopupAction &pa
+
+	switch( pa.eventCode )
+		case 2: // mouse up
+			SVAR TimingWaveStr = root:packages:twoP:Acquire:multiAqWaveWaveStr
+			string newTimingWaveStr = pa.popStr
+			if(cmpStr(newTimingWaveStr,"New Timing Wave") ==0)
+				newTimingWaveStr = ""
+				prompt newTimingWaveStr "New Timimg Wave:"
+				doprompt "Name for New Timing Wave", newTimingWaveStr
+				if(V_Flag == 1)
+					return 1
+				endif
+				newTimingWaveStr = CleanupName(newTimingWaveStr, 0 )
+				make/T/n = 0 $"root:packages:twoP:Acquire:multiAqWaves:" + newTimingWaveStr
+				WAVE newtimingwave = $"root:packages:twoP:Acquire:multiAqWaves:" + newTimingWaveStr
+				edit/k=1 newTimingWave as "Edit Timing Wave:" + newTimingWaveStr
+			else // selecting an existing wave
+				// need some validation here!
+				WAVE/T timingWave = $"root:packages:twoP:Acquire:multiAqWaves:" + pa.popStr
+				timingWave =  twoP_MultiParseTimeStr(timingWave)
+				variable iPnt,nPnts = numpnts(timingWave)
+				variable thisSecs, lastSecs = twoP_MultiReadTimeStr(timingWave [0])
+				for(iPnt =1; iPnt <  nPnts; iPnt +=1, lastSecs= thisSecs)
+					thisSecs = twoP_MultiReadTimeStr(timingWave [iPnt])
+					if(numtype(thisSecs) != 0)
+						doalert 0 , "The time wave is not of the right format."
+						TimingWaveStr = ""
+						return 0
+					endif
+					if(thisSecs < lastSecs)
+						doalert 0, "Time waves need to contain elapsed times from start, not interscan periods."
+						TimingWaveStr = ""
+						return 0
+					endif
+				endfor
+			endif
+			TimingWaveStr = newTimingWaveStr
+			break
+	endswitch
+	return 0
+end
+
+
+//******************************************************************************************************
+// Parses strings entered into setvariable into hr:sec:minute  format
+// Last modified 2025/07/11 by Jamie Boyd -  no more pass by reference.  Used sscanf
+Function twoP_MultiAqTimeSetVarProc(sva) : SetVariableControl
+	STRUCT WMSetVariableAction &sva
+
+	switch( sva.eventCode )
+		case 1: // mouse up
+		case 2: // Enter key
+		case 3: // Live update
+			SVAR strinG = $"root:packages:twoP:acquire:" + sva.vname
+			strinG = twoP_MultiParseTimeStr(sva.sVal)
+			break
+	endswitch
+	return 0
+end
+
+//******************************************************************************************************
+// parses time strings into nicer time strings
+// If no colon, assume all is seconds. if 1 colon, assume seconds and minutes.
+// if 2 colons, hours, minutes, seconds
+// Last modified 2025/07/11 by Jamie Boyd -  no more pass by reference.  Used sscanf
+Function/S twoP_MultiParseTimeStr(timeStr)
+	string timeStr
+	
+	variable hours_in = 0, minutes_in= 0, seconds_in = 0
+	variable v1, v2, v3
+	sscanf timeStr, "%d:%d:%d", v1, v2, v3
+	switch(V_FLag)
+		case 0:
+			return ""
+			break
+		case 1:
+			seconds_in = v1
+			break
+		case 2:
+			minutes_in=V1
+			seconds_in = v2
+			break
+		case 3:
+			hours_in =v1
+			minutes_in=v2
+			seconds_in=v3
+		default:
+			return ""
+			break
+	endswitch
+	
+	variable secs_out = mod(seconds_in, 60)
+	variable mins_out = mod((minutes_in + floor(seconds_in/60)), 60)
+	variable hours_out = hours_in + floor(minutes_in/60)
+	string timeOutStr
+	sprintf timeOutStr "%02d:%02d:%02d" hours_out, mins_out, secs_out
+	return timeOutStr
+end
+	
+
+//************************************************************************************************
+// reads equivalent seconds from a properly parsed time string
+// Last modified 2025/07/11 by Jamie Boyd -Made separate function to get seconds from time string
+function twoP_MultiReadTimeStr(timeStr)
+	string timeStr
+	
+	variable hrs = str2num(StringFromList(0, timeStr, ":"))
+	variable mins = str2num(StringFromList(1, timeStr, ":"))
+	variable secs = str2num(StringFromList(2, timeStr, ":"))
+	return(3600 * hrs + 60 *mins + secs)
+end
+
+
+//******************************************************************************************************
+//puts up a table to edit the selected timing wave
+// Last Modified 2012/04/03 by Jamie Boyd
+Function twoP_MultiWaveEditButtonProc(ctrlName) : ButtonControl
+	String ctrlName
+	
+	SVAR TimingWaveStr = root:packages:twoP:Acquire:multiAqWaveWaveStr
+	WAVE newtimingwave = $"root:packages:twoP:Acquire:multiAqWaves:" + TimingWaveStr
+	edit/k=1 newTimingWave as "Edit Timing Wave:" + TimingWaveStr
+End
+
+
+
+//******************************************************************************************************
+//Deletes the selected timing wave
+// Last Modified 2012/04/03 by Jamie Boyd
+Function twoP_MultiWaveDeleteButtonProc(ctrlName) : ButtonControl
+	String ctrlName
+	
+	SVAR TimingWaveStr = root:packages:twoP:Acquire:multiAqWaveWaveStr
+	WAVE timingwave = $"root:packages:twoP:Acquire:multiAqWaves:" + TimingWaveStr
+	GUIPkilldisplayedwave(timingwave)
+	TimingWaveStr= ""
+End
+	
+
+//******************************************************************************************************
+// Makes a series of waves in advance of doing the scanning, for increased speed
+// Last Modified 2012/07/09 by Jamie Boyd
+Function twoP_MultiPreMakeProc(ba) : ButtonControl
+	STRUCT WMButtonAction &ba
+	
+	switch( ba.eventCode )
+		case 2: // mouse up
+			NVAR multiMode =root:packages:twoP:acquire:multiAqTimeMode
+			variable nAqs
+			switch(multiMode)
+				case kMultiUsePeriod:
+					NVAR multiAqPeriodNum = root:packages:twoP:acquire:multiAqPeriodNum
+					nAqs = multiAqPeriodNum
+					break
+				case kMultiUseWave:
+					// check that timing wave exists
+					SVAR multiWaveName = root:packages:twoP:Acquire:multiAqWaveWaveStr 
+					WAVE/t/z multiWave = $"root:packages:twoP:acquire:multiAqWaves:" + multiWaveName
+					if(!(waveExists(multiWave)))
+						doAlert 0, "The selected multi-acquisition wave, \"" +  multiWaveName + "\", does not exist."
+						return 0
+					endif
+					nAqs = numpnts(multiWave)
+					break
+				case kMultiUseTrigger:
+					NVAR multiAqTriggerNum = root:packages:twoP:acquire:multiAqTriggerNum
+					nAqs =multiAqTriggerNum
+					break
+			endswitch
+			variable iAq
+			// load the scan struct - all scans will have the same paramaters, so only need do it once
+			STRUCT twoP_ScanStruct s
+			twoP_LoadScanStruct(s)
+			twoP_MultiMakeImageScanWaves(s)
+				//if(s.ePhysChans)
+					//twoP_MakeEphysWaves(s) 
+				//endif
+				// adjust scan Name
+				s.NewScanName =  twoP_autinc(s.NewScanName, 1)
+			//endfor
+	endswitch
+	return 0
+End
+
 // removes background task for multi-aq and resets start button and other controls
-// last modified 2013/08/06 by Jamie Boyd
+// last modified 2026/06/18 by Jamie Boyd
 Function NQ_MultiAqReset()
 
 	// stop background procedure
@@ -5937,153 +6125,10 @@ Function NQ_MultiAqReset()
 end
 
 
-//******************************************************************************************************
-// Sets scanMode to negative value of chosen mode to indicate a multiple acquisition
-// Last modified Apr 02 2012 by Jamie Boyd
-Function NQ_MultiAqDataModePopMenuProc(pa) : PopupMenuControl
-	STRUCT WMPopupAction &pa
 
-	switch( pa.eventCode )
-		case 2: // mouse up
-			NVAR multiAqScanMode =  root:packages:twoP:acquire:multiAqScanMode
-			multiAqScanMode = pa.popNum
-			//Set Times
-			twoP_SetTimes()
-			break
-	endswitch
-	return 0
-End
 
-//******************************************************************************************************
-// Sets times for periodic acquisition, namely, initial delay and perioid
-// Last modified Apr 02 2012 by Jamie Boyd
 
-//******************************************************************************************************
-// sets string to name of chosen wave or makes a new wave in the datafolder for timing waves
-// Last modified Apr 03 2012 by Jamie Boyd
 
-//******************************************************************************************************
-//puts up a table to edit the selected timing wave
-// Last Modified Apr 03 2012 by Jamie Boyd
-Function NQ_MultiWaveEditButtonProc(ctrlName) : ButtonControl
-	String ctrlName
-	
-	SVAR TimingWaveStr = root:packages:twoP:Acquire:multiAqWaveWaveStr
-	WAVE newtimingwave = $"root:packages:twoP:Acquire:multiAqWaves:" + TimingWaveStr
-	edit/k=1 newTimingWave as "Edit Timing Wave:" + TimingWaveStr
-End
-
-//******************************************************************************************************
-//Deletes the selected timing wave
-// Last Modified Apr 03 2012 by Jamie Boyd
-Function NQ_MultiWaveDeleteButtonProc(ctrlName) : ButtonControl
-	String ctrlName
-	
-	SVAR TimingWaveStr = root:packages:twoP:Acquire:multiAqWaveWaveStr
-	WAVE newtimingwave = $"root:packages:twoP:Acquire:multiAqWaves:" + TimingWaveStr
-	GUIPkilldisplayedwave(newtimingwave)
-	TimingWaveStr= ""
-End
-	
-//******************************************************************************************************
-// parses time strings into nicer time strings
-// If no colon, assume all is seconds. if 1 colon, assume seconds and minutes.
-// if 2 colons, hours, minutes, seconds
-// Last modified 2025/07/11 by Jamie Boyd -  no more pass by reference.  Used sscanf
-Function/S NQ_MultiParseTimeStr(timeStr)
-	string timeStr
-	
-	variable hours_in = 0, minutes_in= 0, seconds_in = 0
-	variable v1, v2, v3
-	sscanf timeStr, "%d:%d:%d", v1, v2, v3
-	switch(V_FLag)
-		case 0:
-			return ""
-			break
-		case 1:
-			seconds_in = v1
-			break
-		case 2:
-			minutes_in=V1
-			seconds_in = v2
-			break
-		case 3:
-			hours_in =v1
-			minutes_in=v2
-			seconds_in=v3
-		default:
-			return ""
-			break
-	endswitch
-	
-	variable secs_out = mod(seconds_in, 60)
-	variable mins_out = mod((minutes_in + floor(seconds_in/60)), 60)
-	variable hours_out = hours_in + floor(minutes_in/60)
-	string timeOutStr
-	sprintf timeOutStr "%02d:%02d:%02d" hours_out, mins_out, secs_out
-	return timeOutStr
-end
-	
-
-//************************************************************************************************
-// reads equivalent seconds from a properly parsed time string
-// Last modified 2025/07/11 by Jamie Boyd -Made separate function to get seconds from time string
-function NQ_MultiReadTimeStr(timeStr)
-	string timeStr
-	
-	variable hrs = str2num(StringFromList(0, timeStr, ":"))
-	variable mins = str2num(StringFromList(1, timeStr, ":"))
-	variable secs = str2num(StringFromList(2, timeStr, ":"))
-	return(3600 * hrs + 60 *mins + secs)
-end
-
-//******************************************************************************************************
-// Makes a series of waves in advance of doing the scanning, for increased speed
-// Last Modified 2012/07/09 by Jamie Boyd
-Function NQ_MultiPreMakeProc(ba) : ButtonControl
-	STRUCT WMButtonAction &ba
-	
-	switch( ba.eventCode )
-		case 2: // mouse up
-			NVAR multiMode =root:packages:twoP:acquire:multiAqTimeMode
-			variable nAqs
-			switch(multiMode)
-				case kMultiUsePeriod:
-					NVAR multiAqPeriodNum = root:packages:twoP:acquire:multiAqPeriodNum
-					nAqs = multiAqPeriodNum
-					break
-				case kMultiUseWave:
-					// check that timing wave exists
-					SVAR multiWaveName = root:packages:twoP:Acquire:multiAqWaveWaveStr 
-					WAVE/t/z multiWave = $"root:packages:twoP:acquire:multiAqWaves:" + multiWaveName
-					if(!(waveExists(multiWave)))
-						doAlert 0, "The selected multi-acquisition wave, \"" +  multiWaveName + "\", does not exist."
-						return 0
-					endif
-					nAqs = numpnts(multiWave)
-					break
-				case kMultiUseTrigger:
-					NVAR multiAqTriggerNum = root:packages:twoP:acquire:multiAqTriggerNum
-					nAqs =multiAqTriggerNum
-					break
-			endswitch
-			variable iAq
-			// load the scan struct with values for next scan
-			STRUCT twoP_ScanStruct s
-			twoP_LoadScanStruct(s)
-			for(iAq=0; iAq < nAqs; iAq +=1)
-				if(1) // @@@ s.scanChans)
-					twoP_MakeImageScanWaves(s)
-				endif
-				//if(s.ePhysChans)
-					//twoP_MakeEphysWaves(s) 
-				//endif
-				// adjust scan Name
-				s.NewScanName =  twoP_autinc(s.NewScanName, 1)
-			endfor
-	endswitch
-	return 0
-End
 
 //******************************************************************************************************
 //Initializes multiAq variables when stating a series of acquisitions
@@ -6129,7 +6174,7 @@ function NQ_MultiAqInit()
 				// set initial time to next from first point
 				variable waveMS
 				string waveDelayStr = multiWave [0]
-				//waveMS = NQ_MultiParseTimeStr(waveDelayStr)
+				//waveMS = twoP_MultiParseTimeStr(waveDelayStr)
 				timeToNext = waveMS
 				multiWave [0]= waveDelayStr
 				nAqs = numpnts(multiWave)
@@ -6207,7 +6252,7 @@ Function NQ_MultiBkg( s)
 		NVAR MultiAqNextTime = root:packages:twoP:acquire:MultiAqNextTime			// timeof next scan
 		variable rSecs = MultiAqNextTime -  datetime
 		if(rSecs > 0)
-			sprintf tempStr, "SCAN %d NEXT in %s.", iAq, NQ_MultiParseTimeStr(num2str(rSecs))
+			sprintf tempStr, "SCAN %d NEXT in %s.", iAq, twoP_MultiParseTimeStr(num2str(rSecs))
 		else
 			sprintf tempStr,"STARTING %d of %d",(iAq + 1), nAqs
 			WAVE maq_seconds= root:packages:twoP:acquire:multiAqWaves:maq_seconds
@@ -6255,7 +6300,7 @@ end
 		
 	string timeStr = theWave [iAq] // time to next scan
 	variable microSecs // will get microseconds to next scan 
-	//NQ_MultiParseTimeStr(timeStr, microSecs)
+	//twoP_MultiParseTimeStr(timeStr, microSecs)
 	theWave [iAq] = timeStr
 	//timeToNext = max(0,(startTime + microSecs) -stopMSTimer(-2))
 	
@@ -6401,116 +6446,6 @@ function NQ_RepeatHook(scanMode)
 	return 0
 end
 
-//******************************************************************************************************
-// Starts each thread, and posts an initial data folder initialized with global variables needed by thread
-// Last modified:
-// 2017/08/12 by Jamie Boyd netter background threads and task based on fDAQmx_ScanGetNextIndex
-// 2017/02/01 by Jamie Boyd  still working on thread per channel
-// 20116/11/17 by Jamie Boyd new thread for each channel
-// 2016/10/25 by Jamie Boyd initial version
-function NQ_StartBKGThreads(s)
-	STRUCT twoP_ScanStruct &s
-	
-	Switch(s.scanMode)
-		case kLiveMode:
-			
-			break
-		case kTimeSeries:
-			variable/G root:packages:twoP:acquire:nTFrames
-			NVAR nTFrames = root:packages:twoP:acquire:nTFrames
-			NVAR bufferSize = root:packages:twoP:acquire:tSeriesBufferSize
-			nTFrames =  floor(s.numFrames/bufferSize)
-			if(s.scanIsCyclic)
-				variable/G root:packages:twoP:acquire:iTFrame =0
-			else
-				NVAR numFrames = root:packages:twoP:acquire:TseriesFrames
-			endif
-			break
-		case kZSeries:
-			variable/G root:packages:twoP:acquire:iZFrame =0
-			
-			break
-	endSwitch
-	// make a global wave to hold threadGroup ids, one per channel
-	// each threadGroup has one thread and processes one channel
-	// the thread function and data passed to it must be channel agnostic
-	WAVE bkgThreadIDs = root:packages:twoP:acquire:bkgThreadIDs
-	// make threads, one per channel
-	variable iChan, nChans=2
-	for(iChan =0; iChan < nChans; iChan +=1)
-		//if(1) // @@@ s.scanChans &(2^iChan))
-			bkgThreadIDs [iChan] = ThreadGroupCreate(1)
-			// make a new data folder, copy over needed global variables
-			newdatafolder/o/s root:packages:twoP:acquire:bkgStartFldr
-			variable/G :flybackMode =s.flybackMode
-			variable/G :frameTime = s.frameTime
-			NVAR showChanG = $"root:packages:twoP:examine:showCh" + num2str(iChan + 1)
-			variable/G :showChan = showChanG
-			WAVE scanGraphWave = $""
-			if(showChanG)
-				WAVE scanGraphWave =$"root:packages:twoP:examine:scanGraph_ch" + num2str(iChan + 1)
-			endif
-			//variable/G :showMerge = showMergeG
-			//if(showMergeG)
-				//tempChanVar = iChan + 1
-				//execute "root:packages:twoP:examine:tempChanVar=$\"kNQChan\" + num2str(root:packages:twoP:examine:tempChanVar) + \"layer\""
-				//variable/G :mergeLayer = tempChanVar
-				//printf "MergeLayer = %d\r", tempChanVar
-			//endif
-
-			Switch(s.scanMode)
-				case kLiveMode:
-//					variable/G :nLiveFrames = nLiveFrames
-//					variable/G :LiveAvgCheck =LiveAvgCheckG
-//					if(LiveAvgCheckG)
-//						variable/G :numLiveAvgFrames = numLiveAvgFramesG
-//					endif
-//					variable/G :liveHistCheck = liveHistCheckG
-//					wave histWave = $""
-//					if(liveHistCheckG)
-//						WAVE histWave = $"root:packages:twoP:examine:histwavech" + num2str(iChan + 1)
-//						duplicate histWave :histwave_cp
-//					endif
-//					WAVE acqWave = $"root:Packages:twoP:Acquire:LiveACQ_ch" + num2str(iChan + 1)
-//					ThreadStart bkgThreadIDs [iChan], 0, NQ_LiveChanThread(acqWave, scanGraphWave, mergeWave, histWave)
-					break
-				case kZseries:
-					variable/G :numZframes = s.numFrames
-					variable/G :zAvgFrames = s.zAvg
-					WAVE scanWave = $"root:twoP_Scans:" +  s.NewScanName + ":" + s.NewScanName + "_ch" + num2str(iChan + 1)
-					WAVE acqWave = $"root:packages:twoP:acquire:TempZWave_ch" + num2str(iChan + 1)
-					setscale/p x 0, 1e-03, acqWave
-					variable/G :avgStackAtOnce = s.zAvgStackAtOnce // acqWave is 3D if this variable is set, else 2D
-					//ThreadStart bkgThreadIDs [iChan], 0, NQ_zSeriesChanThread(scanWave, acqWave, scanGraphWave, mergeWave)
-					break
-				case kTimeSeries:
-					WAVE scanWave = $"root:twoP_Scans:" +  s.NewScanName + ":" + s.NewScanName + "_ch" + num2str(iChan + 1)
-					WAVE acqWave = $""
-					
-					if(s.scanIsCyclic)
-						variable/G :tBufferSize = bufferSize
-						variable/G :numFrames = nTFrames
-						WAVE acqWave = $"root:packages:twoP:acquire:TempZWave_ch" + num2str(iChan + 1)
-						setscale/p x 0, 1e-03, acqWave
-						//ThreadStart bkgThreadIDs [iChan], 0, NQ_tSeriesCyclicChanThread(scanWave, acqWave, scanGraphWave, mergeWave)
-					else
-						NVAR firstColorG = $"root:packages:twoP:examine:Ch" + num2Str(iChan + 1) + "FirstLutColor"
-						NVAR LastColorG = $"root:packages:twoP:examine:Ch" + num2Str(iChan + 1) + "LastLutColor"
-						variable/G :firstColor = firstColorG
-						variable/G :lastColor = lastColorG
-						variable/G :numFrames = numFrames
-						//ThreadStart bkgThreadIDs [iChan], 0, NQ_tSeriesChanThread(scanWave, scanGraphWave, mergeWave)
-					endif
-						
-			endSwitch
-			// post first datafolder for this channel
-			//ThreadGroupPutDF bkgThreadIDs [iChan], root:packages:twoP:acquire:bkgStartFldr
-		//else
-		//	bkgThreadIDs [iChan] = NaN
-		//endif
-	endfor
-	//setdatafolder saveDFR
-end
 
 
 ThreadSafe Function NQ_tSeriesChanThread(scanWave, scanGraphWave, mergeWave)
@@ -6552,309 +6487,11 @@ ThreadSafe Function NQ_tSeriesChanThread(scanWave, scanGraphWave, mergeWave)
 	return 0
 end
 
-			
-ThreadSafe Function NQ_tSeriesCyclicChanThread(scanWave, acqWave, scanGraphWave, mergeWave)
-	WAVE scanWave, acqWave, scanGraphWave, mergeWave
-	
-	// first dfref(dfrInit) contains initiailization variables
-	DFREF dfrInit = ThreadGroupGetDFR(0,inf)
-	NVAR flybackMode =dfrInit:flyBackMode
-	NVAR showChan =dfrInit:showChan
-	NVAR showMerge = dfrInit:showMerge
-	NVAR mergeLayer = dfrInit:mergeLayer
-	NVAR tBufferSize = dfrInit:tBufferSize
-	NVAR numFrames = dfrInit:numFrames
-	//printf "NumFrames = %d\r", numFrames
-	//	make 3D temp waves for processing
-	variable xSize = dimsize(scanGraphWave, 0)
-	variable ySize = dimsize(scanGraphWave, 1)
-	variable frameSize= xSize * ySize
-	//make/w/u/o/n =((xSize),(ySize)) dfrInit:acqWave2D_temp
-	//WAVE acqWave_temp2D = dfrInit:acqWave_temp
-	make/w/u/o/n =((xSize),(ySize),(tBufferSize)) dfrInit:acqWave3D_temp
-	WAVE acqWave_temp3D = dfrInit:acqWave3D_temp
-	// go through the frames
-	variable iFrame, scanWavePos
-	for(iFrame =0, scanWavePos =0; iFrame < numFrames; iFrame +=1, scanWavePos += tBufferSize)
-		//printf "iFrame = %d\r", iFrame
-		DFREF dfr = ThreadGroupGetDFR(0,inf)
-		NVAR newFrameG = dfr:newFrame
-		if(newFrameG == 0)
-			killdatafolder dfr
-			break // break out of loop so we can return, user cancelled
-		else
-			acqWave_temp3D = AcqWave [r * frameSize + q * xSize  + p] + (kNQtoUnsigned)
-			if(flybackMode == 1)
-				SwapEven(acqWave_temp3D)
-			endif
-			scanWave [*] [*] [scanWavePos, scanWavePos + tBufferSize -1] = acqWave_temp3D [p] [q] [r - scanWavePos]
-			if(showChan || showMerge)
-				ProjectSpecFrames(acqWave_temp3D, 0,(tBufferSize -1), scanGraphWave, 0, 2, 2)
-				if(showMerge)
-					NVAR firstColor = dfr:firstColor
-					NVAR lastColor = dfr:lastColor
-					variable rangevar= 65536/(lastColor - firstColor)
-					//printf "mergeLayer = %d, firstcolor = %d, lastcolor = %d, rangeVar = %f\r", mergeLayer, firstColor, lastColor, rangevar
-					mergeWave [*] [*] [mergeLayer] =  min(65280, max(0,(scanGraphWave [p] [q] - firstColor)) * rangevar)
-				endif
-			endif
-			killdatafolder dfr
-		endif
-	endfor
-	killdatafolder dfrInit
-	return 0
-end
-			
-
-ThreadSafe Function NQ_zSeriesChanThread(scanWave, acqWave, scanGraphWave, mergeWave)
-	WAVE scanWave, acqWave, scanGraphWave, mergeWave
-	
-	// first dfref(dfrInit) contains initiailization variables
-	DFREF dfrInit = ThreadGroupGetDFR(0,inf)
-	NVAR flybackMode =dfrInit:flyBackMode
-	NVAR frameTime =dfrInit:frameTime
-	NVAR showChan =dfrInit:showChan
-	NVAR showMerge = dfrInit:showMerge
-	NVAR mergeLayer = dfrInit:mergeLayer
-	NVAR numZframes = dfrInit:numZframes
-	NVAR zAvgFrames = dfrInit:zAvgFrames
-	NVAR avgStackAtOnce = dfrInit:avgStackAtOnce
-	// variables and waves we make at init
-	//	make 2D temp wave for processing
-	variable xSize = dimsize(scanGraphWave, 0)
-	variable ySize = dimsize(scanGraphWave, 1)
-	make/w/u/o/n =((xSize),(ySize)) dfrInit:acqWave_temp
-	WAVE acqWave_temp = dfrInit:acqWave_temp
-	make/w/u/o/n =((xSize),(ySize),(zAvgFrames)) dfrInit:acqWave_zAvgTemp
-	WAVE acqWave_zAvgTemp = dfrInit:acqWave_zAvgTemp
-	variable nFrameCalls, zAvgFramePos
-	if(avgStackAtOnce)
-		nFrameCalls = numZframes
-		zAvgFramePos = zAvgFrames -1
-	else
-		nFrameCalls = numZframes * zAvgFrames
-	endif
-	// go through the frames
-	variable iFrame, scanWavePos
-	for(iFrame =1; iFrame < nFrameCalls; iFrame +=1)
-		DFREF dfr = ThreadGroupGetDFR(0,inf)
-		NVAR newFrameG = dfr:newFrame
-		if(newFrameG == 0)
-			killdatafolder dfr
-			break // break out of loop so we can return, user cancelled
-		else
-			if(avgStackAtOnce) // acqWave is 3D wave ready to be medianed
-				fastop acqWave_zAvgTemp = AcqWave +(kNQtoUnsigned)
-				ProjectSpecFrames(acqWave_zAvgTemp, 0,(zAvgFrames -1), acqWave_temp, 0, 2, 3)
-				scanWavePos = iFrame
-			else
-				zAvgFramePos = mod(iFrame, zAvgFrames)
-				acqWave_zAvgTemp [*] [*] [zAvgFramePos] = AcqWave [(q * xSize) + p] +(kNQtoUnsigned)
-				if(zAvgFramePos == zAvgFrames -1)
-					ProjectSpecFrames(acqWave_zAvgTemp, 0,(zAvgFrames -1), acqWave_temp, 0, 2, 3)
-					scanWavePos =(iFrame/zAvgFrames)-1
-				endif
-			endif
-			if(zAvgFramePos == zAvgFrames -1)
-				if(flybackMode == 1)
-					SwapEven(acqWave_temp)
-				endif
-				scanWave [*] [*] [scanWavePos] = acqWave_temp [p] [q]
-				if(showChan || showMerge)
-					fastop scanGraphWave = acqWave_temp
-				endif
-				if(showMerge)
-					NVAR firstColor = dfr:firstColor
-					NVAR lastColor = dfr:lastColor
-					variable rangevar= 65536/(lastColor - firstColor)
-					//printf "mergeLayer = %d, firstcolor = %d, lastcolor = %d, rangeVar = %f\r", mergeLayer, firstColor, lastColor, rangevar
-					mergeWave [*] [*] [mergeLayer] =  min(65280, max(0,(scanGraphWave [p] [q] - firstColor)) * rangevar)
-				endif
-			endif
-			killdatafolder dfr
-		endif
-	endfor
-	killdatafolder dfrInit
-	return 0
-end
-
-
-//******************************************************************************************************
-// preemptive thread that does the heavy lifting of copying data and so forth for live mode
-// acquire wave and display waves passed directly to thread;
-// other paramaters put in a datafolder and posted first
-// last modified 2017/08/12 by Jamie Boyd
-ThreadSafe Function NQ_LiveChanThread(AcqWave, displayWave, mergeWave, histWave)
-	WAVE AcqWave, displayWave, mergeWave, histWave
-	
-	// first dfref(dfrInit) contains initialization variables
-	// so do it before main loop
-	DFREF dfrInit = ThreadGroupGetDFR(0,inf)
-	//	make 2D temp wave for processing
-	variable xSize = dimsize(displayWave, 0)
-	variable ySize = dimsize(displayWave, 1)
-	make/w/u/o/n =((xSize),(ySize)) dfrInit:acqWave_temp
-	WAVE acqWave_temp = dfrInit:acqWave_temp
-	NVAR flybackMode =dfrInit:flyBackMode
-	NVAR liveHistCheck = dfrInit:liveHistCheck
-	NVAR liveAvgCheck = dfrInit:liveAvgCheck
-	NVAR nLiveAvgFrames = dfrInit:numLiveAvgFrames
-	NVAR showMerge = dfrInit:showMerge
-	NVAR mergeLayer =  dfrInit:mergeLayer
-	if(liveAvgCheck)
-		make/w/u/o/n =((dimsize(displayWave, 0)),(dimsize(displayWave, 1)),(nLiveAvgFrames))  dfrInit:LiveAvg
-		WAVE liveAvg = dfrInit:LiveAvg
-		fastop liveAvg =0
-		variable liveFramePos
-		displayWave =0
-	endif
-	NVAR nLiveFrames = dfrInit:nLiveFrames
-	if(nLiveFrames > 1)
-		make/w/u/o/n =((dimsize(displayWave, 0)),(dimsize(displayWave, 1)),(nLiveFrames)) dfrInit:acqWave_nLiveTemp
-		WAVE acqWave_nLiveTemp = dfrInit:acqWave_nLiveTemp
-	endif
-	// this loop is called at end of every new acquisition, or when a stop is requested
-	variable iFrame
-	for(iFrame=0;;iFrame +=1)
-		DFREF dfr = ThreadGroupGetDFR(0,inf)
-		NVAR newFrameG = dfr:newFrame
-		if(newFrameG == 0)
-			killdatafolder dfr
-			break // break out of loop so we can return
-		else // we have completed another acquisition
-			// copy from signed data into unsigned data,in 3D for nLiveFrames > 1
-			// if nLiveFrames > 1, project 3D data into 2D wave acqWave_temp
-			if(nLiveFrames ==1) 
-				fastop acqWave_temp = AcqWave +(kNQtoUnsigned) // [frameOffset + q * ySize + p]
-			else
-				fastop acqWave_nLiveTemp = AcqWave +(kNQtoUnsigned)
-				ProjectSpecFrames(acqWave_nLiveTemp, 0,(nLiveFrames -1), acqWave_temp, 0, 2, 3)
-			endif
-			if(flybackMode == 1)
-				SwapEven(acqWave_temp)
-			endif
-			if(liveAvgCheck)
-				liveFramePos = mod(iFrame, nLiveAvgFrames)
-				displayWave +=(acqWave_temp [p] [q] - liveAvg [p] [q] [liveFramePos])/nLiveAvgFrames
-				liveAvg [*] [*] [liveFramePos] = acqWave_temp [p] [q]
-			else
-				fastOp displayWave = AcqWave_temp
-			endif
-			if(liveHistCheck)
-				if(nLiveFrames ==1)
-					WAVE histMe= AcqWave_temp
-				else
-					WAVE histMe = acqWave_nLiveTemp
-				endif
-				WAVE histwave_cp = dfrInit:histwave_cp
-				Histogram/B=2 histMe, histwave_cp
-				histWave = histwave_cp
-			endif
-			if(showMerge)
-				NVAR firstColor = dfr:firstColor
-				NVAR lastColor = dfr:lastColor
-				variable rangevar= 65536/(lastColor - firstColor)
-				//printf "mergeLayer = %d, firstcolor = %d, lastcolor = %d, rangeVar = %f\r", mergeLayer, firstColor, lastColor, rangevar
-				mergeWave [*] [*] [mergeLayer] =  min(65280, max(0,(displayWave [p] [q] - firstColor)) * rangevar)
-			endif
-		endif
-	endfor
-	killdatafolder dfrInit
-	return 0
-end
-
-Function setGalvoByCursor()
-	String info
-	Variable xPoint,yPoint,dX,dY,pixPerVolt
-	
-	info = CsrInfo(A,"twoPscanGraph#GCH1")
-	xPoint = str2num(StringByKey("YPOINT",info,":",";")) // columns
-	yPoint = str2num(StringByKey("POINT",info,":",";"))  //rows
-	
-	NVAR xStartVolts = root:Packages:twoP:Acquire:xStartVolts
-	NVAR xEndVolts = root:Packages:twoP:Acquire:xEndVolts
-	NVAR yStartVolts = root:Packages:twoP:Acquire:yStartVolts
-	NVAR yEndVolts = root:Packages:twoP:Acquire:yEndVolts
-	
-	pixPerVolt = 500/3
-	NVAR ppmXcrop = root:Packages:twoP:Acquire:xPixSize
-	NVAR ppmYcrop = root:Packages:twoP:Acquire:yPixSize
-	
-	//closer to 200 nm/pixel is probably more accurate with a 100 micron field of view 
-	variable ppmX = 200e-9 // nm/pixel  this needs o be empirically measured
-	variable ppmY = 200e-9
-	
-	dX = round((xStartVolts -(-1.5))*pixPerVolt + xPoint)
-	dY = round((yStartVolts -(-1.5))*pixPerVolt + yPoint)
-	
-		
-	NVAR xStepSize = root:Packages:MS2000:xStepSize
-	NVAR yStepSize = root:Packages:MS2000:yStepSize
-	
-	xStepSize = dX*ppmXcrop - 250*ppmX
-	yStepSize = dY*ppmYcrop - 250*ppmY
-	print xStepSize,yStepSize
-End Function
 
 
 
-Function NQ_MultiWaveWavePopMenuProc(pa) : PopupMenuControl
-	STRUCT WMPopupAction &pa
 
-	switch( pa.eventCode )
-		case 2: // mouse up
-			SVAR TimingWaveStr = root:packages:twoP:Acquire:multiAqWaveWaveStr
-			string newTimingWaveStr = pa.popStr
-			if(cmpStr(newTimingWaveStr,"New Timing Wave") ==0)
-				newTimingWaveStr = ""
-				prompt newTimingWaveStr "New Timimg Wave:"
-				doprompt "Name for New Timing Wave", newTimingWaveStr
-				if(V_Flag == 1)
-					return 1
-				endif
-				newTimingWaveStr = CleanupName(newTimingWaveStr, 0 )
-				make/T/n = 0 $"root:packages:twoP:Acquire:multiAqWaves:" + newTimingWaveStr
-				WAVE newtimingwave = $"root:packages:twoP:Acquire:multiAqWaves:" + newTimingWaveStr
-				edit/k=1 newTimingWave as "Edit Timing Wave:" + newTimingWaveStr
-			else // selecting an existing wave
-				// need some validation here!
-				WAVE/T timingWave = $"root:packages:twoP:Acquire:multiAqWaves:" + pa.popStr
-				timingWave =  NQ_MultiParseTimeStr(timingWave)
-				variable iPnt,nPnts = numpnts(timingWave)
-				variable thisSecs, lastSecs = NQ_MultiReadTimeStr(timingWave [0])
-				for(iPnt =1; iPnt <  nPnts; iPnt +=1, lastSecs= thisSecs)
-					thisSecs = NQ_MultiReadTimeStr(timingWave [iPnt])
-					if(numtype(thisSecs) != 0)
-						doalert 0 , "The time wave is not of the right format."
-						TimingWaveStr = ""
-						return 0
-					endif
-					if(thisSecs < lastSecs)
-						doalert 0, "Time waves need to contain elapsed times from start, not interscan periods."
-						TimingWaveStr = ""
-						return 0
-					endif
-				endfor
-			endif
-			TimingWaveStr = newTimingWaveStr
-			break
-	endswitch
-	return 0
-end
 
-Function NQ_MultiAqTimeSetVarProc(sva) : SetVariableControl
-	STRUCT WMSetVariableAction &sva
-
-	switch( sva.eventCode )
-		case 1: // mouse up
-		case 2: // Enter key
-		case 3: // Live update
-			SVAR strinG = $"root:packages:twoP:acquire:" + sva.vname
-			strinG = NQ_MultiParseTimeStr(sva.sVal)
-			break
-	endswitch
-	return 0
-end
 
 
 
@@ -6888,7 +6525,7 @@ end
 
 
 
-Function NQ_MultiStartProc(ba) : ButtonControl
+Function twoP_MultiStartProc(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 
 	switch( ba.eventCode )
@@ -6920,9 +6557,9 @@ Function NQ_MultiStartProc(ba) : ButtonControl
 						NVAR multiAqPeriodNum = root:packages:twoP:acquire:multiAqPeriodNum
 						nAqs = multiAqPeriodNum
 						SVAR periodStr = root:Packages:twoP:Acquire:multiAqPeriodPeriodStr
-						variable period=NQ_MultiReadTimeStr(periodStr) 
+						variable period=twoP_MultiReadTimeStr(periodStr) 
 						SVAR delayStr =root:packages:twoP:acquire:multiAqPeriodDelayStr
-						variable delay =NQ_MultiReadTimeStr(delayStr)
+						variable delay =twoP_MultiReadTimeStr(delayStr)
 						make/o/n=(nAqs) root:packages:twoP:acquire:multiAqWaves:maq_seconds
 						WAVE maq_seconds = root:packages:twoP:acquire:multiAqWaves:maq_seconds
 						maq_seconds [0]=delay
@@ -6936,7 +6573,7 @@ Function NQ_MultiStartProc(ba) : ButtonControl
 							nAqs = numpnts(multiWave)
 							make/o/n=(nAqs) root:packages:twoP:acquire:multiAqWaves:maq_Period
 							WAVE maq_seconds = root:packages:twoP:acquire:multiAqWaves:maq_seconds
-							maq_seconds = NQ_MultiReadTimeStr(multiWave[p])
+							maq_seconds = twoP_MultiReadTimeStr(multiWave[p])
 						endif
 						NVAR MultiAqStartTime = root:packages:twoP:acquire:MultiAqStartTime				// when scan was started
 						NVAR MultiAqNextTime = root:packages:twoP:acquire:MultiAqNextTime
@@ -7004,3 +6641,91 @@ end
 
 
 //•redimension/w/n =(200*200*2) root:twoP_Scans:Scan_000:Scan_000_ch1;DAQmx_Scan /DEV="PCI6023"/BKG WAVES ="root:twoP_Scans:Scan_000:Scan_000_ch1, 0/DIFF, -10, 10, 1, 100"
+
+
+
+
+
+////******************************************************************************************************
+//// preemptive thread that does the heavy lifting of copying data and so forth for live mode
+//// acquire wave and display waves passed directly to thread;
+//// other paramaters put in a datafolder and posted first
+//// last modified 2017/08/12 by Jamie Boyd
+//ThreadSafe Function NQ_LiveChanThread(AcqWave, displayWave, mergeWave, histWave)
+//	WAVE AcqWave, displayWave, mergeWave, histWave
+//	
+//	// first dfref(dfrInit) contains initialization variables
+//	// so do it before main loop
+//	DFREF dfrInit = ThreadGroupGetDFR(0,inf)
+//	//	make 2D temp wave for processing
+//	variable xSize = dimsize(displayWave, 0)
+//	variable ySize = dimsize(displayWave, 1)
+//	make/w/u/o/n =((xSize),(ySize)) dfrInit:acqWave_temp
+//	WAVE acqWave_temp = dfrInit:acqWave_temp
+//	NVAR flybackMode =dfrInit:flyBackMode
+//	NVAR liveHistCheck = dfrInit:liveHistCheck
+//	NVAR liveAvgCheck = dfrInit:liveAvgCheck
+//	NVAR nLiveAvgFrames = dfrInit:numLiveAvgFrames
+//	NVAR showMerge = dfrInit:showMerge
+//	NVAR mergeLayer =  dfrInit:mergeLayer
+//	if(liveAvgCheck)
+//		make/w/u/o/n =((dimsize(displayWave, 0)),(dimsize(displayWave, 1)),(nLiveAvgFrames))  dfrInit:LiveAvg
+//		WAVE liveAvg = dfrInit:LiveAvg
+//		fastop liveAvg =0
+//		variable liveFramePos
+//		displayWave =0
+//	endif
+//	NVAR nLiveFrames = dfrInit:nLiveFrames
+//	if(nLiveFrames > 1)
+//		make/w/u/o/n =((dimsize(displayWave, 0)),(dimsize(displayWave, 1)),(nLiveFrames)) dfrInit:acqWave_nLiveTemp
+//		WAVE acqWave_nLiveTemp = dfrInit:acqWave_nLiveTemp
+//	endif
+//	// this loop is called at end of every new acquisition, or when a stop is requested
+//	variable iFrame
+//	for(iFrame=0;;iFrame +=1)
+//		DFREF dfr = ThreadGroupGetDFR(0,inf)
+//		NVAR newFrameG = dfr:newFrame
+//		if(newFrameG == 0)
+//			killdatafolder dfr
+//			break // break out of loop so we can return
+//		else // we have completed another acquisition
+//			// copy from signed data into unsigned data,in 3D for nLiveFrames > 1
+//			// if nLiveFrames > 1, project 3D data into 2D wave acqWave_temp
+//			if(nLiveFrames ==1) 
+//				fastop acqWave_temp = AcqWave +(kNQtoUnsigned) // [frameOffset + q * ySize + p]
+//			else
+//				fastop acqWave_nLiveTemp = AcqWave +(kNQtoUnsigned)
+//				ProjectSpecFrames(acqWave_nLiveTemp, 0,(nLiveFrames -1), acqWave_temp, 0, 2, 3)
+//			endif
+//			if(flybackMode == 1)
+//				SwapEven(acqWave_temp)
+//			endif
+//			if(liveAvgCheck)
+//				liveFramePos = mod(iFrame, nLiveAvgFrames)
+//				displayWave +=(acqWave_temp [p] [q] - liveAvg [p] [q] [liveFramePos])/nLiveAvgFrames
+//				liveAvg [*] [*] [liveFramePos] = acqWave_temp [p] [q]
+//			else
+//				fastOp displayWave = AcqWave_temp
+//			endif
+//			if(liveHistCheck)
+//				if(nLiveFrames ==1)
+//					WAVE histMe= AcqWave_temp
+//				else
+//					WAVE histMe = acqWave_nLiveTemp
+//				endif
+//				WAVE histwave_cp = dfrInit:histwave_cp
+//				Histogram/B=2 histMe, histwave_cp
+//				histWave = histwave_cp
+//			endif
+//			if(showMerge)
+//				NVAR firstColor = dfr:firstColor
+//				NVAR lastColor = dfr:lastColor
+//				variable rangevar= 65536/(lastColor - firstColor)
+//				//printf "mergeLayer = %d, firstcolor = %d, lastcolor = %d, rangeVar = %f\r", mergeLayer, firstColor, lastColor, rangevar
+//				mergeWave [*] [*] [mergeLayer] =  min(65280, max(0,(displayWave [p] [q] - firstColor)) * rangevar)
+//			endif
+//		endif
+//	endfor
+//	killdatafolder dfrInit
+//	return 0
+//end
