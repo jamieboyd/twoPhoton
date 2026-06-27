@@ -2472,26 +2472,30 @@ End
 
 
 //******************************************************************************************************
-// Function for the LUT first and last values Slider on main control panel.  Calls Apply Image settings procedure for selected channel
+// Function for the LUT first and last values Slider on main control panel.  Calls twoP_LUTSliderAction to
+// apply Image settings procedure for selected channel and adjusts slider on twoPscanGraph, if it is open
+// 
 // Last Modified 2026/06/20 by Jamie Boyd
 Function twoP_LUTSliderAction_CP(leftThumb, rightThumb, event, thumb)
 	variable leftThumb		// value left thumb is pointing to
 	variable rightThumb	// value right thumb is pointing to
 	variable event			// type of event(thumb up or thumb moved
 	variable thumb			// 1 if a left thumb was just moved or 2 for a right thumb
-		
+
 	twoP_LUTSliderAction(leftThumb, rightThumb, event, thumb)
-	if (thumb == kleftThumb)
-		MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kleftThumb, leftThumb, skipUpdate =1)
-	else
-		MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, rightThumb, skipUpdate =1)
+	if (cmpstr (winlist ("twoPscanGraph", "","WIN:1"), ""))
+		if (thumb == kleftThumb)
+			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kleftThumb, leftThumb, skipUpdate =1)
+		else
+			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, rightThumb, skipUpdate =1)
+		endif
 	endif
-	
 end
 
 
 //******************************************************************************************************
-// Function for the LUT first and last values Slider on twoPScanGraph.  Calls Apply Image settings procedure for selected channel
+// Function for the LUT first and last values Slider on twoPScanGraph.  Calls twoP_LUTSliderAction to
+// apply Image settings procedure for selected channel and adjusts slider on main control panel
 // Last Modified 2026/06/20 by Jamie Boyd
 Function twoP_LUTSliderAction_SG(leftThumb, rightThumb, event, thumb)
 	variable leftThumb		// value left thumb is pointing to
