@@ -2484,9 +2484,10 @@ Function twoP_LUTSliderAction_CP(leftThumb, rightThumb, event, thumb)
 
 	twoP_LUTSliderAction(leftThumb, rightThumb, event, thumb)
 	if (cmpstr (winlist ("twoPscanGraph", "","WIN:1"), ""))
-		if (thumb == kleftThumb)
+		if (thumb & kleftThumb)
 			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kleftThumb, leftThumb, skipUpdate =1)
-		else
+		endif
+		if (thumb & kRightThumb)
 			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, rightThumb, skipUpdate =1)
 		endif
 	endif
@@ -2504,9 +2505,10 @@ Function twoP_LUTSliderAction_SG(leftThumb, rightThumb, event, thumb)
 	variable thumb			// 1 if a left thumb was just moved or 2 for a right thumb
 	
 	twoP_LUTSliderAction(leftThumb, rightThumb, event, thumb)
-	if (thumb == kleftThumb)
+	if (thumb & kleftThumb)
 		MinMaxSlider_Manual("twoP_Controls", "LUTslider", kleftThumb, leftThumb, skipUpdate =1)
-	else
+	endif
+	if (thumb & kRIghtThumb)
 		MinMaxSlider_Manual("twoP_Controls", "LUTslider", kRightThumb, rightThumb,  skipUpdate =1)
 	endif
 
@@ -2538,20 +2540,13 @@ Function twoP_LUTSliderAction(leftThumb, rightThumb, event, thumb)
 		NVAR LastColor = $"root:packages:twoP:examine:" + LUTchan + "LastLutColor"
 		WAVE rightWave = $"root:Packages:twoP:examine:ImRangerightx" + LUTchan
 	endif
-	if(thumb == kleftThumb)
+	if(thumb & kleftThumb)
 		FirstColor = leftThumb
 		leftWave = leftThumb
-		if(firstColor > LastColor -4)
-			LastColor = rightThumb
-			rightWave = rightThumb
-		endif
-	else
+	endif
+	if (thumb & kRightThumb)
 		LastColor = rightThumb
 		rightWave = rightThumb
-		if(firstCOlor < lastColor + 4)
-			FirstColor = leftThumb
-			leftWave = leftThumb
-		endif
 	endif
 	if(event == kCallMouseMoved)
 		// Apply image settings
