@@ -975,7 +975,7 @@ end
 
 // *************************************************************************
 // Struct for plotting an image channel
-// Wave 0 the image, or for a 3D stack a wave made to hold a single frame
+// Wave 0 the image, or for a 3D stack a wave made to hold a single image frame
 // variable 0 is for scan Mode
 // variable 1 is for show axes check
 // variable 2-7  variables are for Live ROI
@@ -1228,6 +1228,7 @@ Function twoP_ImGraphNew(curScan)
 	us.xEnd = us.xStart +(xSize * xPixSize)
 	us.yStart = yOffset - yPixSize/2
 	us.yEnd = us.yStart +(ySize * yPixSize)
+	us.prefMoreCols = 0
 	// subwin plotting struct
 	STRUCT GUIPSubWin_ContentStruct cs
 	// add channel info

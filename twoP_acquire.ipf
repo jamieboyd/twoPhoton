@@ -6069,7 +6069,7 @@ Function twoP_MultiPreMakeProc(ba) : ButtonControl
 			// load the scan struct - all scans will have the same paramaters, so only need do it once
 			STRUCT twoP_ScanStruct s
 			twoP_LoadScanStruct(s)
-			twoP_MultiMakeImageScanWaves(s)
+			//twoP_MultiMakeImageScanWaves(s)
 				//if(s.ePhysChans)
 					//twoP_MakeEphysWaves(s) 
 				//endif
