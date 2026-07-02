@@ -651,7 +651,6 @@ Function twoP_ScanPopMenuProc(pa) : PopupMenuControl
 			if(!(SVAR_Exists(scanNote)))
 				print "root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 			endif
-			
 			// if numeric series, set scan num
 			NVAR scanNum = root:packages:twoP:Examine:curScanNum
 			scanNum = str2num(stringfromlist(1, pa.popStr, "_"))
@@ -690,6 +689,8 @@ Function twoP_ScanUpdateScanGraph(curScan)
 		printf "The info string for the scan, \"%s\" was not found.\r", CurScan
 		return 1
 	endif
+	// scan mode
+	variable scanMode = NumberByKey("Mode", ScanInfo, ":", "\r")
 	// channels existing for this scan - limit selected to these channels, delete if neccesary
 	string scanChans = StringByKey("imChanDesc", ScanInfo, ":", "\r")
 	// which channels are selected?
@@ -710,7 +711,23 @@ Function twoP_ScanUpdateScanGraph(curScan)
 	// if scangraph exists, bring window to front and change title
 	DoWindow/F twoPscanGraph
 	if(V_Flag)		// scanGraph alreay exists
-		DoWindow/T twoPscanGraph "twoP Scan:" + curScan
+		DoWindow/T twoPscanGraph "twoP Scan:" + curScan	// re-title for current scan
+		// handle resize mode properly for line scans
+		STRUCT GUIPSubWin_WinInfoStruct info
+		StructGet/S info, GetUserData ("twoPscanGraph", "", "subwinUtil")
+		variable holdAspect = info.holdAspect
+		variable reSizeByWidth = info.reSizeByWidth
+		if (holdAspect)		// previous scan was not a line scan
+			if (scanMode == kLineScan) // but this scan is
+				GUIPSubWin_SetColPref("twoPscanGraph", 1)
+				GUIPSubWin_setResizeMode ("twoPscanGraph", 1)
+			endif
+		else					// previous scan was a line scan
+			if (scanMode != kLineScan) // but this scan isn't
+				GUIPSubWin_SetColPref("twoPscanGraph", 0)
+				GUIPSubWin_setResizeMode ("twoPscanGraph", 2 + reSizeByWidth)
+			endif
+		endif
 		// remove subwindows that are not selected
 		string existingSubWins =  RemoveFromList("controlPanel;GRGB", childwindowList("twoPscanGraph"), ";", 0)
 		nChans = ItemsInList(existingSubWins, ";")
@@ -1216,8 +1233,14 @@ Function twoP_ImGraphNew(curScan)
 	us.graphTitle = "twoP Scan:" +  curScan
 	if(mode == kLineScan)
 		us.holdAspect =0
+		us.prefMoreCols = 1
+		us.yEnd = yOffset - yPixSize/2
+		us.yStart = us.yStart +(ySize * yPixSize)
 	else
 		us.holdAspect =1
+		us.prefMoreCols = 0
+		us.yStart = yOffset - yPixSize/2
+	us.yEnd = us.yStart +(ySize * yPixSize)
 	endif
 	us.killbehavior = 1
 	us.nSubWins = nChans
@@ -1226,9 +1249,8 @@ Function twoP_ImGraphNew(curScan)
 	us.reSizeByWidth = 1
 	us.xStart = xOffset - xPixSize/2
 	us.xEnd = us.xStart +(xSize * xPixSize)
-	us.yStart = yOffset - yPixSize/2
-	us.yEnd = us.yStart +(ySize * yPixSize)
-	us.prefMoreCols = 0
+	
+	
 	// subwin plotting struct
 	STRUCT GUIPSubWin_ContentStruct cs
 	// add channel info
