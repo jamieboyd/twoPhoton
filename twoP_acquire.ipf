@@ -448,7 +448,7 @@ Function twoP_AcquireAddControls()
 	CheckBox Trig1Check,disable=1
 	SetVariable Trig1SecsSetvar,pos={194.00,333.00},size={82.00,18.00},title=" "
 	SetVariable Trig1SecsSetvar,value=root:Packages:twoP:Acquire:DelaySecs1
-	GUIPSIsetVarEnable("TwoP_Controls", "Trig1SecsSetvar", "NQ_TrigSecsProc", 1e-7, 100, frameTime, 1, 0.1e-7, 2, "s")
+	GUIPSIsetVarEnable("TwoP_Controls", "Trig1SecsSetvar", "twoP_TrigSecsProc", 1e-7, 100, frameTime, 1, 0.1e-7, 2, "s")
 	SetVariable Trig1SecsSetvar disable=1
 	// trigger 2
 	CheckBox Trig2Check,pos={9.00,355.00},size={44.00,15.00},title="Trig 2"
@@ -456,7 +456,7 @@ Function twoP_AcquireAddControls()
 	CheckBox Trig2Check, disable=1
 	SetVariable Trig2SecsSetvar,pos={194.00,353.00},size={82.00,18.00},title=" ",fSize=12
 	SetVariable Trig2SecsSetvar,value=root:Packages:twoP:Acquire:DelaySecs2
-	GUIPSIsetVarEnable("TwoP_Controls", "Trig2SecsSetvar", "NQ_TrigSecsProc", 1e-7, 100, frameTime, 1, 0.1e-7, 2, "s")
+	GUIPSIsetVarEnable("TwoP_Controls", "Trig2SecsSetvar", "twoP_TrigSecsProc", 1e-7, 100, frameTime, 1, 0.1e-7, 2, "s")
 	SetVariable Trig2SecsSetvar, disable=1
 	GUIPTabAddCtrlToTabs("twoP_Controls", "SmodeTabControl", "CheckBox Trig1Check", "TSer;Lines;ePhys")
 	GUIPTabAddCtrlToTabs("twoP_Controls", "SmodeTabControl", "CheckBox Trig2Check", "TSer;Lines;ePhys")
@@ -465,14 +465,14 @@ Function twoP_AcquireAddControls()
 	//Voltage Pulse waves  TSer;Lines;ePhys
 	GroupBox VoltageWaveGrpBox,pos={8.00,376.00},size={331.00,88.00}
 	GroupBox VoltageWaveGrpBox,title="Voltage Pulse", disable=1
-	CheckBox Voltage1Check,pos={12.00,396.00},size={14.00,14.00},proc=NQ_VoltageCheckProc
+	CheckBox Voltage1Check,pos={12.00,396.00},size={14.00,14.00},proc=twoP_VoltageCheckProc
 	CheckBox Voltage1Check,title="",value=0, disable=1
-	PopupMenu VoltagePulse1Popup,pos={28.00,394.00},size={231.00,19.00},proc=NQ_VoltageWavePopMenuProc
+	PopupMenu VoltagePulse1Popup,pos={28.00,394.00},size={231.00,19.00},proc=twoP_VoltageWavePopMenuProc
 	PopupMenu VoltagePulse1Popup,title="1 Voltage Wave", disable=1
 	PopupMenu VoltagePulse1Popup,mode=1,popvalue="No Voltage Pulse Waves",value=#"GUIPListObjs((\"root:packages:twoP:acquire:VoltagePulseWaves\") , 1, \"*\", 0, \"\\M1(No Voltage Pulse Waves\")"
-	CheckBox Voltage2Check,pos={11.00,418.00},size={14.00,14.00},proc=NQ_VoltageCheckProc
+	CheckBox Voltage2Check,pos={11.00,418.00},size={14.00,14.00},proc=twoP_VoltageCheckProc
 	CheckBox Voltage2Check,title="",value=0, disable=1
-	PopupMenu VoltagePulse2Popup,pos={28.00,415.00},size={231.00,19.00},proc=NQ_VoltageWavePopMenuProc
+	PopupMenu VoltagePulse2Popup,pos={28.00,415.00},size={231.00,19.00},proc=twoP_VoltageWavePopMenuProc
 	PopupMenu VoltagePulse2Popup,title="2 Voltage Wave", disable=1
 	PopupMenu VoltagePulse2Popup,mode=1,popvalue="No Voltage Pulse Waves",value=#"GUIPListObjs((\"root:packages:twoP:acquire:VoltagePulseWaves\") , 1, \"*\", 0, \"\\M1(No Voltage Pulse Waves\")"
 	PopupMenu VoltagePulsePopUp,pos={12.00,437.00},size={90.00,19.00},title="Vout"
@@ -726,42 +726,61 @@ Function twoP_AcquireAddControls()
 	// set times
 	twoP_SetTimes()
 end
- 
- 
- 
-// ***************************************************************************************
-// Lists channels that can be selected for scanning, marking already selected ones with checks
-// last modified 2025/07/25 by Jamie Boyd
-function/S twoP_listActiveChans(type)
-	variable type
-	switch(type)
-	case 1:  //1 for images
-		WAVE chanSelList = root:packages:twoP:acquire:imChanSelList
-		WAVE/t chanList = root:packages:twoP:acquire:imChanList
-		SVAR selChans = root:packages:twoP:acquire:selImageChanList
-		break
-	case 2: // 2 for ephys
-		WAVE chanSelList = root:packages:twoP:acquire:ePhysChanSelList
-		WAVE/t chanList = root:packages:twoP:acquire:ePhyschanList
-		SVAR selChans = root:packages:twoP:acquire:selEphysChanList
-		break
-	endswitch
 
-	string aChan, outList = ""
-	variable iChan, nChans = dimsize(chanList, 0)
-	for(iChan =0; iChan < nChans; iChan += 1)
-		if(chanSelList[iChan][0] == 48) // checked, so active channel
-			aChan = chanList [iChan] [1] + ":" +  num2str(iChan)
-			if(FindListItem(aChan, selChans, ";") > -1)
-				outList += "\\M1!"  +num2char(18)
-			endif
-			outList += aChan + ";"
+ 
+ //*************************************************************************************************************************************
+// Sets the scanMode variable and various options in the control panel when a scan mode tab is selected
+// Last Modified 2025/07/13 by Jamie Boyd
+Function twoP_SModeTabControlproc(TC_Struct) : TabControl
+	STRUCT WMTabControlAction &tc_Struct
+	
+	if(TC_Struct.eventCode != 2)
+		return 0
+	endif
+	
+	string name = tc_Struct.ctrlName
+	variable tab = tc_Struct.tab
+	string tabWin = tc_Struct.win
+	
+	NVAR ScanMode = root:packages:twoP:Acquire:ScanMode
+	NVAR isMulti = root:packages:twoP:acquire:multiModeIsMulti
+	ScanMode = tab
+	if(tab== 6) // multiaq - disable scan start button
+		isMulti  = 1
+		button AqStartButton disable = 2
+		// make sure autoincrement is selected and run
+		NVAR autincCheck = root:packages:twoP:acquire:autincCheck
+		if(autIncCheck == 0)
+			autincCheck =1
 		endif
-	endfor
-	return outList
+		// make sure export path is set, if exporting after a scan
+		NVAR exportafterscan = root:packages:twoP:acquire:exportAfterScan
+		if(exportafterscan > 1)
+			SVAR PathStr =root:Packages:twoP:examine:ExportPath		// the global string were we store the path
+			pathinfo ExportPath
+			if((V_Flag ==0) ||(cmpstr(S_path, PathStr) !=0))// path does not exits or is not the same as shown in the string
+				NewPath /O/M="Select a Folder in which to store Scan Waves" ExportPath
+				if(!V_flag)		// V_flag is set to 0 if newpath is successful
+					PathInfo ExportPath
+					pathstr =  s_path
+				endif
+			endif
+		endif
+	else
+		button AqStartButton disable = 0
+		isMulti  = 0
+	endif
+	//Set Times
+	twoP_SetTimes()
+	return 0
 end
 
  
+// ***************************************************************************************************************************************
+// **********************************  New Scan Name and Overwriting  ********************************************************************
+// ***************************************************************************************************************************************
+
+
 //******************************************************************************************************
 // Function for the New Scan Name Setvariable control.  Makes it a legal name and autoincrements it.
 // Last Modified 2014/08/13 by Jamie Boyd
@@ -840,66 +859,10 @@ Function/s twoP_autinc(NewWaveName, inc)
 end
 
 
-//******************************************************************************************************
-// Updates list of scan channels, adding new channel or removing an existing channel
-// Last Modified 2025/08/08 by Jamie Boyd
-Function twoP_ScanChansPopMenuProc(pa) : PopupMenuControl
-	STRUCT WMPopupAction &pa
+// ***************************************************************************************************************************************
+// ************************************************  Open associated control panels  *****************************************************
+// ***************************************************************************************************************************************
 
-	switch( pa.eventCode )
-		case 2: // mouse up
-			Variable popNum = pa.popNum
-			String popStr = pa.popStr
-			SVAR selChans = root:packages:twoP:acquire:selImageChanList
-			if(FindListItem(popStr, selChans, ";") > -1)
-				selChans = sortList(removeFromList(popStr, selChans, ";"), ";")
-			else
-				selChans = sortList(addlistItem(popStr, selChans, ";"), ";")
-			endif
-			break
-	endswitch
-	return 0
-End
-
-// *************************************************************************************************
-// sets strings for Top and Botttom channel names used in ratio for live rois
-// Last Modified 2025/07/10 by Jamie Boyd - new channel selection method
-Function twoP_SetLiveChansPopMenuProc(pa) : PopupMenuControl
-	STRUCT WMPopupAction &pa
-	switch( pa.eventCode )
-		case 2: // mouse up
-			if(cmpStr(pa.ctrlName, "LiveROIRatioTopPopMenu")==0)
-				SVAR chan=root:Packages:twoP:Acquire:LiveROItopChan
-			elseif(cmpStr(pa.ctrlName, "LiveROIRatioBottomPopMenu")==0)
-				SVAR chan=root:Packages:twoP:Acquire:LiveROIBottomChan
-			endif
-			chan = stringFromList(0, pa.popStr,":")
-			break
-		case -1: // control being killed
-			break
-	endswitch
-	return 0
-End
-
-
-//******************************************************************************************************
-// Updates global string for selected ephys channels
-// Last Modified 2025/07/10 by Jamie Boyd - new channel selection method
-Function twoP_ephysChansProc(pa) : PopupMenuControl
-	STRUCT WMPopupAction &pa
-
-	switch( pa.eventCode )
-		case 2: // mouse up
-			SVAR selChans = root:packages:twoP:acquire:selEphysChanList
-			if(FindListItem(pa.popStr, selChans, ";") > -1)
-				selChans = sortList(removeFromList(pa.popStr, selChans, ";"), ";")
-			else
-				selChans = sortList(addlistItem(pa.popStr, selChans, ";"), ";")
-			endif
-			break
-	endswitch
-	return 0
-End
 
 //******************************************************************************************************
 // Opens the microscope stage and focus panel using the chosen focus procedure
@@ -922,6 +885,7 @@ Function twoP_OpenFocusPanel(ba) : ButtonControl
 	return 0
 End
 
+
 //******************************************************************************************************
 //Makes the panel for displaying and changing additional scan settings
 // Last Modified 2025/07/11 by Jamie Boyd  - new preferences panel
@@ -942,120 +906,15 @@ Function twoP_OtherScanSettingsProc(ba) : ButtonControl
 End
 
 
+// ***************************************************************************************************************************************
+// *******************************************  Memory Usgae Display  ********************************************************************
+// ***************************************************************************************************************************************
 
-//******************************************************************************************************
-// Enables/Disables controls for setting Z variables, based on popmenu selection
-// Last Modified 2015/04/15 by Jamie Boyd
-Function twoP_ZAdjustPopMenuProc(pa) : PopupMenuControl
-	STRUCT WMPopupAction &pa
-
-	switch( pa.eventCode )
-		case 2: // mouse up
-			Variable popNum = pa.popNum
-			String popStr = pa.popStr
-			// Disable controls based on selection
-			// ZSLices;Step Size;First Z;Last Z
-			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "NumZframesSetvar;", ((popNum == 1)*2), 1)
-			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "zStepSizeSetvar;", ((popNum == 2)*2), 1)
-			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "FirstZButton;", ((popNum == 3)*2), 1)
-			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "zFirstZSetVar;", ((popNum == 3)*2), 1)
-			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "LastZButton;", ((popNum == 4)*2), 1)
-			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "ZLastZSetVar;", ((popNum == 4)*2), 1)
-			break
-	endswitch
-	return 0
-End
-
-//******************************************************************************************************
-// Adjusts Z variables, based on selection in ZdjustPopMenu
-// Last Modified 2026/01/02 by Jamie Boyd - setting stage increment here
-Function twoP_zSetVarProc(sva) : SetVariableControl
-	STRUCT WMSetVariableAction &sva
-
-	switch( sva.eventCode )
-		case 1: // mouse up
-		//case 2: // Enter key
-		case 3: // Live update
-		case 8: //finish edit
-			// Globals to the z parameters
-			NVAR NumZFrames = root:packages:twoP:Acquire:NumZseriesFrames
-			NVAR ZStepSize = root:packages:twoP:Acquire:ZStepSize
-			NVAR LastZ = root:packages:twoP:Acquire:ZLastZ
-			NVAR FirstZ = root:packages:twoP:Acquire:ZFirstZ
-			// What do we modify ?
-			controlinfo/w=twoP_Controls ZdjustPopMenu
-			variable toMod = V_Value
-			switch(toMod)
-				case 1: // number of Z SLices
-					NumZFrames =  round(((LastZ-FirstZ ) / ZStepSize) + 1)
-					// numFrames can not be negative, but stepsize can
-					if(NumZFrames < 0)
-						ZStepSize *= -1
-						NumZFrames *= -1
-					endif
-					break
-				case 2: //Step Size
-					SVAR stageProc = root:packages:twoP:Acquire:stageProc
-					WAVE Properties = $"root:packages:" + stageProc + ":properties"
-					variable ZStepSizeMin = Properties [%res_Z]
-					ZStepSize = round(((LastZ - FirstZ)/NumZFrames)/ZStepSizeMin)*ZStepSizeMin
-					WAVE Properties = $"root:packages:" + stageProc + ":properties"
-					ZStepSize = round(((LastZ - FirstZ)/NumZFrames)/ZStepSizeMin)*ZStepSizeMin
-					LastZ =(NumZFrames * ZStepSize) + FirstZ
-					break
-				case 3: // First Z
-					FirstZ = (NumZFrames * ZStepSize) - LastZ
-					break
-				case 4: //LastZ
-					LastZ =(NumZFrames * ZStepSize) + FirstZ
-					break
-			endswitch
-			break
-	endswitch
-	// Adjust increments for 1st and last z setvariables to stepsize, if stepsize was changed
-	if((cmpstr(sva.ctrlname, "zStepSizeSetvar") == 0) ||(toMod == 2))
-		NVAR ZStepSize = root:packages:twoP:Acquire:ZStepSize
-		setvariable zFirstZSetVar win = twoP_Controls, limits = {-INF, INF, ZStepSize}
-		setvariable zLastZSetVar win = twoP_Controls, limits = {-INF, INF, ZStepSize}
-	endif
-	// Adjust frame time/exp time
-	twoP_SetTimes()
-	return 0
-End
-
-//******************************************************************************************************
-// Grabs value from stage/focus, puts it into firstZ or lastZ, and adjusts Z variables based on selection in ZdjustPopMenu
-// Last Modified 2025/12/21 by Jamie Boyd
-Function twoP_ZfirstLastButtonProc(ba) : ButtonControl
-	STRUCT WMButtonAction &ba
-
-	switch( ba.eventCode )
-		case 2: // mouse up
-			// Update stage for Z
-			SVAR theStageEncoder = root:packages:twoP:Acquire:StageProc
-			StageUpdate(theStageEncoder, kZBit, 1)
-			variable zS = StageGetAxisPos(theStageEncoder, "Z")
-			// Put z-Value in proper global for the button that was clicked
-			if(cmpstr(ba.ctrlname, "FirstZButton") == 0)
-				NVAR FirstZ = root:packages:twoP:Acquire:ZFirstZ
-				FirstZ = zS
-			elseif(cmpstr(ba.ctrlname, "LastZButton") == 0)
-				NVAR LastZ = root:packages:twoP:Acquire:ZLastZ
-				LastZ = zS
-			endif
-			// Adjust Z values
-			STRUCT WMSetVariableAction sva
-			sva.eventcode = 1
-			twoP_zSetVarProc(sva)
-			break
-	endswitch
-	return 0
-End
 
 //*************************************************************************************************************************************
 // Returns the physical memory usage of Igor,not the same as the experiment size, but proabbly more helpful
 // Last Modified 2025/07/22 by Jamie Boyd - divided by 2^30 to return value in  GigaBytes
-// Last Modified 2025/07/15 by Jamie Boyd - use Igor's memory usage from get info
+// Modified 2025/07/15 by Jamie Boyd - use Igor's memory usage from get info
 Function twoP_GetExpSize()
 	
 	return numberbykey("USEDPHYSMEM", IgorInfo(0), ":", ";")/2^30
@@ -1071,52 +930,11 @@ function twoP_UpdateExpSize()
 end
 
 
-//*************************************************************************************************************************************
-// Sets the scanMode variable and various options in the control panel
-// Last Modified 2025/07/13 by Jamie Boyd
-Function twoP_SModeTabControlproc(TC_Struct) : TabControl
-	STRUCT WMTabControlAction &tc_Struct
-	
-	if(TC_Struct.eventCode != 2)
-		return 0
-	endif
-	
-	string name = tc_Struct.ctrlName
-	variable tab = tc_Struct.tab
-	string tabWin = tc_Struct.win
-	
-	NVAR ScanMode = root:packages:twoP:Acquire:ScanMode
-	NVAR isMulti = root:packages:twoP:acquire:multiModeIsMulti
-	ScanMode = tab
-	if(tab== 6) // multiaq - disable scan start button
-		isMulti  = 1
-		button AqStartButton disable = 2
-		// make sure autoincrement is selected and run
-		NVAR autincCheck = root:packages:twoP:acquire:autincCheck
-		if(autIncCheck == 0)
-			autincCheck =1
-		endif
-		// make sure export path is set, if exporting after a scan
-		NVAR exportafterscan = root:packages:twoP:acquire:exportAfterScan
-		if(exportafterscan > 1)
-			SVAR PathStr =root:Packages:twoP:examine:ExportPath		// the global string were we store the path
-			pathinfo ExportPath
-			if((V_Flag ==0) ||(cmpstr(S_path, PathStr) !=0))// path does not exits or is not the same as shown in the string
-				NewPath /O/M="Select a Folder in which to store Scan Waves" ExportPath
-				if(!V_flag)		// V_flag is set to 0 if newpath is successful
-					PathInfo ExportPath
-					pathstr =  s_path
-				endif
-			endif
-		endif
-	else
-		button AqStartButton disable = 0
-		isMulti  = 0
-	endif
-	//Set Times
-	twoP_SetTimes()
-	return 0
-end
+
+
+// ***************************************************************************************************************************************
+// ***********************************  Setting Image Size, Aspect Ratio, and Times  *****************************************************
+// ***************************************************************************************************************************************
 
 
 //*************************************************************************************************************************************
@@ -1169,7 +987,7 @@ Function twoP_SetTimes()
 	
 	// make sure sizes are adjusted for aspect ratio before calculating times.
 	if(scanmode != kLineScan)
-		NQ_AspectRatio(0)
+		twoP_AspectRatio(0)
 	endif
 	// Rough initial calculation of frame time before nasty tests for even point numbers
 	if(FlybackMode == 0)
@@ -1375,13 +1193,16 @@ Function twoP_AspectRatioProc(sva) : SetVariableControl
 		case 2: // Enter key
 		case 3: // Live update
 			variable self =(cmpStr(sva.ctrlName, "AspRatSetVar") == 0)
-			NQ_AspectRatio(self)
+			twoP_AspectRatio(self)
 	endswitch
 	return 0
 End
 
 
-Function NQ_AspectRatio(self)
+//*************************************************************************************************************************************
+//Changing the aspect ratio involves manipulating either pixel width/height or image extent 
+// Last Modified Jul 21 2011 by Jamie
+Function twoP_AspectRatio(self)
 	variable self
 	// Dont mess around with setting aspect ratio if using Line Scan Mode, as it would be meaningless
 	NVAR ScanModeG = root:packages:twoP:acquire:scanMode
@@ -1477,6 +1298,8 @@ Function twoP_AspRatPopUpProc(pa) : PopupMenuControl
 	endswitch
 	return 0
 End
+
+
 
 //*************************************************************************************************************************************
 // Sets the global variables for volts, pixels, and distance to full scalaing as defined in constants
@@ -1652,6 +1475,14 @@ Function twoP_RevertSettingstoWaveProc(pa) : PopupMenuControl
 End
 
 
+
+
+
+// ***************************************************************************************************************************************
+// ******************************************* Microscope Objectives  ********************************************************************
+// ***************************************************************************************************************************************
+
+
 //*************************************************************************************************************************************
 // Sets globals for chosen objective. Changes in Image size and Pixel Size are handled by dependency formula set in AddAcquireControls function
 // Last Modified 2016/10/12 by Jamie Boyd
@@ -1671,6 +1502,8 @@ Function twoP_ObjPopProc(pa) : PopupMenuControl
 	return 0
 End
 
+
+
 //*************************************************************************************************************************************
 // Returns a list of objective names stored in objwave
 // Last Modified May 30 2009 by Jamie Boyd
@@ -1684,6 +1517,127 @@ Function/S twoP_ListObjs()
 	endfor
 	return objList
 end
+
+
+// ***************************************************************************************************************************************
+// *********************************************  Channel Selections  ********************************************************************
+// ***************************************************************************************************************************************
+
+
+
+//******************************************************************************************************
+// Updates list of scan channels, adding new channel or removing an existing channel
+// Last Modified 2025/08/08 by Jamie Boyd
+Function twoP_ScanChansPopMenuProc(pa) : PopupMenuControl
+	STRUCT WMPopupAction &pa
+
+	switch( pa.eventCode )
+		case 2: // mouse up
+			Variable popNum = pa.popNum
+			String popStr = pa.popStr
+			SVAR selChans = root:packages:twoP:acquire:selImageChanList
+			if(FindListItem(popStr, selChans, ";") > -1)
+				selChans = sortList(removeFromList(popStr, selChans, ";"), ";")
+			else
+				selChans = sortList(addlistItem(popStr, selChans, ";"), ";")
+			endif
+			break
+	endswitch
+	return 0
+End
+
+// ***************************************************************************************
+// Lists channels that can be selected for scanning, marking already selected ones with checks
+// last modified 2025/07/25 by Jamie Boyd
+function/S twoP_listActiveChans(type)
+	variable type
+	switch(type)
+	case 1:  //1 for images
+		WAVE chanSelList = root:packages:twoP:acquire:imChanSelList
+		WAVE/t chanList = root:packages:twoP:acquire:imChanList
+		SVAR selChans = root:packages:twoP:acquire:selImageChanList
+		break
+	case 2: // 2 for ephys
+		WAVE chanSelList = root:packages:twoP:acquire:ePhysChanSelList
+		WAVE/t chanList = root:packages:twoP:acquire:ePhyschanList
+		SVAR selChans = root:packages:twoP:acquire:selEphysChanList
+		break
+	endswitch
+
+	string aChan, outList = ""
+	variable iChan, nChans = dimsize(chanList, 0)
+	for(iChan =0; iChan < nChans; iChan += 1)
+		if(chanSelList[iChan][0] == 48) // checked, so active channel
+			aChan = chanList [iChan] [1] + ":" +  num2str(iChan)
+			if(FindListItem(aChan, selChans, ";") > -1)
+				outList += "\\M1!"  +num2char(18)
+			endif
+			outList += aChan + ";"
+		endif
+	endfor
+	return outList
+end
+
+
+
+// ***************************************************************************************************************************************
+// **********************************************  Live Mode Controls  ********************************************************************
+// ***************************************************************************************************************************************
+
+
+// *************************************************************************************************
+// sets strings for Top and Botttom channel names used in ratio for live rois
+// Last Modified 2025/07/10 by Jamie Boyd - new channel selection method
+Function twoP_SetLiveChansPopMenuProc(pa) : PopupMenuControl
+	STRUCT WMPopupAction &pa
+	switch( pa.eventCode )
+		case 2: // mouse up
+			if(cmpStr(pa.ctrlName, "LiveROIRatioTopPopMenu")==0)
+				SVAR chan=root:Packages:twoP:Acquire:LiveROItopChan
+			elseif(cmpStr(pa.ctrlName, "LiveROIRatioBottomPopMenu")==0)
+				SVAR chan=root:Packages:twoP:Acquire:LiveROIBottomChan
+			endif
+			chan = stringFromList(0, pa.popStr,":")
+			break
+		case -1: // control being killed
+			break
+	endswitch
+	return 0
+End
+
+
+// **********************************************************************************************************
+// Fires the trigger when the button is pressed with no waiting
+// Last Modified 2025/08/11 by Jamie Boyd
+Function twoP_LiveTriggerButtonProc(ba) : ButtonControl
+	STRUCT WMButtonAction &ba
+	
+	SVAR ePhysBoardName =root:packages:twoP:acquire:ePhysBoard
+	NVAR Trig1Polarity = root:packages:twoP:acquire:Trig1Polarity
+	NVAR Trig2Polarity= root:packages:twoP:acquire:Trig2Polarity
+	NVAR Trig1Duration =root:packages:twoP:acquire:Trig1Duration
+	NVAR Trig2Duration =root:packages:twoP:acquire:Trig2Duration
+	switch( ba.eventCode )
+		case 2: // mouse up
+			if(cmpStr(ba.ctrlName, "Trig1ManualButton") ==0)
+				DAQmx_CTR_OutputPulse /DEV=ePhysBoardName/SEC={Trig1Duration, Trig1Duration}/IDLE=(Trig1Polarity) /NPLS=1/STRT=1(0) ; AbortOnRTE
+			else
+				DAQmx_CTR_OutputPulse /DEV=ePhysBoardName/SEC={Trig2Duration, Trig2Duration}/IDLE=(Trig2Polarity) /NPLS=1/STRT=1(1) ; AbortOnRTE
+			endif
+			break
+		case -1: // control being killed
+			break
+	endswitch
+
+	return 0
+End
+
+
+
+// ***************************************************************************************************************************************
+// *********************************************  Line Scan Controls  ********************************************************************
+// ***************************************************************************************************************************************
+
 
 //*************************************************************************************************************************************
 // Sets the scaling of the volts and pixels to the backup values saved the last time they were changed, for a line scan
@@ -1775,7 +1729,7 @@ End
 
 
 //******************************************************************************************************
-// Changes a global string to the name of a wave that a linescan was drawn on(or Don't Link, if no Image Wave was selected).
+// Changes a global string to the name of a wave that a linescan was drawn on (or Don't Link, if no Image Wave was selected).
 // The string will be used to make an entry in the wavenote of the LineScan Wave
 // Last Modified Jun 01 2009 by Jamie Boyd
 Function twoP_LineScanLinkToProc(pa) : PopupMenuControl
@@ -1791,19 +1745,75 @@ Function twoP_LineScanLinkToProc(pa) : PopupMenuControl
 End
 
 
+// ***************************************************************************************************************************************
+// ***************************************** Ephys channels and triggers  ***************************************************************
+// ***************************************************************************************************************************************
 
+
+//******************************************************************************************************
+// Updates global string for selected ephys channels
+// Last Modified 2025/07/10 by Jamie Boyd - new channel selection method
+Function twoP_ephysChansProc(pa) : PopupMenuControl
+	STRUCT WMPopupAction &pa
+
+	switch( pa.eventCode )
+		case 2: // mouse up
+			SVAR selChans = root:packages:twoP:acquire:selEphysChanList
+			if(FindListItem(pa.popStr, selChans, ";") > -1)
+				selChans = sortList(removeFromList(pa.popStr, selChans, ";"), ";")
+			else
+				selChans = sortList(addlistItem(pa.popStr, selChans, ";"), ";")
+			endif
+			break
+	endswitch
+	return 0
+End
+
+
+//******************************************************************************************************
+// Updates global string for selected ephys channels
+// Last Modified 2025/07/10 by Jamie Boyd - new channel selection method
+Function twoP_TrigSecsProc(sva) : SetVariableControl
+	STRUCT WMSetVariableAction &sva
+
+	if(sva.eventCode ==8 ||sva.eventCode == 1)
+		if(cmpStr(sva.ctrlname, "Trig1SecsSetvar") ==0)
+			NVAR delayFrames = root:packages:twoP:acquire:delayFrames1
+			NVAR delayLines = root:packages:twoP:acquire:delayLines1
+		elseif(cmpStr(sva.ctrlname, "Trig2SecsSetvar") ==0)
+			NVAR delayFrames = root:packages:twoP:acquire:delayFrames2
+			NVAR delayLines = root:packages:twoP:acquire:delayLines2
+		endif
+		NVAR scanMode = root:packages:twoP:acquire:scanMode
+		if(scanMode ==  kTimeSeries)
+			NVAR frameTime = root:packages:twoP:acquire:frameTime
+			delayFrames = round(sva.dval/frameTime)
+			twoP_SetTimes()
+		elseif(scanMode ==  kLineScan)
+			NVAR lineTime = root:packages:twoP:acquire:lineTime				
+			delayLines = round(sva.dval/lineTime)
+			twoP_SetTimes()
+		endif
+			
+	endif
+end
+
+
+// ***************************************************************************************************************************************
+// ********************************** Voltage Pulse Editing and Selecting  ***************************************************************
+// ***************************************************************************************************************************************
 
 
 //******************************************************************************************************
 // CheckBox procedure for which voltage pulse channels are selected
 // Last Modified Jun 09 2009 by Jamie Boyd
-Function NQ_VoltageCheckProc(cba) : CheckBoxControl
+Function twoP_VoltageCheckProc(cba) : CheckBoxControl
 	STRUCT WMCheckboxAction &cba
 
 	switch( cba.eventCode )
 		case 2: // mouse up
 			Variable checked = cba.checked
-			NQ_SetVoltagePulseChans()
+			twoP_SetVoltagePulseChans()
 	endswitch
 
 	return 0
@@ -1812,14 +1822,14 @@ End
 //******************************************************************************************************
 // PopMenu procedure for which voltage pulse channels are selected
 // Last Modified Jun 09 2009 by Jamie Boyd
-Function NQ_VoltageWavePopMenuProc(pa) : PopupMenuControl
+Function twoP_VoltageWavePopMenuProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 
 	switch( pa.eventCode )
 		case 2: // mouse up
 			Variable popNum = pa.popNum
 			String popStr = pa.popStr
-			NQ_SetVoltagePulseChans()
+			twoP_SetVoltagePulseChans()
 			break
 	endswitch
 
@@ -1829,7 +1839,7 @@ End
 //******************************************************************************************************
 // Sets a global variable for which voltage pulse channels are selected for the upcoming scan
 // Last Modified Jun 09 2009 by Jamie Boyd
-Function NQ_SetVoltagePulseChans()
+Function twoP_SetVoltagePulseChans()
 	
 	NVAR voltagePulseChans = root:packages:twoP:Acquire:voltagePulseChans
 	voltagePulseChans = 0
@@ -2181,6 +2191,122 @@ Function VoltageEditHook(infoStr)
 	endif
 	return 0
 End
+
+// ***************************************************************************************************************************************
+// **********************************  Z Series Setting Start and End ********************************************************************
+// ***************************************************************************************************************************************
+
+
+//******************************************************************************************************
+// Enables/Disables controls for setting Z variables, based on popmenu selection
+// Last Modified 2015/04/15 by Jamie Boyd
+Function twoP_ZAdjustPopMenuProc(pa) : PopupMenuControl
+	STRUCT WMPopupAction &pa
+
+	switch( pa.eventCode )
+		case 2: // mouse up
+			Variable popNum = pa.popNum
+			String popStr = pa.popStr
+			// Disable controls based on selection
+			// ZSLices;Step Size;First Z;Last Z
+			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "NumZframesSetvar;", ((popNum == 1)*2), 1)
+			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "zStepSizeSetvar;", ((popNum == 2)*2), 1)
+			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "FirstZButton;", ((popNum == 3)*2), 1)
+			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "zFirstZSetVar;", ((popNum == 3)*2), 1)
+			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "LastZButton;", ((popNum == 4)*2), 1)
+			GUIPTabSetAbleState("twoP_Controls", "SmodeTabControl", "Zser", "ZLastZSetVar;", ((popNum == 4)*2), 1)
+			break
+	endswitch
+	return 0
+End
+
+//******************************************************************************************************
+// Adjusts Z variables, based on selection in ZdjustPopMenu
+// Last Modified 2026/01/02 by Jamie Boyd - setting stage increment here
+Function twoP_zSetVarProc(sva) : SetVariableControl
+	STRUCT WMSetVariableAction &sva
+
+	switch( sva.eventCode )
+		case 1: // mouse up
+		//case 2: // Enter key
+		case 3: // Live update
+		case 8: //finish edit
+			// Globals to the z parameters
+			NVAR NumZFrames = root:packages:twoP:Acquire:NumZseriesFrames
+			NVAR ZStepSize = root:packages:twoP:Acquire:ZStepSize
+			NVAR LastZ = root:packages:twoP:Acquire:ZLastZ
+			NVAR FirstZ = root:packages:twoP:Acquire:ZFirstZ
+			// What do we modify ?
+			controlinfo/w=twoP_Controls ZdjustPopMenu
+			variable toMod = V_Value
+			switch(toMod)
+				case 1: // number of Z SLices
+					NumZFrames =  round(((LastZ-FirstZ ) / ZStepSize) + 1)
+					// numFrames can not be negative, but stepsize can
+					if(NumZFrames < 0)
+						ZStepSize *= -1
+						NumZFrames *= -1
+					endif
+					break
+				case 2: //Step Size
+					SVAR stageProc = root:packages:twoP:Acquire:stageProc
+					WAVE Properties = $"root:packages:" + stageProc + ":properties"
+					variable ZStepSizeMin = Properties [%res_Z]
+					ZStepSize = round(((LastZ - FirstZ)/NumZFrames)/ZStepSizeMin)*ZStepSizeMin
+					WAVE Properties = $"root:packages:" + stageProc + ":properties"
+					ZStepSize = round(((LastZ - FirstZ)/NumZFrames)/ZStepSizeMin)*ZStepSizeMin
+					LastZ =(NumZFrames * ZStepSize) + FirstZ
+					break
+				case 3: // First Z
+					FirstZ = (NumZFrames * ZStepSize) - LastZ
+					break
+				case 4: //LastZ
+					LastZ =(NumZFrames * ZStepSize) + FirstZ
+					break
+			endswitch
+			break
+	endswitch
+	// Adjust increments for 1st and last z setvariables to stepsize, if stepsize was changed
+	if((cmpstr(sva.ctrlname, "zStepSizeSetvar") == 0) ||(toMod == 2))
+		NVAR ZStepSize = root:packages:twoP:Acquire:ZStepSize
+		setvariable zFirstZSetVar win = twoP_Controls, limits = {-INF, INF, ZStepSize}
+		setvariable zLastZSetVar win = twoP_Controls, limits = {-INF, INF, ZStepSize}
+	endif
+	// Adjust frame time/exp time
+	twoP_SetTimes()
+	return 0
+End
+
+//******************************************************************************************************
+// Grabs value from stage/focus, puts it into firstZ or lastZ, and adjusts Z variables based on selection in ZdjustPopMenu
+// Last Modified 2025/12/21 by Jamie Boyd
+Function twoP_ZfirstLastButtonProc(ba) : ButtonControl
+	STRUCT WMButtonAction &ba
+
+	switch( ba.eventCode )
+		case 2: // mouse up
+			// Update stage for Z
+			SVAR theStageEncoder = root:packages:twoP:Acquire:StageProc
+			StageUpdate(theStageEncoder, kZBit, 1)
+			variable zS = StageGetAxisPos(theStageEncoder, "Z")
+			// Put z-Value in proper global for the button that was clicked
+			if(cmpstr(ba.ctrlname, "FirstZButton") == 0)
+				NVAR FirstZ = root:packages:twoP:Acquire:ZFirstZ
+				FirstZ = zS
+			elseif(cmpstr(ba.ctrlname, "LastZButton") == 0)
+				NVAR LastZ = root:packages:twoP:Acquire:ZLastZ
+				LastZ = zS
+			endif
+			// Adjust Z values
+			STRUCT WMSetVariableAction sva
+			sva.eventcode = 1
+			twoP_zSetVarProc(sva)
+			break
+	endswitch
+	return 0
+End
+
+
 
 // ***************************************************************************************************************************************
 //----------------------------------------- functions that run when we start a scan --------------------------------------------------
@@ -3334,7 +3460,7 @@ end
 
 
 //******************************************************************************************************
-//****************Code that does scaning/calls NI functions*********************************
+//****************  Code that does scaning/calls NI functions  *********************************
 //******************************************************************************************************
 
 // ***********************************************************************
@@ -3414,34 +3540,6 @@ Function twoP_MakeEphysWaves(s)
 	endfor
 end	
 
-
-
-
-// **********************************************************************************************************
-// Fires the trigger when the button is pressed with no waiting
-// Last Modified 2025/08/11 by Jamie Boyd
-Function twoP_LiveTriggerButtonProc(ba) : ButtonControl
-	STRUCT WMButtonAction &ba
-	
-	SVAR ePhysBoardName =root:packages:twoP:acquire:ePhysBoard
-	NVAR Trig1Polarity = root:packages:twoP:acquire:Trig1Polarity
-	NVAR Trig2Polarity= root:packages:twoP:acquire:Trig2Polarity
-	NVAR Trig1Duration =root:packages:twoP:acquire:Trig1Duration
-	NVAR Trig2Duration =root:packages:twoP:acquire:Trig2Duration
-	switch( ba.eventCode )
-		case 2: // mouse up
-			if(cmpStr(ba.ctrlName, "Trig1ManualButton") ==0)
-				DAQmx_CTR_OutputPulse /DEV=ePhysBoardName/SEC={Trig1Duration, Trig1Duration}/IDLE=(Trig1Polarity) /NPLS=1/STRT=1(0) ; AbortOnRTE
-			else
-				DAQmx_CTR_OutputPulse /DEV=ePhysBoardName/SEC={Trig2Duration, Trig2Duration}/IDLE=(Trig2Polarity) /NPLS=1/STRT=1(1) ; AbortOnRTE
-			endif
-			break
-		case -1: // control being killed
-			break
-	endswitch
-
-	return 0
-End
 
 
 //******************************************************************************************************
@@ -6043,7 +6141,7 @@ Function twoP_MultiPreMakeProc(ba) : ButtonControl
 	
 	switch( ba.eventCode )
 		case 2: // mouse up
-			NVAR multiMode =root:packages:twoP:acquire:multiAqTimeMode
+			NVAR multiMode = root:packages:twoP:acquire:multiAqTimeMode
 			variable nAqs
 			switch(multiMode)
 				case kMultiUsePeriod:
@@ -6496,30 +6594,7 @@ end
 
 
 
-Function NQ_TrigSecsProc(sva) : SetVariableControl
-	STRUCT WMSetVariableAction &sva
 
-	if(sva.eventCode ==8 ||sva.eventCode == 1)
-		if(cmpStr(sva.ctrlname, "Trig1SecsSetvar") ==0)
-			NVAR delayFrames = root:packages:twoP:acquire:delayFrames1
-			NVAR delayLines = root:packages:twoP:acquire:delayLines1
-		elseif(cmpStr(sva.ctrlname, "Trig2SecsSetvar") ==0)
-			NVAR delayFrames = root:packages:twoP:acquire:delayFrames2
-			NVAR delayLines = root:packages:twoP:acquire:delayLines2
-		endif
-		NVAR scanMode = root:packages:twoP:acquire:scanMode
-		if(scanMode ==  kTimeSeries)
-			NVAR frameTime = root:packages:twoP:acquire:frameTime
-			delayFrames = round(sva.dval/frameTime)
-			twoP_SetTimes()
-		elseif(scanMode ==  kLineScan)
-			NVAR lineTime = root:packages:twoP:acquire:lineTime				
-			delayLines = round(sva.dval/lineTime)
-			twoP_SetTimes()
-		endif
-			
-	endif
-end
 
 
 
@@ -6643,89 +6718,3 @@ end
 //•redimension/w/n =(200*200*2) root:twoP_Scans:Scan_000:Scan_000_ch1;DAQmx_Scan /DEV="PCI6023"/BKG WAVES ="root:twoP_Scans:Scan_000:Scan_000_ch1, 0/DIFF, -10, 10, 1, 100"
 
 
-
-
-
-////******************************************************************************************************
-//// preemptive thread that does the heavy lifting of copying data and so forth for live mode
-//// acquire wave and display waves passed directly to thread;
-//// other paramaters put in a datafolder and posted first
-//// last modified 2017/08/12 by Jamie Boyd
-//ThreadSafe Function NQ_LiveChanThread(AcqWave, displayWave, mergeWave, histWave)
-//	WAVE AcqWave, displayWave, mergeWave, histWave
-//	
-//	// first dfref(dfrInit) contains initialization variables
-//	// so do it before main loop
-//	DFREF dfrInit = ThreadGroupGetDFR(0,inf)
-//	//	make 2D temp wave for processing
-//	variable xSize = dimsize(displayWave, 0)
-//	variable ySize = dimsize(displayWave, 1)
-//	make/w/u/o/n =((xSize),(ySize)) dfrInit:acqWave_temp
-//	WAVE acqWave_temp = dfrInit:acqWave_temp
-//	NVAR flybackMode =dfrInit:flyBackMode
-//	NVAR liveHistCheck = dfrInit:liveHistCheck
-//	NVAR liveAvgCheck = dfrInit:liveAvgCheck
-//	NVAR nLiveAvgFrames = dfrInit:numLiveAvgFrames
-//	NVAR showMerge = dfrInit:showMerge
-//	NVAR mergeLayer =  dfrInit:mergeLayer
-//	if(liveAvgCheck)
-//		make/w/u/o/n =((dimsize(displayWave, 0)),(dimsize(displayWave, 1)),(nLiveAvgFrames))  dfrInit:LiveAvg
-//		WAVE liveAvg = dfrInit:LiveAvg
-//		fastop liveAvg =0
-//		variable liveFramePos
-//		displayWave =0
-//	endif
-//	NVAR nLiveFrames = dfrInit:nLiveFrames
-//	if(nLiveFrames > 1)
-//		make/w/u/o/n =((dimsize(displayWave, 0)),(dimsize(displayWave, 1)),(nLiveFrames)) dfrInit:acqWave_nLiveTemp
-//		WAVE acqWave_nLiveTemp = dfrInit:acqWave_nLiveTemp
-//	endif
-//	// this loop is called at end of every new acquisition, or when a stop is requested
-//	variable iFrame
-//	for(iFrame=0;;iFrame +=1)
-//		DFREF dfr = ThreadGroupGetDFR(0,inf)
-//		NVAR newFrameG = dfr:newFrame
-//		if(newFrameG == 0)
-//			killdatafolder dfr
-//			break // break out of loop so we can return
-//		else // we have completed another acquisition
-//			// copy from signed data into unsigned data,in 3D for nLiveFrames > 1
-//			// if nLiveFrames > 1, project 3D data into 2D wave acqWave_temp
-//			if(nLiveFrames ==1) 
-//				fastop acqWave_temp = AcqWave +(kNQtoUnsigned) // [frameOffset + q * ySize + p]
-//			else
-//				fastop acqWave_nLiveTemp = AcqWave +(kNQtoUnsigned)
-//				ProjectSpecFrames(acqWave_nLiveTemp, 0,(nLiveFrames -1), acqWave_temp, 0, 2, 3)
-//			endif
-//			if(flybackMode == 1)
-//				SwapEven(acqWave_temp)
-//			endif
-//			if(liveAvgCheck)
-//				liveFramePos = mod(iFrame, nLiveAvgFrames)
-//				displayWave +=(acqWave_temp [p] [q] - liveAvg [p] [q] [liveFramePos])/nLiveAvgFrames
-//				liveAvg [*] [*] [liveFramePos] = acqWave_temp [p] [q]
-//			else
-//				fastOp displayWave = AcqWave_temp
-//			endif
-//			if(liveHistCheck)
-//				if(nLiveFrames ==1)
-//					WAVE histMe= AcqWave_temp
-//				else
-//					WAVE histMe = acqWave_nLiveTemp
-//				endif
-//				WAVE histwave_cp = dfrInit:histwave_cp
-//				Histogram/B=2 histMe, histwave_cp
-//				histWave = histwave_cp
-//			endif
-//			if(showMerge)
-//				NVAR firstColor = dfr:firstColor
-//				NVAR lastColor = dfr:lastColor
-//				variable rangevar= 65536/(lastColor - firstColor)
-//				//printf "mergeLayer = %d, firstcolor = %d, lastcolor = %d, rangeVar = %f\r", mergeLayer, firstColor, lastColor, rangevar
-//				mergeWave [*] [*] [mergeLayer] =  min(65280, max(0,(displayWave [p] [q] - firstColor)) * rangevar)
-//			endif
-//		endif
-//	endfor
-//	killdatafolder dfrInit
-//	return 0
-//end
