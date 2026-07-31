@@ -24,11 +24,6 @@ constant kNQePhysCounterSize = 24
 CONSTANT kNQimageBits = 12
 CONSTANT kNQtoUnsigned = 2048 //number to add to signed acquistion to convert to unsigned representation = 2^(kNQimageBits-1) 
 
-// when desired acquisition size is larger than counter size, we use
-// continuous acquisition into a buffer and copy the buffer into the scan waves
-// the multiplier multplies minimum live frame time to set buffer size
-// minimum live frame time is an empirical estimate of how often an end-of-scan function can be called without loss of data
-CONSTANT kNQtBufferMult = 1
 
 // **************************************************************************************************************
 // for storing imformation about twoP settings
