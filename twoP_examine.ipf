@@ -1,15 +1,16 @@
 #pragma rtGlobals=3
 #pragma IgorVersion = 6.2
-#pragma version = 2.1  // Last Modified: 2025/10/07 by Jamie Boyd
+#pragma version = 2.1  // Last Modified: 2026/07/31 by Jamie Boyd
 
 #include <SaveRestoreWindowCoords>
+#include "twoP_examineRGBthread"
 #include "GUIPControls"
 #include "GUIPList"
 #include "GUIPProtoFuncs"
 #include "GUIPSubWinUtils"
 
-STATIC CONSTANT kNQimageBits = 12 	// defined here because as well as in prefs
-										// because prefs are only for acquisition
+STATIC CONSTANT kNQimageBits = 12 	// defined here as well as in prefs
+											// because prefs are only for acquisition
 
 //constants for scanning mode
 Constant kLiveMode = 0
@@ -220,7 +221,7 @@ function twoP_examineRGBstart()
 	WAVE RGBfirstLasts = root:packages:twoP:examine:rgbfirstLasts
 	NVAR ThreadGroupID = root:packages:twoP:examine:rgbThreadGroupID
 	ThreadGroupID = ThreadGroupCreate(1)
-	ThreadStart ThreadGroupID, 0, twoP_examineRGBthread (RGBWave, RGBsources, RGBfirstLasts)
+	ThreadStart ThreadGroupID, 0, RGBthread#twoP_examineRGBthread (RGBWave, RGBsources, RGBfirstLasts)
 end
 
 function twoP_examineRGBstop()
@@ -229,39 +230,7 @@ function twoP_examineRGBstop()
 end
 
 
-threadsafe Function twoP_examineRGBthread(RGBWave, RGBsources, RGBfirstLasts)
-	WAVE RGBWave
-	WAVE/WAVE RGBsources
-	WAVE RGBfirstLasts
-	
-	variable slope
-	for(;;)
-		DFREF dfr = ThreadGroupGetDFR(0, inf)
-		NVAR toDo = dfr:toDoG  // bitwise 1 for red, 2 for green, 3 for blue
-		// red layer
-		WAVE redWave = rgbSources[0]
-		if ((toDo & 1) && (waveexists(redWave)))
-			slope = 255/(rgbfirstLasts[%lastRed] - rgbfirstLasts[%firstRed]) 
-			rgbwave [] [] [0] = min (255, max (0, (redwave [p][q] - rgbfirstLasts[%firstRed]) * slope))
-		endif
 
-		// green layer
-		WAVE greenWave = rgbSources[1]
-		if ((toDo & 2) && (waveexists(greenWave)))
-			slope = 255/(rgbfirstLasts [%lastGreen] - rgbfirstLasts [%firstGreen])
-			rgbwave [] [] [1] = min (255, max (0, (greenwave [p][q] - rgbfirstLasts[%firstGreen]) * slope))
-		endif
-
-		// blue layer
-		WAVE blueWave = rgbSources[2]
-		if ((toDo & 4) && (waveexists(blueWave)))
-			slope = 255/(rgbfirstLasts [%lastBlue] - rgbfirstLasts [%firstBlue])
-			rgbwave [] [] [2] = min (255, max (0, (bluewave [p][q] - rgbfirstLasts[%firstBlue]) * slope))
-		endif
-	endfor
-
-	return 0
-end
 
 //******************************************************************************************************
 // Adds controls for the Examine functions to the Nidaq Controls panel
@@ -806,27 +775,18 @@ Function twoP_ScanUpdateScanGraph(curScan)
 	variable Yoffset = NumberByKey("Yoffset", ScanInfo, ":", "\r")
 	for (iChan =0; iChan < nChans; iChan +=1)
 		aChan = stringFromList(iChan, chansPlusRGB, ",")
-		if(cmpStr(aChan, "RGB") == 0)
-			WAVE channelWave = root:packages:twoP:examine:scanGraph_rgb
-		else
-			if((scanMode == kTimeSeries) ||(scanMode == kZSeries))
-				WAVE channelWave = $"root:packages:twoP:examine:scanGraph_" + aChan
-				if (!((DimSize(channelWave, 0) == xSize) && (DimSize(channelWave, 1) == ySize)))
-					redimension/n=((xSize),(ySize), -1) channelWave
-				endif
-				SetScale/P X, xOffset, xPixSize, "m", channelWave
-				if(scanMode == kLineScan)
-					SetScale/P Y Yoffset, yPixSize, "s", channelWave
-				else
-					SetScale/P Y yOffset, yPixSize, "m", channelWave
-				endif
-
+		if ((cmpStr(aChan, "RGB") == 0) || ((scanMode == kTimeSeries) ||(scanMode == kZSeries)))
+			WAVE channelWave = $"root:packages:twoP:examine:scanGraph_" + aChan
+			if (!((DimSize(channelWave, 0) == xSize) && (DimSize(channelWave, 1) == ySize)))
+				redimension/n=((xSize),(ySize), -1) channelWave
+			endif
+			SetScale/P X, xOffset, xPixSize, "m", channelWave
+			if(scanMode == kLineScan)
+				SetScale/P Y Yoffset, yPixSize, "s", channelWave
 			else
-				WAVE channelWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
+				SetScale/P Y yOffset, yPixSize, "m", channelWave
 			endif
 		endif
-
-
 	endfor
 	twoP_examineRGBstart()		
 	// remove what don't belong
@@ -1196,25 +1156,21 @@ Function twoP_ImGraphFillcs(cs, curScan, aChan)
 	endfor
 	// add channel info
 	sprintf cs.UserStrings[2], "%s", aChan
-	if(cmpStr(aChan, "RGB") == 0)
-		WAVE channelWave = root:packages:twoP:examine:scanGraph_rgb
+	if ((cmpStr(aChan, "RGB") == 0) || ((mode == kTImeSeries) || (mode == kZseries)))
+		WAVE channelWave = $"root:packages:twoP:examine:scanGraph_" + aChan
 	else
-		if ((mode == kSingleImage) || (mode == kLiveMode))
-			WAVE channelWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
-		else
-			WAVE channelWave = $"root:packages:twoP:examine:scanGraph_" + aChan
-			if (!isAcquire)
-				Wave scanWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
-				if (mode == kTimeSeries)
-					// make a kalman averge of first 20 frames
-					KalmanSpecFrames(ScanWave, 0, min(19, zSize-1), channelWave, 0, 16)
-					sprintf cs.UserStrings[2], "%s:%.2W0Ps to %.2W0Ps", aChan, 0, frameTime*max(19, zSize-1)
-				elseif (mode == kZseries)
-					// make a z-projection of the whole stack
-					ProjectSpecFrames(ScanWave, 0, zSize-1, channelWave, 0, 2, 1)
-					sprintf cs.UserStrings[2], "%s%.2W0Pm to %.2W0Pm", aChan, zOffset, zOffset + zSize * numberbyKey("ZstepSize",  ScanInfo, ":", "\r")
-				endif
-			endif
+		WAVE channelWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
+	endif
+	if (!isAcquire)
+		Wave scanWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
+		if (mode == kTimeSeries)
+			// make a kalman averge of first 20 frames
+			KalmanSpecFrames(ScanWave, 0, min(19, zSize-1), channelWave, 0, 16)
+			sprintf cs.UserStrings[2], "%s:%.2W0Ps to %.2W0Ps", aChan, 0, frameTime*max(19, zSize-1)
+		elseif (mode == kZseries)
+			// make a z-projection of the whole stack
+			ProjectSpecFrames(ScanWave, 0, zSize-1, channelWave, 0, 2, 1)
+			sprintf cs.UserStrings[2], "%s%.2W0Pm to %.2W0Pm", aChan, zOffset, zOffset + zSize * numberbyKey("ZstepSize",  ScanInfo, ":", "\r")
 		endif
 	endif
 	WAVE cs.userWaves[0] = channelWave
@@ -2766,10 +2722,10 @@ Function twoP_LUTtoDataProc(ba) : ButtonControl
 			// apply first color and last color to dragger waves
 			leftWave = FirstColor
 			rightWave = LastColor
-			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kLeftThumb,  FirstColor,skipUpdate=1)
-			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kLeftThumb, FirstColor,skipUpdate=1)
-			MinMaxSlider_Manual("twoP_Controls", "LUTslider", kRightThumb, LastColor,skipUpdate=1)
-			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "LUTslider", kRightThumb, LastColor,skipUpdate=1)
+			MinMaxSlider_Manual("twoP_Controls", "CPLUTslider", kLeftThumb,  FirstColor,skipUpdate=1)
+			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "SGLUTslider", kLeftThumb, FirstColor,skipUpdate=1)
+			MinMaxSlider_Manual("twoP_Controls", "CPLUTslider", kRightThumb, LastColor,skipUpdate=1)
+			MinMaxSlider_Manual("twoPscanGraph#controlPanel", "SGLUTslider", kRightThumb, LastColor,skipUpdate=1)
 			// Apply image settings
 			if(WhichListItem("G" + LUTChan, childwindowlist("twoPscanGraph"), ";", 0,0) > -1)
 				twoP_LUTApplysettings(LUTChan)
