@@ -226,7 +226,7 @@ end
 
 function twoP_examineRGBstop()
 	NVAR ThreadGroupID = root:packages:twoP:examine:rgbThreadGroupID
-	print ThreadGroupRelease(ThreadGroupID)
+	ThreadGroupID = ThreadGroupRelease(ThreadGroupID)
 end
 
 
@@ -1542,66 +1542,6 @@ Function twoP_imGraphRGBPopMenuProc(pa) : PopupMenuControl
 
 	return 0
 End
-
-
-
-// *************************************************************************
-// Makes and applies a dependeny for RGB wave
-// Last Modified 2025/080/13 by Jamie Boyd
-function twoP_ImGraphSetRGB()
-
-	string savedfolder = getdataFolder(1)
-	setdatafolder root:packages:twoP:examine
-	WAVE RGBWave
-	SVAR RGB_RedChan
-	SVAR RGB_GreenChan
-	SVAR RGB_BlueChan
-	
-	string scanBaseName
-	SVAR curScan = root:packages:twoP:examine:curScan
-	if(cmpStr(curScan, "LiveScan") ==0)
-		scanBaseName = "root:twoP_Scans:LiveScan:LiveScan"
-	else
-		scanBaseName = "scanGraph"
-	endif
-	
-	string redStr, greenStr, blueStr
-	
-	if(cmpStr(RGB_RedChan, "BLACK") ==0)
-		redStr = "0"
-	else
-		variable/G RGB_redScal 
-		setformula RGB_redScal RGB_RedChan + "LastLutColor - " +  RGB_RedChan + "FirstLutColor" 
-		sprintf redStr "min(RGB_redScal, max(0, %s_%s [p][q] - %sFirstLutColor)) /(RGB_redScal/256)", scanBaseName, RGB_RedChan, RGB_RedChan
-		print redStr
-		//sprintf redStr "min((%sLastLutColor -%sFirstLutColor), max(0, %s_%s [p][q] - %sFirstLutColor)) /((%sLastLutColor -%sFirstLutColor)/256)",RGB_RedChan, RGB_RedChan,scanBaseName, RGB_RedChan, RGB_RedChan, RGB_RedChan, RGB_RedChan
-	endif
-	
-	if(cmpStr(RGB_GreenChan, "BLACK") ==0)
-		greenStr = "0"
-	else
-		variable/G RGB_greenScal 
-		setformula RGB_greenScal RGB_GreenChan + "LastLutColor - " +  RGB_GreenChan + "FirstLutColor" 
-		sprintf greenStr "min(RGB_greenScal, max(0, %s_%s [p][q] - %sFirstLutColor)) /(RGB_greenScal/256)",scanBaseName,  RGB_GreenChan, RGB_GreenChan
-	endif
-	
-	if(cmpStr(RGB_BlueChan, "BLACK") ==0)
-		blueStr = "0"
-	else
-		variable/G RGB_blueScal 
-		setformula RGB_blueScal RGB_BlueChan + "LastLutColor - " +  RGB_BlueChan + "FirstLutColor" 
-		sprintf blueStr "min(RGB_blueScal, max(0, %s_%s [p][q] - %sFirstLutColor)) /(RGB_blueScal/256)",scanBaseName,  RGB_BlueChan, RGB_BlueChan
-	endif
-	
-	string formulaStr
-	sprintf formulaStr "r == 0 ? %s :(r == 1 ? %s : %s)", redStr, greenStr, blueStr
-	setformula RGBWave, formulaStr
-	
-	setdatafolder $savedfolder
-	print formulaStr
-end
-
-  
 
 //******************************************************************************************************
 // This hook function  for the scangraph window shows the value under the mouse pointer when the shift key is held down and the mouse is moved around.

@@ -3,6 +3,11 @@
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
 
 #pragma IndependentModule = RGBthread
+
+//**************************************************************************************************
+// Thread function for copying and scaling data from scanWave or scanGraphWave to 3 color RGB wave
+// put in this independent module to avoid warnings every time code is compiled 
+// Last modified 2026/07/31 by Jamie Boyd
 threadsafe Function twoP_examineRGBthread(RGBWave, RGBsources, RGBfirstLasts)
 	WAVE RGBWave
 	WAVE/WAVE RGBsources
@@ -16,23 +21,23 @@ threadsafe Function twoP_examineRGBthread(RGBWave, RGBsources, RGBfirstLasts)
 		WAVE redWave = rgbSources[0]
 		if ((toDo & 1) && (waveexists(redWave)))
 			slope = 255/(rgbfirstLasts[%lastRed] - rgbfirstLasts[%firstRed]) 
-			rgbwave [] [] [0] = min (255, max (0, (redwave [p][q] - rgbfirstLasts[%firstRed]) * slope))
+			rgbwave [*] [*] [0] = min (255, max (0, (redwave [p][q] - rgbfirstLasts[%firstRed]) * slope))
 		endif
 
 		// green layer
 		WAVE greenWave = rgbSources[1]
 		if ((toDo & 2) && (waveexists(greenWave)))
 			slope = 255/(rgbfirstLasts [%lastGreen] - rgbfirstLasts [%firstGreen])
-			rgbwave [] [] [1] = min (255, max (0, (greenwave [p][q] - rgbfirstLasts[%firstGreen]) * slope))
+			rgbwave [*] [*] [1] = min (255, max (0, (greenwave [p][q] - rgbfirstLasts[%firstGreen]) * slope))
 		endif
 
 		// blue layer
 		WAVE blueWave = rgbSources[2]
 		if ((toDo & 4) && (waveexists(blueWave)))
 			slope = 255/(rgbfirstLasts [%lastBlue] - rgbfirstLasts [%firstBlue])
-			rgbwave [] [] [2] = min (255, max (0, (bluewave [p][q] - rgbfirstLasts[%firstBlue]) * slope))
+			rgbwave [*] [*] [2] = min (255, max (0, (bluewave [p][q] - rgbfirstLasts[%firstBlue]) * slope))
 		endif
+		killdataFolder dfr
 	endfor
-
 	return 0
 end

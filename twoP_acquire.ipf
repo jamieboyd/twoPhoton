@@ -740,7 +740,6 @@ Function twoP_AcquireAddControls()
 	Button MultiStartButton,title="Prepare Multi"
 	Button MultiStartButton,help={"Prepares or Aborts a series of multiple scans"}
 	Button MultiStartButton,userdata="Start Multi",fSize=16,fStyle=1
-	Button MultiStartButton,fColor=(0,65280,0)
 	GUIPTabAddCtrls("twoP_Controls", "SmodeTabControl", "Multi", "PopupMenu multiAqDataModePopUp;GroupBox MultModePeriodGrp;CheckBox MultiPeriodCheck;SetVariable MultiAqPeriodNumSetVar;")
 	GUIPTabAddCtrls("twoP_Controls", "SmodeTabControl", "Multi", "SetVariable MultAqPeriodPeriodSetVar;SetVariable MultiAqPeriodDelaySetVar;GroupBox MultModeWaveGrp;CheckBox MultiWaveCheck;")
 	GUIPTabAddCtrls("twoP_Controls", "SmodeTabControl", "Multi", "Button MultiAqWaveEditButton;PopupMenu MultiAqWavePopup;TitleBox MultiAqWaveTitleBox;GroupBox MultModeTriggerGrp;")
@@ -2517,20 +2516,26 @@ End
 // 2026/07/08 by Jamie Boyd - added fields for multple acquisitions
 // 2025/08/26 by Jamie Boyd 
 // 2016/11/15 by Jamie Boyd - added support for separate back ground tasks for each channel plus merge
-Structure twoP_ScanStruct_0
+Structure twoP_ScanStruct
 // general scan/run settings
-	variable scanMode
-	string newScanName
-	string scanNote
-	variable overWriteWarn
-	variable inPutTrigger
+	variable scanMode			// one of 0=live mode, 1=time series, etc
+	string newScanName			// name to be given to new scan
+	string scanNote				// note entered by user
+	variable overWriteWarn		// set if overwrite warning checkbox is on
+	variable inPutTrigger		// set if input trigger for scanning start is on
+	// multi acquisition note that the struct is saved between acquisitions when multiacqing
+	variable isMulti			// set if this scan is part of a multi-acquisition
+	variable multiAqiAq			// to iterate through multiaq. 
+	variable multiAqNaqs		// total number of acquisitions in the multiacq
+	variable multiAqPremake		// if set, waves will be made ahead of time for all scans
+	string multiScanList		// semi-colon separated list of scans that will be done
 	// image settings
 	variable scanChans			// for compatibility, 1 for "ch1", 2 for "ch2", 3 for both channels. superceded by selImageChanList
 	string selImageChanList		// list of channel name: aiChan number pairs. e.g. "ch1:0,ch2:1,"
 	string onlyChansImage		// just the channel names, stripped of ai number. e.g. "ch1,ch2"
 	string scanWavePath			// paths to image waves to scan, channels on which to scan them, plus scan options in NIDAQ format "root:twoP_Scans:Scan_000:Scan_000_ch1, 0/DIFF, -5, 5;
 	string imageBoard			// name of NIDAQ board, as configured with NI MAX
-	variable numFrames			// number of frames for scanWave, total number of frames to acquire, not acquisition chunk size
+	variable numFrames			// number of frames for scanWave, total number of frames to acquire. LiveAvg or NumAvg frames when averaging, 1 for a line scan
 	variable pixHeight			// Pixel height and width of scan waves
 	variable pixWidth
 	variable xSV				// start and end voltages to send to galvos
@@ -2570,27 +2575,25 @@ Structure twoP_ScanStruct_0
 	variable LROItop
 	variable LROIright
 	variable LROIbottom
-	// Live mode specific 
+	// Live mode specific	number of frames for live avergaing is s.numFrames
 	variable LiveStackAtOnce	// scan nLiveAvg frames at once if frame time is shorter than minLiveFrameTime, else scan 1 frame at a time
 	variable liveHist			// set if doing live histogram 
-	variable liveRaw
-	
+	variable liveRaw			// set if showing raw data
+	// Average specific			// number of frames to average is s.numFrames
+	variable AvgDoUpdate		// set if updating average after every frame, cleared to collect all frames at once, then average
+	// LineScan specific  number of frames is 1
+	string LSLinkWave			// name of scan that line scan was drawn on
+	variable LSscanAtOnce		// set if doing the whole scan at once, cleared if scanning chunks at a time
+	variable LSChunkSize		// number of lines that are scanned or processed at a time
+	variable LSnumChunks		// number of chunks that make up the scan
 	// time series
-	variable nCycFrames
-	// LineScan specific
-	string LSLinkWave
-	variable lScanChunkSize
-	// Average specific
-	variable AvgDoUpdate
-	// stage
-	string stageProc
-	variable xPos
-	variable yPos
-	variable zPos
+	variable TSscanAtOnce		// set if doing the whole scan at once, cleared if scanning chunks at a time
+	variable TSChunkSize		// number of frames to scan at once if repeated scanning
+	variable TSnumChunks		// number of chunks in the scan	
 	// Z series specific
-	variable zStepSize		// step size
-	variable zAvg			// number of images to average per plane
-	variable zAvgStackAtOnce // 
+	variable zStepSize			// step size to move after each frame
+	variable NumZseriesAvg		// number of images to average per plane
+	variable zAvgStackAtOnce 	// set if scanning stack to average at once
 	// ephys
 	string ePhysBoard
 	string selEphysChanList		//list of channel name: aiChan pairs
@@ -2598,12 +2601,12 @@ Structure twoP_ScanStruct_0
 	string ePhysPath  // string containing paths to ePhys waves to scan and channels on which to scan them, in NIDAQ format
 	variable ePhysFreq
 	variable ePhysChans
-	// multiMode
-	variable isMulti
-	variable multiAqiAq
-	variable multiAqNaqs
-	variable multiAqPremake	// if set, waves will be made ahead of time for all scans
-	string multiScanList	// semi-colon separated list of scans that will be done
+	// stage
+	string stageProc
+	variable xPos
+	variable yPos
+	variable zPos
+	
 	// triggers
 	variable trigChans	// old-style bitwise, 1 for ctr 0, 2 for ctr 1, 3 for both
 	variable trig1Secs	// seconds to delay, already converted from frames, or lines
@@ -2614,7 +2617,6 @@ Structure twoP_ScanStruct_0
 	string vOutWave2
 	variable vOutStart // "1 = on Scan Start;2=on Trig 1;"
 endStructure
-
 
 //******************************************************************************************************
 // when passed a list of channel names and ao channel numbers, returns a list of just the channel numbers
@@ -3944,8 +3946,8 @@ Function twoP_TriggersInit(s)
 	endtry
 	return 0	// exit with success
 end
-
-//******************************************************************************************************
+ 
+//************************************** NQ_DoVoltagePulseWaves ****************************************************************
 // Gets the ephys board ready to Output Voltage Waves using waveform generator 0 and waveform generator 1
 //  returns 1 if an error ocurred, else 0
 // Last Modified 2025/09/10 by Jamie
@@ -3994,10 +3996,11 @@ Function NQ_DoVoltagePulseWaves(s)
 end
 
 
-//******************************************************************************************************
+//*********************************** twoP_StartScan *******************************************************************
 // Function called by the "Start Scan" Button.
-// Last Modified: 2026/07/31 by Jamie Boyd. refactored for multiaq mode - separation between things done for every scan
-// in a multiaq scan and things done only one in a multiaq scan
+// Last Modified 2026/08/01 by Jamie - continuing refactoring
+// Modified: 2026/07/31 by Jamie Boyd. refactored for multiaq mode - making separation between things done for every scan
+// and things done once at start of multiaq
 Function  twoP_StartScan(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 
@@ -4013,13 +4016,14 @@ Function  twoP_StartScan(ba) : ButtonControl
 				StructGet/S s, savedScanStruct
 			else		// not a multiAq scan
 				ScanStartMode = scanMode
-				// Move to start of stack and set z step size for Z-stack, multiAq does this at beginning, or after finishing last scan
+				// Move to start of stack and set z step size for Z-stack
 				SVAR stageProc = root:packages:twoP:acquire:stageProc
 				if (ScanStartMode == kzSeries)
 					NVAR zFirstZ = root:Packages:twoP:Acquire:ZFirstZ
 					NVAR zstepSize = root:Packages:twoP:Acquire:ZStepSize
 					StagesSetAbsAxis(stageProc, "Z", zFirstZ, kStagesReturnAfter)
 					StageSetIncrement(stageProc, "Z", abs(zStepSize), 1)
+					
 				endif
 				// update stage position for all scan modes
 				StageUpdate(stageProc,(kXbit + kYbit + kZbit), 1)
@@ -4063,16 +4067,17 @@ Function  twoP_StartScan(ba) : ButtonControl
 				// this updates the scan graph which makes 2D waves for display of live, time series, and Z series scaning
 				// which are used by the acquisition threads so call it before calling twoP_MakeScanHelperWaves
 				twoP_ScanDoScanControls(s)
-				// make Scan helper waves, thread waves and temp 1D waves we scan directly into
+				// make Scan helper waves, thread waves and temp 1D waves we scan directly into, and adds wave references in threadData
 				twoP_MakeScanHelperWaves(s)
-				// live ROI?
+				//update experiment size after making waves
+				 twoP_ExpSizeUpdate()
+				 // live ROI?
 				if ((s.liveROI) && ((s.scanMode == kLiveMode) || (s.scanMode == kTimeSeries) || (s.scanMode == kLineScan)))
 					twoP_MakeLROIGraph(s)
 				endif
-				//update experiment size after making waves
-				 twoP_ExpSizeUpdate()
 			endif
-			
+			// do scan prep things specific to each scan mode
+				twoP_ScanDoModeSpecific(s)
 			// do the scan
 			twoP_DoScan(s)
 			break
@@ -4080,8 +4085,12 @@ Function  twoP_StartScan(ba) : ButtonControl
 	return 0
 end
 
-
-function twoP_ScanDoScanControls (s)
+//*********************************** twoP_ScanDoScanControls *******************************************************************
+// updates panel control to show scan is starting. Called by start button
+// twoP_ScanPopMenuProc opens the scanGraph, making the scanGraphWaves needed by the threads, 
+// so run this before making threadData with twoP_MakeScanHelperWaves
+// Last Modified 2026/08/01 by Jamie
+function twoP_ScanDoScanControls(s)
 	STRUCT twoP_ScanStruct &s
 
 	// Select our new scan as current scan, with selected channels on scanGraph to match channels being acquired
@@ -4106,13 +4115,22 @@ function twoP_ScanDoScanControls (s)
 			Button AqStartButton, win = twoP_Controls, fColor=(65280,0,0), title = "Abort"
 		endif
 	endif
+	// change setvariable mode to Candy-stripe effect indefinite-style progress bar for live scan
+	if (s.scanMode == kLiveMode)
+		ValDisplay AqPercentCompleteDisplay win= twoP_Controls, mode=4
+	endif
 	DoUpdate /W=twoP_Controls /E=1	// mark control panel as a progress window
+end
 
-	// do things specific to scan mode
-	
+//*********************************** twoP_ScanDoModeSpecific *******************************************************************
+// Does prep for scanning specific for scanMode, called by startButton. Run this last before doScan
+// Last Modified 2026/08/01 by Jamie
+function twoP_ScanDoModeSpecific(s)
+	STRUCT twoP_ScanStruct &s
+
+
 	switch(s.scanMode)
 		case kLiveMode:
-			ValDisplay AqPercentCompleteDisplay win= twoP_Controls, mode=4		// change mode to Candy-stripe effect indefinite-style progress bar
 			// live histogram?
 			if(s.liveHist)
 				SVAR HistGraphSelChans = root:packages:twoP:examine:HistGraphSelChans
@@ -4127,38 +4145,42 @@ function twoP_ScanDoScanControls (s)
 			NVAR iAvgFrame = root:Packages:twoP:Acquire:LiveiAvgFrame
 			iAvgFrame = 0
 			break
-		
+
 		case kSingleImage:
 			// reset global for counting frames to average
 			NVAR AvgiFrame = root:Packages:twoP:Acquire:AvgiFrame
 			AvgiFrame = 0
 			break
-			
+
 		case KLineScan:
 			// reset global for counting lineScan chunks as they scanned/processed
 			NVAR LSiChunk = root:packages:twoP:acquire:LSiChunk
 			LSiChunk= 0
 			break
-		
+
 		case kTimeSeries:
 			// reset global for counting time series chunks as they scanned/processed
 			NVAR TimeSeriesiChunk = root:Packages:twoP:Acquire:TSeriesiChunk
 			TimeSeriesiChunk = 0
 			break
-		
+
 		case kZseries:
+			// reset globals for counting frames and averages
 			NVAR iFrame =  root:Packages:twoP:Acquire:ZseriesiFrame // for counting frames in stack
 			iFrame = 0
 			NVAR iAvg = root:Packages:twoP:Acquire:ZseriesiAvg		// when averaging with kalman next
 			iAvg = 0
 			break
-			
+
 		case kePhysOnly:
 			break
 	endSwitch
 end
 
 
+//*********************************** twoP_DoScan *******************************************************************
+// After all the prep is done, this function starts the threads running and does NIDAQ initialization
+// Last Modified 2026/07/31 by Jamie
 function twoP_DoScan (s)
 	STRUCT twoP_ScanStruct &s
 
@@ -4166,7 +4188,6 @@ function twoP_DoScan (s)
 	if(s.scanmode != kephysOnly)
 		twoP_AcquireStartThreads(s)
 	endif
-	variable released
 	NVAR gThreadGroupID = root:packages:twoP:Acquire:gThreadGroupID
 	
 	//configure NI-DAQ functionality
@@ -4174,7 +4195,7 @@ function twoP_DoScan (s)
 	if(s.trigChans)
 		if(twoP_TriggersInit(s))
 			twoP_AcquireReSetBoards()
-			released = threadgroupRelease(gThreadGroupID)
+			gThreadGroupID = threadgroupRelease(gThreadGroupID)
 			Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65280, 0), proc= twoP_StartScan
 			return 1
 		endif
@@ -4184,7 +4205,7 @@ function twoP_DoScan (s)
 	if(s.vOutChans)
 		if(NQ_DoVoltagePulseWaves(s))
 			twoP_AcquireReSetBoards()
-			released = threadgroupRelease(gThreadGroupID)
+			gThreadGroupID = threadgroupRelease(gThreadGroupID)
 			Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65280, 0), proc= twoP_StartScan
 			return 1
 		endif
@@ -4194,7 +4215,7 @@ function twoP_DoScan (s)
 	if(itemsinlist(s.selEphysChanList, ";") > 0)
 		if(twoP_EphysInit(s))
 			twoP_AcquireReSetBoards()
-			released = threadgroupRelease(gThreadGroupID)
+			gThreadGroupID = threadgroupRelease(gThreadGroupID)
 			Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65280, 0), proc= twoP_StartScan
 			return 1
 		endif
@@ -4206,7 +4227,7 @@ function twoP_DoScan (s)
 			print fdaqmx_errorString()
 			twoP_AcquireReSetBoards()
 			NVAR gThreadGroupID = root:packages:twoP:Acquire:gThreadGroupID
-			released = threadgroupRelease(gThreadGroupID)
+			gThreadGroupID = threadgroupRelease(gThreadGroupID)
 			Button AqStartButton, win = twoP_Controls, title="Start",fColor=(0, 65280, 0), proc= twoP_StartScan
 			return 1
 		endif
@@ -4217,7 +4238,7 @@ end
 // Starts the image board scanning, or waiting for input trigger
 // returns 1 if an error ocurred, else 0
 // ues RTSI lines as a bus to connect sources to destinations they may not otherwise connect to without errors. Like old school 2P version
-// Last Modified:2026/01/03
+// Last Modified:2026/07/31
 Function twoP_ScanInit(s)
 	STRUCT twoP_ScanStruct &s
 
@@ -4429,7 +4450,7 @@ Function twoP_scanStop(isAbort)
 	if(ScanMode != kEphysOnly)
 		// release threads
 		NVAR gThreadGroupID = root:packages:twoP:Acquire:gThreadGroupID
-		variable released = threadgroupRelease(gThreadGroupID)
+		gThreadGroupID = threadgroupRelease(gThreadGroupID)
 		// close the shutter
 		SVAR imageBoard = root:packages:twoP:Acquire:imageBoard
 		NVAR shutterTaskNum = root:packages:twoP:Acquire:shutterTaskNum
@@ -6297,32 +6318,36 @@ Function twoP_MultiCheckOverWrite(s)
 end
 
 
-//******************************************************************************************************
-//  MultiAq start button procedure. 
-// Start multiAq procedure
-// Last Modified 20026/07/23 by Jamie Boyd
+//************************************** twoP_MultiStartProc ****************************************************************
+//  MultiAq start button procedure. Prepares all the waves and such needed for a series of scans, but does not start the scan
+// Last Modified 20026/08/01 by Jamie Boyd
 Function twoP_MultiStartProc(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 
 	switch( ba.eventCode )
 		case 2: // mouse up
+			STRUCT twoP_ScanStruct s
 			NVAR multiAqScanMode =  root:packages:twoP:acquire:multiAqScanMode	// type of scan - tSeries, avg, lines, z-series, ephys only
 			NVAR multiModeG = root:packages:twoP:acquire:multiAqTimeMode			// control of multiaq, Period, wave, or trigger
 			variable multiMode = multiModeG
 			NVAR nAqs = root:packages:twoP:acquire:multiAqnAqs					// number of aquisitions, to be set depending on multiAqTimeMode
 			NVAR iAq = root:packages:twoP:acquire:multiAqiAq					// for iterating through nAqs
 			iAq=0
+			NVAR preMakeWaves= root:packages:twoP:acquire:MultiPreMakeWaves
+			NVAR autInc = root:packages:twoP:acquire:AutincCheck
+			autInc = 1
+			NVAR exportafterscan = root:packages:twoP:acquire:exportAfterScan
 			try
-				// make sure export path is set, if exporting after each scan
-				NVAR exportafterscan = root:packages:twoP:acquire:exportAfterScan
-				if(exportafterscan > 1)
+				if(exportafterscan > 1)	// make sure path is set
 					SVAR PathStr =root:Packages:twoP:examine:ExportPath		// the global string were we store the path
 					pathinfo ExportPath
-					AbortOnValue((V_Flag ==0) ||(cmpstr(S_path, PathStr) !=0)), 0 // path does not exits or is not the same as shown in the string
+					if(!((V_Flag ==1) &&(cmpstr(S_path, PathStr) ==0)))// path does not exits or is not the same as shown in the string
+						NewPath /O/M="Select a Folder in which to store Scan Waves" ExportPath
+						AbortOnValue (V_Flag), 0 // V_flag is set to 0 if newpath is successful
+						PathInfo ExportPath
+						pathstr =  s_path
+					endif
 				endif
-				// make sure auto-increment is set
-				NVAR autInc = root:packages:twoP:acquire:AutincCheck
-				autInc = 1
 				// do initialization of scan number and timing waves for different multi-modes
 				switch(multiModeG)
 					case kMultiUsePeriod:   // make wave maq_seconds from the periods and we will use Wave method
@@ -6357,9 +6382,14 @@ Function twoP_MultiStartProc(ba) : ButtonControl
 				endswitch
 				// update stage, need do this for all scan modes, and need to do before loading scan struct, cause it will read stage values from globals
 				SVAR stageProc = root:packages:twoP:acquire:stageProc
+				if (multiAqScanMode == kzSeries)
+					NVAR zFirstZ = root:Packages:twoP:Acquire:ZFirstZ
+					NVAR zstepSize = root:Packages:twoP:Acquire:ZStepSize
+					StagesSetAbsAxis(stageProc, "Z", zFirstZ, kStagesReturnAfter)
+					StageSetIncrement(stageProc, "Z", abs(zStepSize), 1)
+				endif
 				StageUpdate(stageProc,(kXbit + kYbit + kZbit), 1)
 				// load the scan struct with data from constants - other things we will add later
-				STRUCT twoP_ScanStruct s
 				twoP_LoadScanStruct(s)
 				// check for channel selection according to scan mode
 				if (s.scanMode == kEphysOnly)
@@ -6373,18 +6403,39 @@ Function twoP_MultiStartProc(ba) : ButtonControl
 				if (s.scanMode != kePhysOnly)
 					twoP_MakeGalvoScanWaves(s)
 				endif
-				// only have to set Y once for line scan, so do it here
-				if(s.scanMode == kLineScan)
+				// set Horizontal galvo to start of X galvo waves
+				WAVE HorWave=root:Packages:twoP:acquire:HorWave
+				fDAQmx_WriteChan(s.ImageBoard, 0, HorWave [0], -10, 10)
+				//  Set Vertical galvo to right Y position for line scan, or to start of Y galvo wave
+				if(multiAqScanMode == kLineScan)
 					fDAQmx_WriteChan(s.ImageBoard, 1, s.YSV, -10, 10)
+				else
+					WAVE VerWave=root:Packages:twoP:acquire:VerWave
+					fDAQmx_WriteChan(s.ImageBoard, 1, VerWave [0], -10, 10)
 				endif
 				// make Scan waves,if pre-make is set, else we will make the scan waves as we need them
-				if (s.multiAqPremake)
+				if (preMakeWaves)
 					twoP_MultiMakeScanWaves(s)
 				else
 					twoP_MakeScanWaves(s)
 				endif
-				// make all those scanning "helper" waves that will be the same for every scan
-				// twoP_MakeScanHelperWaves(s)
+				//make general scan note we will modify for each succeeding scan, and copy to first scan
+				string/G root:packages:twoP:acquire:multiAcqScanNote=twoP_ScanNoter(s)
+				SVAR multiNote = root:packages:twoP:acquire:multiAcqScanNote
+				// make scan note for first wave
+				string/G $"root:twoP_Scans:" + s.NewScanName + ":" + s.NewScanName + "_info" = multiNote
+				// Select first scan as current scan, with selected channels on scanGraph to match channels being acquired
+				if(s.scanMode != kephysOnly)
+					SVAR selChans = root:packages:twoP:examine:scanGraphSelChans
+					selChans=s.onlyChansImage
+				endif
+				STRUCT WMPopupAction pa
+				pa.eventCode = 2
+				pa.popStr =  s.NewScanName
+				twoP_ScanPopMenuProc(pa)
+				// make Scan helper waves, thread waves and temp 1D waves we scan directly into, and adds wave references in threadData
+				twoP_MakeScanHelperWaves(s)
+				
 				// adjust multi-aq valDisplay so it will show progress
 				NVAR curNum = root:Packages:twoP:Acquire:NewScanNum
 				variable/G root:packages:twoP:acquire:StartScanNum = curNum
@@ -6555,7 +6606,7 @@ Function NQ_Muli_AbortProc(ba) : ButtonControl
 	switch( ba.eventCode )
 		case 2: // mouse up
 			TabControl SmodeTabControl disable=0
-			Button MultiStartButton, win = twoP_Controls, fColor=(65280,65280,0), title = "Start Multi", proc = NQ_Muli_StartProc
+			Button MultiStartButton, win = twoP_Controls,  title = "Start Multi", proc = NQ_Muli_StartProc
 			// cleanup code here
 		break
 		case -1: // control being killed
