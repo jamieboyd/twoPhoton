@@ -703,16 +703,9 @@ Function twoP_ScanPopMenuProc(pa) : PopupMenuControl
 				DoWindow/K twoPscanGraph
 				NQ_NewTracesGraph(curScan)
 			else
-				twoP_ScanUpdateScanGraph(curScan)
-				variable nTraces = GUIPCountObjs("root:twoP_Scans:" + CurScan, 1, "*avg*", 0) + GUIPCountObjs("root:twoP_Scans:" + CurScan, 1, "*ratio*", 0)
-				if((doephys ==0) &&(nTraces ==0))
-					DoWindow/K twoP_TracesGraph
-				else
-					NQ_NewTracesGraph(curScan)
-				endif
 				// set RGB wave sources
 				WAVE/WAVE rgbSources = root:packages:twoP:examine:rgbSources
-				SVAR redChan = root:packages:twoP:examine:RGB_RedChan 
+				SVAR redChan = root:packages:twoP:examine:RGB_RedChan
 				SVAR greenChan = root:packages:twoP:examine:RGB_GreenChan
 				SVAR blueChan = root:packages:twoP:examine:RGB_BlueChan
 				string baseName
@@ -724,14 +717,13 @@ Function twoP_ScanPopMenuProc(pa) : PopupMenuControl
 				rgbSources[0] = $baseName + redChan
 				rgbSources[1] = $baseName + greenChan
 				rgbSources[2] = $baseName + blueChan
-				NVAR RGB_hasRGB = root:packages:twoP:examine:RGB_hasRGB
-				if (RGB_hasRGB)
-					NVAR gThreadGroupID = root:packages:twoP:examine:rgbThreadGroupID
-					NVAR gThreadGroupID = root:packages:twoP:examine:rgbThreadGroupID
-					newdatafolder/s :tdata
-					variable/G toDoG = 7
-					ThreadGroupPutDF gThreadGroupID, :
-				endif
+			endif
+			twoP_ScanUpdateScanGraph(curScan)
+			variable nTraces = GUIPCountObjs("root:twoP_Scans:" + CurScan, 1, "*avg*", 0) + GUIPCountObjs("root:twoP_Scans:" + CurScan, 1, "*ratio*", 0)
+			if((doephys ==0) && (nTraces ==0))
+				DoWindow/K twoP_TracesGraph
+			else
+				NQ_NewTracesGraph(curScan)
 			endif
 			// adjust the movie controls and visibility and change display
 			twoP_ScanAdjustExamineControls(curScan)
@@ -743,7 +735,7 @@ End
 
 // ******************************************************************************************************
 // When a new scan is selected, either new scangraph or updates the subwindows in scanGraph
-// Last Modified 2025/10/07 by Jamie Boyd
+// Last Modified 2026/08/03 by Jamie Boyd
 Function twoP_ScanUpdateScanGraph(curScan)
 	string curScan
 
@@ -762,9 +754,14 @@ Function twoP_ScanUpdateScanGraph(curScan)
 	if(itemsInList(selChans, ",") ==0)
 		selChans = scanChans
 	endif
-	// resize  waves for scanModes that need it, plus RGB wave
+	// resize scanGraph waves for timeSeries and Zseries, plus RGB wave
 	twoP_examineRGBstop() // cause we might resize some waves used by the thread
-	string chansPlusRGB = AddListItem("RGB", scanChans, ",")
+	string chansPlusRGB
+	if ((scanMode == kTimeSeries) || (scanMode == kZSeries))
+		chansPlusRGB = AddListItem("RGB", scanChans, ",")
+	else
+		chansPlusRGB = "RGB"
+	endif
 	string aChan
 	variable iChan, nChans = itemsInList(chansPlusRGB, ",")
 	variable xSize= NumberByKey("PixWidth", ScanInfo, ":", "\r")
@@ -775,20 +772,25 @@ Function twoP_ScanUpdateScanGraph(curScan)
 	variable Yoffset = NumberByKey("Yoffset", ScanInfo, ":", "\r")
 	for (iChan =0; iChan < nChans; iChan +=1)
 		aChan = stringFromList(iChan, chansPlusRGB, ",")
-		if ((cmpStr(aChan, "RGB") == 0) || ((scanMode == kTimeSeries) ||(scanMode == kZSeries)))
-			WAVE channelWave = $"root:packages:twoP:examine:scanGraph_" + aChan
-			if (!((DimSize(channelWave, 0) == xSize) && (DimSize(channelWave, 1) == ySize)))
-				redimension/n=((xSize),(ySize), -1) channelWave
-			endif
-			SetScale/P X, xOffset, xPixSize, "m", channelWave
-			if(scanMode == kLineScan)
-				SetScale/P Y Yoffset, yPixSize, "s", channelWave
-			else
-				SetScale/P Y yOffset, yPixSize, "m", channelWave
-			endif
+		WAVE channelWave = $"root:packages:twoP:examine:scanGraph_" + aChan
+		if (!((DimSize(channelWave, 0) == xSize) && (DimSize(channelWave, 1) == ySize)))
+			redimension/n=((xSize),(ySize), -1) channelWave
+		endif
+		SetScale/P X, xOffset, xPixSize, "m", channelWave
+		if(scanMode == kLineScan)
+			SetScale/P Y Yoffset, yPixSize, "s", channelWave
+		else
+			SetScale/P Y yOffset, yPixSize, "m", channelWave
 		endif
 	endfor
-	twoP_examineRGBstart()		
+	twoP_examineRGBstart()
+	NVAR RGB_hasRGB = root:packages:twoP:examine:RGB_hasRGB
+	if (RGB_hasRGB)
+		NVAR gThreadGroupID = root:packages:twoP:examine:rgbThreadGroupID
+		newdatafolder/s :tdata
+		variable/G toDoG = 7
+		ThreadGroupPutDF gThreadGroupID, :
+	endif
 	// remove what don't belong
 	// make sure selected chans are in scan chans
 	nChans = itemsInList(selChans, ",")
@@ -1161,7 +1163,8 @@ Function twoP_ImGraphFillcs(cs, curScan, aChan)
 	else
 		WAVE channelWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
 	endif
-	if (!isAcquire)
+	// special treatment for Time series or Zseries when not acquire
+	if (!((isAcquire) || (cmpStr (aChan, "RGB") == 0)))
 		Wave scanWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
 		if (mode == kTimeSeries)
 			// make a kalman averge of first 20 frames
