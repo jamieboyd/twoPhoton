@@ -680,6 +680,28 @@ Function twoP_ScanNumSetVarProc(sva) : SetVariableControl
 End
 
 //******************************************************************************************************
+// Checks to see if a string is autoincrement compatable and, optionally, increments it.
+// Used when the autoincrement  wavenames checkbox is on.
+//  Last modified 2026/08/06 by Jamie Boyd - can also decrement now
+// Last modified 2025/07/25 by Jamie Boyd - use sscanf
+Function/s twoP_ScanNameInc(NewWaveName, inc)
+	string NewWaveName
+	variable inc		// if 0, don't increment., just check for compatibility. if 1, increment, if -1 decrement
+	
+	// see if wavename ends in an underscore followed by a  number
+	string base 
+	variable number=0
+	sscanf NewWaveName, "%[A-Za-z,0-9]_%u", base, number
+	if((V_flag ==2) && (inc)) // if V_flag ==1, NewWaveName did not have a number, no need to increment
+		number += inc
+	endif
+	sprintf NewWaveName "%s_%03d", base, number
+	NVAR scanNum = root:Packages:twoP:Acquire:NewScanNum
+	scanNum = number
+	return NewWaveName
+end
+
+//******************************************************************************************************
 // Function for the Scan popup menu. This allows you to select a scan to display as the current scan in the ScanGraph window.
 // Once here, you can view it as a movie, save it to disk, etc
 // Last Modified 2026/07/26 by Jamie Boyd
@@ -861,8 +883,6 @@ Function twoP_ScanAdjustExamineControls(curScan)
 	variable mode = numberbykey("mode", ScanStr, ":", "\r")
 	// change the title box to reflect the current scan
 	TitleBox CurScanTitleBox win = twoP_Controls, title= stringbykey("Scan Type", ScanStr, ":", "\r") + ":" + curScan
-	Controlinfo /w = twoP_Controls AcquireExamineTab
-	variable ShowNow =(cmpstr(S_Value, "Examine") == 0) // 0 if acquiring, 1 if examining
 	// Change the info displayed about the current scan
 	twoP_ScanShowNote("root:twoP_Scans:" + curScan + ":" + curScan + "_info")
 	TitleBox DateTimeTitleBox Win=twoP_Controls, title =  secs2date(numberbykey("ExpTime", ScanStr, ":", "\r"),0) + " " + secs2Time(numberbykey("ExpTime",ScanStr, ":", "\r"),1)
@@ -893,33 +913,24 @@ Function twoP_ScanAdjustExamineControls(curScan)
 		twoP_LUTchanPopMenuProc(pa)
 	endif
 	// adjust movie and average controls
+	variable movieAbleState
 	if((mode == kTimeSeries) ||(mode == kZSeries))
+		movieAbleState = 0
 		// reset the slider values
 		NVAR CurFramePos = root:Packages:twoP:examine:CurFramePos
 		CurFramePos = 0
 		FrameTime =  numberbykey("FrameTime", ScanStr, ":", "\r")
 		NumFrames = numberbykey("NumFrames", ScanStr, ":", "\r")
 		Slider FramePositionSlider, Win =twoP_Controls,limits={0,NumFrames-1,1}, value =0
-		variable ableState
-		if(ShowNow)
-			ableState = 0
-		else
-			ableState = 1
-		endif
-	else	// not a stack, so disable movie controls
-		Slider FramePositionSlider, Win =twoP_Controls,limits={0,0,0}, value = 0
-		// disable dynmic ROI
+	else	// not a stack, so hide
+		movieAbleState = 1
+		// turn off dynamic ROI before we hide its checkbox
 		STRUCT WMCheckBoxAction cba
 		cba.checked = 0
 		cba.eventCode = 2
 		twoP_DROICheckProc(cba)
-		if(ShowNow)
-			ableState  = 2
-		else
-			ableState = 3
-		endif
 	endif
-	GUIPTabSetAbleState("twoP_Controls", "AcquireExamineTab", "Examine", "FramePositionSlider;MovieButton;PrevFrame;NextFrame;DROICheck", ableState, 1)
+	GUIPTabSetAbleState("twoP_Controls", "AcquireExamineTab", "Examine", "FramePositionSlider;MovieButton;PrevFrame;NextFrame;DROICheck", MovieAbleState, 1)
 	// Adjust examineTabControl stuff for front tab
 	controlinfo/w=twoP_controls ExamineTabCtrl
 	STRUCT WMTabControlAction tca
