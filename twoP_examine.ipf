@@ -704,7 +704,7 @@ end
 //******************************************************************************************************
 // Function for the Scan popup menu. This allows you to select a scan to display as the current scan in the ScanGraph window.
 // Once here, you can view it as a movie, save it to disk, etc
-// Last Modified 2026/07/26 by Jamie Boyd
+// Last Modified 2026/08/06 by Jamie Boyd
 Function twoP_ScanPopMenuProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 	switch( pa.eventCode )
@@ -721,10 +721,7 @@ Function twoP_ScanPopMenuProc(pa) : PopupMenuControl
 			// Get some variables from scan note
 			variable mode = NumberByKey("mode",ScanNote, ":", "\r")
 			variable doephys = itemsInList(StringByKey("ePhysChanDesc",ScanNote, ":", "\r"), ",")
-			if(mode == kePhysOnly)
-				DoWindow/K twoPscanGraph
-				NQ_NewTracesGraph(curScan)
-			else
+			if(mode != kePhysOnly)
 				// set RGB wave sources
 				WAVE/WAVE rgbSources = root:packages:twoP:examine:rgbSources
 				SVAR redChan = root:packages:twoP:examine:RGB_RedChan
@@ -739,8 +736,8 @@ Function twoP_ScanPopMenuProc(pa) : PopupMenuControl
 				rgbSources[0] = $baseName + redChan
 				rgbSources[1] = $baseName + greenChan
 				rgbSources[2] = $baseName + blueChan
+				twoP_ScanUpdateScanGraph(curScan)
 			endif
-			twoP_ScanUpdateScanGraph(curScan)
 			variable nTraces = GUIPCountObjs("root:twoP_Scans:" + CurScan, 1, "*avg*", 0) + GUIPCountObjs("root:twoP_Scans:" + CurScan, 1, "*ratio*", 0)
 			if((doephys ==0) && (nTraces ==0))
 				DoWindow/K twoP_TracesGraph
@@ -769,6 +766,9 @@ Function twoP_ScanUpdateScanGraph(curScan)
 	endif
 	// scan mode
 	variable scanMode = NumberByKey("Mode", ScanInfo, ":", "\r")
+	if (scanMode == kEPhysOnly)
+		return 0
+	endif
 	// channels existing for this scan - limit selected to these channels, delete if neccesary
 	string scanChans = StringByKey("imChanDesc", ScanInfo, ":", "\r")
 	// which channels are selected?
