@@ -4855,7 +4855,7 @@ Function twoP_ScanStartThreads(s)
 	for(iChan=0; iChan < nCHans; iChan +=1)
 		switch(s.ScanMode)
 			case kLiveMode:
-				ThreadStart gThreadGroupID, iChan, twoP_LiveThread(threadData, nChans, s.LiveStackAtOnce, s.numFrames, s.pixWidth, s.flybackMode, s.LiveHist, s.LiveROI, s.LROIleft, s.LROItop, s.LROIright, s.LROIbottom, s.liveRatio, s.ratioTopChanNum, s.ratioBottomChanNum)
+				ThreadStart gThreadGroupID, iChan, twoP_LiveThread(threadData, nChans, s.LiveStackAtOnce, s.numFrames, (s.pixWidth * s.pixHeight), s.flybackMode, s.LiveHist, s.LiveROI, s.LROIleft, s.LROItop, s.LROIright, s.LROIbottom, s.liveRatio, s.ratioTopChanNum, s.ratioBottomChanNum)
 				break
 				
 			case kSingleImage:
@@ -4868,22 +4868,22 @@ Function twoP_ScanStartThreads(s)
 				if (s.LSscanAtOnce)
 					ThreadStart gThreadGroupID, iChan, twoP_lineScanAtOnceThread(threadData, nChans, s.LSChunkSize, s.pixWidth, s.flybackMode, s.LiveROI, ((s.LROIleft -  s.xScalStart)/s.xPixSize), ((s.LROIright - s.xScalStart)/s.xPixSize), s.liveRatio, s.ratioTopChanNum, s.ratioBottomChanNum)
 				else
-					ThreadStart gThreadGroupID, iChan, twoP_lineScanCyclicThread(threadData, nChans, s.LSChunkSize, s.flybackMode, s.LiveROI, ((s.LROIleft -  s.xScalStart)/s.xPixSize), ((s.LROIright - s.xScalStart)/s.xPixSize), s.liveRatio, s.ratioTopChanNum, s.ratioBottomChanNum)
+					ThreadStart gThreadGroupID, iChan, twoP_lineScanCyclicThread(threadData, nChans, s.LSChunkSize,  s.pixWidth, s.flybackMode, s.LiveROI, ((s.LROIleft -  s.xScalStart)/s.xPixSize), ((s.LROIright - s.xScalStart)/s.xPixSize), s.liveRatio, s.ratioTopChanNum, s.ratioBottomChanNum)
 				endif
 				break
 				
 			case kTimeSeries:
 				if (s.TSscanAtOnce)
-					ThreadStart gThreadGroupID, iChan, twoP_timeSeriesAtOnceThread(threadData, nChans, s.TSChunkSize, s.pixWidth, s.pixHeight, s.flybackMode, s.LiveROI, s.LROIleft, s.LROItop, s.LROIright, s.LROIbottom, s.liveRatio, s.ratioTopChanNum, s.ratioBottomChanNum)
+					ThreadStart gThreadGroupID, iChan, twoP_timeSeriesAtOnceThread(threadData, nChans, s.TSChunkSize, (s.pixWidth *  s.pixHeight), s.flybackMode, s.LiveROI, s.LROIleft, s.LROItop, s.LROIright, s.LROIbottom, s.liveRatio, s.ratioTopChanNum, s.ratioBottomChanNum)
 				else
-					ThreadStart gThreadGroupID, iChan, twoP_timeSeriesCyclicThread(threadData, nChans, s.TSChunkSize, s.flybackMode, s.LiveROI, s.LROIleft, s.LROItop, s.LROIright, s.LROIbottom, s.liveRatio, s.ratioTopChanNum, s.ratioBottomChanNum)
+					ThreadStart gThreadGroupID, iChan, twoP_timeSeriesCyclicThread(threadData, nChans, s.TSChunkSize,  (s.pixWidth *  s.pixHeight), s.flybackMode, s.LiveROI, s.LROIleft, s.LROItop, s.LROIright, s.LROIbottom, s.liveRatio, s.ratioTopChanNum, s.ratioBottomChanNum)
 				endif
 				break
 			case kZseries:
 				if (s.zAvgStackATOnce)
-					ThreadStart gThreadGroupID, iChan, twoP_ZseriesAtOnceThread(threadData, s.NumZseriesAvg, s.flybackMode)
+					ThreadStart gThreadGroupID, iChan, twoP_ZseriesAtOnceThread(threadData, (s.pixWidth *  s.pixHeight), s.NumZseriesAvg, s.flybackMode)
 				else
-					ThreadStart gThreadGroupID, iChan, twoP_ZseriesKNextThread(threadData,  s.NumZseriesAvg, s.flybackMode)
+					ThreadStart gThreadGroupID, iChan, twoP_ZseriesKNextThread(threadData,  (s.pixWidth *  s.pixHeight), s.NumZseriesAvg, s.flybackMode)
 				endif
 				break
 		endSwitch
@@ -5273,7 +5273,7 @@ Function twoP_InitImageScan(s)
 					taskPeriod=ceil(s.LSChunkSize * s.lineTime * 60)
 					CtrlNamedBackground LineScanTask, period = taskPeriod, burst = 0, proc= twoP_LineScanBkg, start=(ticks + taskPeriod)
 				else // scan repeats till scan Wave is full, doing 1 chunk ata time, repeat hook calls thread
-					sprintf RPTChook, "twoP_LineScanHook(\"%s\", %d, %d, %d, %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ","), s.LSChunkSize, s.LSnumChunks, s.threadGroupID
+					sprintf RPTChook, "twoP_LineScanHook(\"%s\", %d, %d, %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ","), s.LSnumChunks, s.threadGroupID
 					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/STRT=0 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 				endif
 				break
@@ -5452,12 +5452,12 @@ end
 //**************************************************************************************************
 // Thread function for live mode. Called after every frame is scanned, or if live averaging is on, runs after every stack of frames to average is scanned
 // Last modified 2026/07/28 by Jamie Boyd
-ThreadSafe Function twoP_LiveThread(threadfWaves, nChans, stackAtOnce, numFrames, pixWidth, flybackMode, LiveHist, LiveROI, LROIleft, LROItop, LROIright, LROIbottom, liveRatio, topChan, bottomChan)
+ThreadSafe Function twoP_LiveThread(threadfWaves, nChans, stackAtOnce, numFrames, framePoints, flybackMode, LiveHist, LiveROI, LROIleft, LROItop, LROIright, LROIbottom, liveRatio, topChan, bottomChan)
 	WAVE/WAVE threadfWaves
 	variable nChans
 	variable stackAtOnce
 	variable numFrames
-	variable pixWidth
+	variable framePoints
 	variable flybackMode
 	variable LiveHist
 	variable liveROI
@@ -5486,14 +5486,16 @@ ThreadSafe Function twoP_LiveThread(threadfWaves, nChans, stackAtOnce, numFrames
 		WAVE acq1d = threadfWaves [iChan * nThreadWaves]
 		WAVE acq3D = threadfWaves [iChan * nThreadWaves + 1]
 		WAVE scanWave = threadfWaves [iChan * nThreadWaves + 2]
-		NVAR iPlane = dfr:iFrameG	
+		NVAR iFrame = dfr:iFrameG	
 		// copy freshly scanned data into temp 3d wave. 
 		if(stackAtOnce) // If stack-at-once, data for all the frames in the stack are collected at once and copied into the whole stack
-			acq3D = acq1d
-			acq3D = acq3D > 32767 ? 0: acq3D
+			//acq3D = acq1d
+			//acq3D = acq3D > 32767 ? 0: acq3D
+			fastIntCopy (acq1d, 0, acq3D, 0, 0, 1)
 		else	// If isByFrame a single frame's worth at a time is scanned and inserted into a plane
-			acq3D [*] [*] [iPlane] = acq1d [q*pixWidth + p]
-			acq3D [*] [*] [iPlane] = acq3D > 32767 ? 0 :  acq3D
+			//acq3D [*] [*] [iFrame] = acq1d [q*pixWidth + p]
+			//acq3D [*] [*] [iFrame] = acq3D > 32767 ? 0 :  acq3D
+			fastIntCopy (acq1d, 0, acq3D, (iFrame * framePoints), 0, 1)
 		endif
 		
 		// average the temp 3D stack into the 2D scanGraphWave, which is also the scanWave
@@ -5586,10 +5588,9 @@ threadsafe function twoP_AvgFramesThread(threadWaves, flybackMode)
 		WAVE acq2D = threadWaves [iChan * nThreadWaves + 1]
 		WAVE scanWave = threadWaves [iChan * nThreadWaves + 2]
 		NVAR iFrame = dfr:iFrameG
-		print "Acq1D  = ", nameofwave (acq1d), "Acq2D  = ", nameofwave (acq2d), "ScanWave  = ", nameofwave (scanWave)
-		print "Acq1D points = ", numpnts (acq1D), "Acq2D points = ", numpnts (acq2D)
-		acq2D = acq1d
-		acq2D = acq2D > 32767 ? 0: acq2D
+		//acq2D = acq1d
+		//acq2D = acq2D > 32767 ? 0: acq2D
+		fastIntCopy (acq1d, 0, acq2D, 0, 0, 1)
 		if(flybackMode)
 			SwapEven(acq2D)
 		endif
@@ -5618,8 +5619,9 @@ Function twoP_AvgFramesEndHook(scanName, selImageChanList,  numFrames, flybackMo
 		WAVE acq1D = $"root:packages:twoP:acquire:Acq1D_" + aChan
 		WAVE acq3D = $"root:packages:twoP:acquire:Acq3D_" + aChan
 		WAVE scanWave =  $"root:twoP_Scans:" + scanName +  ":" + scanName + "_" + aChan
-		acq3D = acq1d
-		acq3D = acq3D > 32767 ? 0: acq3D
+		//acq3D = acq1d
+		//acq3D = acq3D > 32767 ? 0: acq3D
+		fastIntCopy (acq1d, 0, acq3D, 0, 0, 1)
 		KalmanSpecFrames(acq3D, 0, numFrames-1, scanWave, 0, 8)
 		if(flybackMode)
 			SwapEven(scanWave)
@@ -5640,11 +5642,10 @@ end
 
 // ************************************************************************************************
 // Repeat hook function that runs at end of line scan chunk in repeated scan mode. Calls the threads, shuts down if done
-// Last Modified: 2026/07/30 by Jamie Boyd
-Function twoP_LineScanHook(selImageChanList, numChans, lScanChunkSize, numChunks, threadGroupID)
+// Last Modified: 2026/08/11 by Jamie Boyd
+Function twoP_LineScanHook(selImageChanList, numChans, numChunks, threadGroupID)
 	string selImageChanList
 	variable numChans
-	variable lScanChunkSize	// number of lines in each chunk
 	variable numChunks
 	variable threadGroupID
 
@@ -5676,12 +5677,13 @@ Function twoP_LineScanHook(selImageChanList, numChans, lScanChunkSize, numChunks
 end
 
 //**************************************************************************************************
-// Thread function for repeated line scan, chunk by chunk mode
+// Thread function for repeated line scan, scan is done chunk by chunk, aq2D is completely filled each time
 // Last modified 2026/07/29 by Jamie Boyd
-ThreadSafe Function twoP_lineScanCyclicThread(threadfWaves, nChans, lScanChunkSize, flybackMode, LiveROI, LROILeftPt, LROIrightPt, liveRatio, topChan, bottomChan)
+ThreadSafe Function twoP_lineScanCyclicThread(threadfWaves, nChans, lScanChunkSize, pixwidth, flybackMode, LiveROI, LROILeftPt, LROIrightPt, liveRatio, topChan, bottomChan)
 	WAVE/WAVE threadfWaves
 	variable nChans
 	variable lScanChunkSize
+	variable pixWidth
 	variable flybackMode
 	variable liveROI
 	variable LROIleftPt
@@ -5691,6 +5693,8 @@ ThreadSafe Function twoP_lineScanCyclicThread(threadfWaves, nChans, lScanChunkSi
 	variable bottomChan
 
 	variable nThreadWaves = 4
+	variable chunkPoints = pixWidth * lScanChunkSize
+	
 	if(liveRatio)
 		WAVE LROIRatio = threadfWaves [nThreadWaves*nChans]
 		WAVE topWave =  threadfWaves [topChan]
@@ -5705,14 +5709,18 @@ ThreadSafe Function twoP_lineScanCyclicThread(threadfWaves, nChans, lScanChunkSi
 		WAVE scanWave = threadfWaves [nThreadWaves *iChan + 2]
 		NVAR iChunk = dfr:iChunkG
 
-		acq2D = acq1d
-		acq2D = acq2D > 32767 ? 0: acq2D
+		//acq2D = acq1d
+		//acq2D = acq2D > 32767 ? 0: acq2D
+		fastIntCopy (acq1d, 0, acq2D, 0, 0, 1)
+		
 		if(flybackMode)
 			SwapEven(acq2D)
 		endif
 		// insert this chunk into ScanWave. lScanChunkSize will fit evenly into line scan size
-		variable startQ = iChunk * lScanChunkSize
-		scanWave [*] [startQ, startQ + lScanChunkSize -1] = acq2D [p] [q-startQ]
+		//variable startQ = iChunk * lScanChunkSize
+		//scanWave [*] [startQ, startQ + lScanChunkSize -1] = acq2D [p] [q-startQ]
+		fastIntCopy (acq2D, 0, scanWave, (iChunk * chunkPoints), 0, 0)
+		
 		// do live ROI
 		if(liveROI)
 			WAVE LROIWave = threadfWaves [nThreadWaves*iChan + 3]
@@ -5764,7 +5772,6 @@ Function twoP_LineScanBkg(s)
 		s.numChunks = LSnumChunks
 		NVAR lineTime = root:packages:twoP:acquire:lineTime
 		s.taskTicks = ceil(60 * lineTime * lScanChunkSize)
-		print "nchans =", s.nChans
 		return 0
 	endif
 
@@ -5813,7 +5820,7 @@ Function twoP_LineScanBkg(s)
 end
 
 //**************************************************************************************************
-// Thread function for lineScan done all at once
+// Thread function for lineScan done all at once, acq2D is filled from a chunk of aq1D and copied into correct position of scanWave
 // Last modified 2026/08/06 by Jamie Boyd
 ThreadSafe Function twoP_lineScanAtOnceThread(threadfWaves, nChans, lScanChunkSize, pixWidth, flybackMode, LiveROI, LROILeftPt, LROIrightPt, liveRatio, topChan, bottomChan)
 	WAVE/WAVE threadfWaves
@@ -5837,7 +5844,7 @@ ThreadSafe Function twoP_lineScanAtOnceThread(threadfWaves, nChans, lScanChunkSi
 	
 	variable chunkPoints = lScanChunkSize * pixWidth
 	variable chunkOffset
-	variable startQ
+	//variable startQ
 	for(;;)
 		DFREF dfr = ThreadGroupGetDFR(0,inf)
 		if (DataFolderRefStatus(dfr) ==0)
@@ -5848,18 +5855,21 @@ ThreadSafe Function twoP_lineScanAtOnceThread(threadfWaves, nChans, lScanChunkSi
 		WAVE acq2D = threadfWaves [nThreadWaves*iChan + 1]
 		WAVE scanWave = threadfWaves [nThreadWaves *iChan + 2]
 		NVAR iChunk = dfr:iChunkG
-		
 
 		chunkOffset = iChunk * chunkPoints
-		startQ = iChunk * lScanChunkSize
-		acq2D = acq1d [chunkOffset + q*pixWidth + p]
-		acq2D = acq2D > 32767 ? 0: acq2D
+		//startQ = iChunk * lScanChunkSize
+		// acq2D = acq1d [chunkOffset + q*pixWidth + p]
+		// acq2D = acq2D > 32767 ? 0: acq2D
+		fastintCopy(acq1d, chunkOffset, acq2D, 0, chunkPoints, 1)
+		
 		if(flybackMode)
 			SwapEven(acq2D)
 		endif
 		// insert this chunk into ScanWave. lScanChunkSize will fit evenly into line scan size
-		startQ = iChunk * lScanChunkSize
-		scanWave [*] [startQ, startQ + lScanChunkSize -1] = acq2D [p] [q-startQ]
+		// startQ = iChunk * lScanChunkSize
+		// scanWave [*] [startQ, startQ + lScanChunkSize -1] = acq2D [p] [q-startQ]
+		fastintCopy(acq2D, 0, scanWave, chunkOffset, chunkPoints, 0)
+		
 		// do live ROI
 		if(liveROI)
 			WAVE LROIWave = threadfWaves [nThreadWaves*iChan + 3]
@@ -5920,12 +5930,13 @@ Function twoP_timeSeriesHook(selImageChanList, nChans, chunkSize, numChunks, thr
 end
 
 //**************************************************************************************************
-// Thread function for time series cyclic mode where a chunk of frames is scanned repeatedly
+// Thread function for time series cyclic mode where a chunk of frames is scanned repeatedly. acq3D is completely filled witheachscan
 // Last modified 2025/09/03 by Jamie Boyd
-ThreadSafe Function twoP_timeSeriesCyclicThread(threadfWaves, nChans, chunkSize, flybackMode, LiveROI, LROIleft, LROItop, LROIright, LROIbottom, liveRatio, TopChan, BottomChan)
+ThreadSafe Function twoP_timeSeriesCyclicThread(threadfWaves, nChans, chunkSize, FramePoints, flybackMode, LiveROI, LROIleft, LROItop, LROIright, LROIbottom, liveRatio, TopChan, BottomChan)
 	WAVE/WAVE threadfWaves
 	variable nChans
 	variable chunkSize
+	variable FramePoints
 	variable flybackMode
 	variable liveROI
 	variable LROIleft
@@ -5943,7 +5954,9 @@ ThreadSafe Function twoP_timeSeriesCyclicThread(threadfWaves, nChans, chunkSize,
 		WAVE bottomWave =  threadfWaves [bottomChan]
 	endif
 	
-	variable startPlane
+	//variable startPlane
+	variable chunkPoints = chunkSize * FramePoints
+	
 	for(;;)
 		DFREF dfr = ThreadGroupGetDFR(0,inf)
 		if (DataFolderRefStatus(dfr) ==0)
@@ -5956,15 +5969,20 @@ ThreadSafe Function twoP_timeSeriesCyclicThread(threadfWaves, nChans, chunkSize,
 		WAVE scanGraphWave = threadfWaves [nThreadWaves *iChan + 3]
 		NVAR iChunk = dfr:iChunkG
 		
-		// copy scanned wave into 3D wave and remove negative data
-		acq3D = acq1d
-		acq3D = acq3D > 32767 ? 0: acq3D
+		// copy ALL of scanned wave acq1D into 3D wave and remove negative data
+		// acq3D = acq1d
+		// acq3D = acq3D > 32767 ? 0: acq3D
+		fastintCopy(acq1d, 0, acq3D, 0, chunkPoints, 1)
+		
 		if(flybackMode)
 			SwapEven(acq3D)
 		endif
-		// copy 3D wave into scanWave
-		startPlane = iChunk * chunkSize
-		scanGraphWave [*] [*] [startPlane, startPlane + chunkSize -1] = acq3D [p] [q] [r-startPlane]
+		// copy ALL of 3D wave into appropriate offset of scanWave
+		//startPlane = iChunk * chunkSize
+		// scanGraphWave [*] [*] [startPlane, startPlane + chunkSize -1] = acq3D [p] [q] [r-startPlane] !@     #
+		fastintCopy(acq3D, 0, scanWave, (iChunk * chunkPoints), chunkPoints, 1)
+		
+		
 		// make an average of 3D stack and put in scanGraph wave
 		KalmanSpecFrames(acq3D, 0, chunkSize-1, scanGraphWave, 0, 8)
 
@@ -6070,14 +6088,13 @@ Function twoP_timeSeriesBkg(s)
 end
 	
 //**************************************************************************************************
-// Thread function for time series 
-// Last modified 2026/08/06 by Jamie Boyd
-ThreadSafe Function twoP_timeSeriesAtOnceThread(threadfWaves, nChans, chunkSize, pixWidth, pixHeight, flybackMode, LiveROI, LROIleft, LROItop, LROIright, LROIbottom, liveRatio, TopChan, BottomChan)
+// Thread function for time series when all data is scanned at once into acq1D, and a chunk of acq1D at a time is copied into acq3D
+// Last modified 2026/08/11 by Jamie Boyd
+ThreadSafe Function twoP_timeSeriesAtOnceThread(threadfWaves, nChans, chunkSize, FramePoints, flybackMode, LiveROI, LROIleft, LROItop, LROIright, LROIbottom, liveRatio, TopChan, BottomChan)
 	WAVE/WAVE threadfWaves
 	variable nChans
 	variable chunkSize
-	variable pixWidth
-	variable pixHeight
+	variable FramePoints
 	variable flybackMode
 	variable liveROI
 	variable LROIleft
@@ -6095,10 +6112,8 @@ ThreadSafe Function twoP_timeSeriesAtOnceThread(threadfWaves, nChans, chunkSize,
 		WAVE bottomWave =  threadfWaves [bottomChan]
 	endif
 	
-	variable framePoints = pixWidth * pixHeight
-	variable chunkPoints = framePoints * chunkSize
+	variable chunkPoints = FramePoints * chunkSize
 	variable chunkOffset
-	variable startPlane
 	
 	for(;;)
 		DFREF dfr = ThreadGroupGetDFR(0,inf)
@@ -6112,17 +6127,21 @@ ThreadSafe Function twoP_timeSeriesAtOnceThread(threadfWaves, nChans, chunkSize,
 		WAVE scanGraphWave = threadfWaves [nThreadWaves *iChan + 3]
 		NVAR iChunk = dfr:iChunkG
 		
+		// copy chunk of scanned 1D wave into all of 3D wave and remove negative data
 		chunkOffset = iChunk * chunkPoints
 		//print "Thread iCHunk = ", iChunk, "chunk offset = ", chunkOffset
-		// copy chunk of scanned 1D wave into 3D wave and remove negative data
-		acq3D = acq1d [chunkOffset + (r * framePoints) + (q * pixHeight) + p]
-		acq3D = acq3D > 32767 ? 0: acq3D
+		//acq3D = acq1d [chunkOffset + (r * framePoints) + (q * pixHeight) + p]
+		//acq3D = acq3D > 32767 ? 0: acq3D
+		fastIntCopy(acq1d, chunkOffset, acq3D, 0, chunkPoints, 1)
+		
 		if(flybackMode)
 			SwapEven(acq3D)
 		endif
-		// copy 3D wave into scanWave
-		startPlane = iChunk * chunkSize
-		scanWave [*] [*] [startPlane, startPlane + chunkSize -1] = acq3D [p] [q] [r-startPlane]
+		// copy all of 3D wave into scanWave
+		//startPlane = iChunk * chunkSize
+		//scanWave [*] [*] [startPlane, startPlane + chunkSize -1] = acq3D [p] [q] [r-startPlane]
+		fastIntCopy (acq3D, 0, scanWave, chunkOffset, 0,0)
+		
 		// make an average of 3D stack and put in scanGraph wave
 		KalmanSpecFrames(acq3D, 0, chunkSize-1, scanGraphWave, 0, 8)
 
@@ -6192,14 +6211,17 @@ End
 
 // *************************************** twoP_ZseriesAtOnceThread ***************************************
 // thread function when all frames for averaging are scanned at once
-// Last modified 2026/07/31 by Jamie Boyd
+// Last modified 2026/08/11 by Jamie Boyd
 // Thread function for z Series with zAvgStackAtOnce.
-Threadsafe Function twoP_ZseriesAtOnceThread(threadfWaves, zAvgFrames, flybackMode)
+Threadsafe Function twoP_ZseriesAtOnceThread(threadfWaves, framePoints, zAvgFrames, flybackMode)
 	WAVE/WAVE threadfWaves
+	variable framePoints
 	variable zAvgFrames
 	variable flybackMode
 	
 	variable numThreadWaves = 4
+	variable chunkPoints = framePoints * zAvgFrames
+	
 	for(;;)
 		DFREF dfr = ThreadGroupGetDFR(0,inf)
 		NVAR iChan = dfr:iChanG
@@ -6209,19 +6231,21 @@ Threadsafe Function twoP_ZseriesAtOnceThread(threadfWaves, zAvgFrames, flybackMo
 		WAVE scanWave =  threadfWaves [iChan*numThreadWaves + 3]
 		NVAR iFrame = dfr:iFrameG
 
-		// copy freshly acquired data into acq3D.
-		acq3D = acq1D
-		acq3D = acq3D > 32767 ? 0: acq3D
-		if (flybackmode)
-			SwapEven(acq3D)
-		endif
+		// copy ALL of freshly acquired data in acq1D into acq3D.
+		//acq3D = acq1D
+		//acq3D = acq3D > 32767 ? 0: acq3D
+		fastIntCopy (acq1D, 0, acq3D, 0, chunkPoints, 1)
+		// average 3D stack into scanGraph
 		KalmanSpecFrames (acq3D, 0, zAvgFrames-1, scanGraphWave, 0, 8)
-		// copy into ScanWave
-		scanWave [*] [*] [iFrame] = scanGraphWave [p] [q]
+		if (flybackmode)
+			SwapEven(scanGraphWave)
+		endif
+		// copy scanGraph wave into ScanWave
+		//scanWave [*] [*] [iFrame] = scanGraphWave [p] [q]
+		fastIntCopy(scanGraphWave, 0, scanWave, (iFrame * framePoints), framePoints, 0)
 		KillDataFolder dfr
 	endfor
 end
-
 
 
 // *************************************** twoP_zSeriesKNextHook ***************************************
@@ -6275,9 +6299,10 @@ End
 	
 // ************************************** twoP_ZseriesKNextThread **********************************************************
 // Thread function for z Series when not zAvgStackAtOnce. Every image is acquired separately, and averaged with KalmanNext
-// Last modified 2026/07/31 by Jamie Boyd
-Threadsafe Function twoP_ZseriesKNextThread(threadfWaves, zAvgFrames, flybackMode)
+// Last modified 2026/08/11 by Jamie Boyd
+Threadsafe Function twoP_ZseriesKNextThread(threadfWaves, FramePoints, zAvgFrames, flybackMode)
 	WAVE/WAVE threadfWaves
+	variable FramePoints
 	variable zAvgFrames
 	variable flybackMode
 	
@@ -6292,9 +6317,10 @@ Threadsafe Function twoP_ZseriesKNextThread(threadfWaves, zAvgFrames, flybackMod
 		NVAR iFrame = dfr:iFrameG
 		NVAR iAvg = dfr:iAvgG
 
-		// copy freshly acquired data into acq2d
-		acq2d = acq1D
-		acq2d = acq2d > 32767 ? 0: acq2d
+		// copy all of freshly acquired data in acq1D into acq2d
+		//acq2d = acq1D
+		//acq2d = acq2d > 32767 ? 0: acq2d
+		FastIntCopy(acq1D, 0, acq2d, 0, FramePoints, 1)
 		if (flybackmode)
 			SwapEven(acq2d)
 		endif
@@ -6302,7 +6328,8 @@ Threadsafe Function twoP_ZseriesKNextThread(threadfWaves, zAvgFrames, flybackMod
 		KalmanNext(acq2d, scanGraphWave, iAvg)
 		// if end of frame, copy scanGraphWave into ScanWave
 		if (iAvg == (zAvgFrames - 1))
-			scanWave [*] [*] [iFrame] = scanGraphWave [p] [q]
+			// scanWave [*] [*] [iFrame] = scanGraphWave [p] [q]
+			fastIntCopy (scanGraphWave, 0, scanWave, (iFrame * FramePoints), FramePoints, 0)
 		endif
 		KillDataFolder dfr
 	endfor
