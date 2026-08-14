@@ -5269,19 +5269,19 @@ Function twoP_InitImageScan(s)
 	NVAR liveStop = root:Packages:twoP:Acquire:ScanStopOrAbort
 	
 	try
-		// 
-		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ai/startTrigger", "/" + s.ImageBoard + "/PFI0", 0), 1
+		// connect start scan output to PFI0 (normal scan start output)
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ai/startTrigger", "/" + s.ImageBoard + "/PFI0", 0), 1 // rests low, brief low-to-high pulse when scan starts
 		//connect imaging board timebase to RTSI7 so it can be used on otherboard
-		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/20MhzTimeBase", "/" + s.ImageBoard + "/RTSI7", 0), 1
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/20MhzTimeBase", "/" + s.ImageBoard + "/RTSI7", 0), 2
 		// connect ao/sample clock and ai/sample clock to PFI pins for use with chunkulator, e.g. You can comment one or both of these out if you don't need them.
-		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ao/SampleClock", "/" + s.ImageBoard + "/PFI5", 0), 2	// rests high, brief high-to-low low pulses, leads
-		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ai/SampleClock", "/" + s.ImageBoard + "/PFI7", 0), 3   // rests low, brief high pulse on low-to-high of ao sample clock
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ao/SampleClock", "/" + s.ImageBoard + "/PFI5", 0), 3// rests high, brief high-to-low low pulses, leads
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ai/SampleClock", "/" + s.ImageBoard + "/PFI7", 0), 4   // rests low, brief high pulse on low-to-high of ao sample clock
 		// connect counter0(line gate) output to normal counter 0 output pin(aka PFI 12) for use with image projector, e.g. 
-		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ctr0InternalOutput", "/" + s.ImageBoard + "/ctr0Out", 0), 4   // rests low, brief high pulse on low-to-high of ao sample clock
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ctr0InternalOutput", "/" + s.ImageBoard + "/ctr0Out", 0), 5   // rests low, brief high pulse on low-to-high of ao sample clock
 		
 		// mnake lineGate on ctr0, source is RTSI_5, where we will put ao signal of the waveform generator, direct the output to RTSI_6 where it is used to gate analog input
 		fDAQmx_CTR_Finished(s.ImageBoard, 0)
-		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ctr0InternalOutput", "/" + s.ImageBoard + "/RTSI6", 0), 5
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ctr0InternalOutput", "/" + s.ImageBoard + "/RTSI6", 0), 6
 #ifdef ENV_IS_DEVELOP
 		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth), s.PixWidth} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
 #else
@@ -5338,7 +5338,7 @@ Function twoP_InitImageScan(s)
 				break
 		endSwitch		
 		// wave form generator, send sample clock output to RTSI_5
-		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ao/SampleClock", "/" + s.ImageBoard + "/RTSI5", 0), 6
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ao/SampleClock", "/" + s.ImageBoard + "/RTSI5", 0), 7
 		string scanWavesList
 		If(s.ScanMode == kLineScan)
 			scanWavesList = "root:packages:twoP:acquire:HorWave, 0;"
