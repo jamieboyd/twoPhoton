@@ -6700,145 +6700,9 @@ end
 
 
 
-	
-			
-				// set Horizontal galvo to start of X galvo waves
-				WAVE HorWave=root:Packages:twoP:acquire:HorWave
-				fDAQmx_WriteChan(s.ImageBoard, 0, HorWave [0], -10, 10)
-				//  Set Vertical galvo to right Y position for line scan, or to start of Y galvo wave
-				if(s.scanMode == kLineScan)
-					fDAQmx_WriteChan(s.ImageBoard, 1, s.YSV, -10, 10)
-				else
-					WAVE VerWave=root:Packages:twoP:acquire:VerWave
-					fDAQmx_WriteChan(s.ImageBoard, 1, VerWave [0], -10, 10)
-				endif
-
-			
-			
-			if (s.ScanMode == kzSeries)	// move stage to start of zStack
-			 	StagesSetAbsAxis(s.StageProc, "Z", s.zPos, kStagesReturnAfter)
-			 	StageUpdate(s.StageProc,(kXbit + kYbit), 1)
-			 	StageSetIncrement(s.stageProc, "Z", abs(s.zStepSize), 1)
-			 else
-			 	StageUpdate(s.StageProc,(kXbit + kYbit + kZbit), 1)
-			 endif
-  			WAVE distFromZero = $"root:packages:" + s.StageProc + ":DistanceFromZero"
-			s.xPos=distFromZero [%X]
-			s.yPos = distFromZero [%Y]
-			s.zPos = distFromZero [%Z]
-			WAVE/T objWave = root:packages:twoP:acquire:ObjWave
-			variable xScaling= str2num(objWave [s.objNum] [1])
-			variable yScaling= str2num(objWave [s.objNum] [2])
-			variable xOffset = str2num(objWave [s.objNum] [3])
-			variable yOffset = str2num(objWave [s.objNum] [4])
-			s.xScalStart = s.xPos - xOffset + s.xSV * xScaling
-			s.yScalStart = s.yPos - yOffset + s.ySV * yScaling
-			
-			
-			
-			NVAR preMakeWaves = root:packages:twoP:acquire:MultiPreMakeWaves
-						
-			
-			variable errVar
-			try
-				
-				
-				
-
-
-			break
-		case -1: // control being killed
-			break
-	endswitch
-
-	return 0
-End
-
-
-
-
-
-
-
-Function NQ_Multi_AbortProc(ba) : ButtonControl
-	STRUCT WMButtonAction &ba
-
-	switch( ba.eventCode )
-		case 2: // mouse up
-			TabControl SmodeTabControl disable=0
-			Button MultiPrepButton, win = twoP_Controls,  title = "Start Multi", proc = NQ_Muli_StartProc
-			// cleanup code here
-		break
-		case -1: // control being killed
-			break
-	endswitch
-
-	return 0
-end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// removes background task for multi-aq and resets start button and other controls
-// last modified 2026/06/18 by Jamie Boyd
-Function NQ_MultiAqReset()
-
-	// stop background procedure
-	NVAR multiMode =root:packages:twoP:acquire:multiAqTimeMode
-	NVAR startScanNum = root:packages:twoP:acquire:StartScanNum
-	NVAR newScanNum =root:Packages:twoP:Acquire:NewScanNum
-	startScanNum = newScanNum
-	variable nAqs
-	switch(multiMode)
-		case kMultiUsePeriod:
-			CtrlNamedBackground multAqBk kill
-			NVAR periodNum = root:packages:twoP:acquire:multiAqPeriodNum
-			nAqs = periodNum
-			break
-		case kMultiUseWave:
-			//GUIPbkg_RemoveTask("NQ_MultiBkg_Wave(*)")
-			SVAR WaveStr = root:packages:twoP:Acquire:multiAqWaveWaveStr
-			WAVE/z maqWave = $"root:packages:twoP:acquire:multiAqWaves:" + WaveStr
-			if(WaveExists(maqWave))
-				nAqs = numPnts(maqWave)
-			else
-				nAqs = 0
-			endif
-			break
-		case kMultiUseTrigger:
-			//GUIPbkg_RemoveTask("NQ_MultiBkg_Trigger(*)")
-			NVAR trigNum =root:packages:twoP:acquire:multiAqTriggerNum
-			nAqs = trigNum
-			break
-	endswitch
-	// reset start button
-	Button MultiAqStartButton win = twoP_Controls, title="Start",  fColor=(0,65280,0), userdata = "Start Multi"
-	// reset counts for multiAq
-	NVAR iAq = root:packages:twoP:acquire:multiAqiAq
-	iAq = 0
-	// reset countdown
-	SVAR timeStrG =root:packages:twoP:acquire:multiAqTimeToNextStr 
-	timeStrG = ""
-	// reset setvariable for display
-	ValDisplay multiAqProgressDisplay win = twoP_Controls, limits={startScanNum,startScanNum + nAqs -1, startScanNum }
-end
-
-
-
 STRUCTURE twoP_MultiBkgStruct
 	STRUCT WMBackgroundStruct WMS
-	//uint32 multiAqTimeMode
-	//uint32 multiAqScanMode
+	STRUCT twoP_scanStruct t
 	uint32 nAcqs 
 	uint32 ScanDurationTicks	// time it takes to do a scan
 	uint32 NextScanTickCount	// tick count when we do next scan
@@ -6859,6 +6723,8 @@ Function twoP_MultiBkg(s)
 	NVAR iAcq = root:packages:twoP:acquire:multiAqiAq	// will be zeroed at multiAqinit so don't do it here
 	if(s.WMS.started)
 		s.WMS.started = 0
+		// load a scan struct
+		twoP_ScanLoadStruct(s.t)
 		// get number of acquisitions
 		NVAR nAqs = root:packages:twoP:acquire:multiAqnAqs 
 		s.nAcqs = nAqs
@@ -6881,11 +6747,8 @@ Function twoP_MultiBkg(s)
 		s.ScanDone = 1
 		s.WMS.nextRunTicks = ticks + s.ScanDurationTicks
 		TitleBox MultiAqTimeToNextTitle win = twoP_Controls, title="Scanning..."
-		// load a scan struct
-		STRUCT twoP_ScanStruct t
-		twoP_ScanLoadStruct(t)
-		twoP_ScanStartThreads(t)
-		twoP_InitScan(t)
+		twoP_ScanStartThreads(s.t)
+		twoP_InitScan(s.t)
 		return 0
 	elseif (s.ScanDone)		// first time being invoked after doing a scan
 		s.ScanDone = 0
@@ -6909,102 +6772,6 @@ Function twoP_MultiBkg(s)
 		return 0
 	endif
 end
-
-
-//******************************************************************************************************
-//Initializes multiAq variables when stating a series of acquisitions !@#
-// Last Modified 2013/09/06 by Jamie Boyd
-function NQ_MultiAqInit()
-	
-	variable errVar
-	try
-		// make sure autoincrement is selected 
-		NVAR autincCheck = root:packages:twoP:acquire:autincCheck
-		abortOnValue(autIncCheck == 0), 0
-		// make sure export path is set, if exporting after each scan
-		NVAR exportafterscan = root:packages:twoP:acquire:exportAfterScan
-		if(exportafterscan > 1)
-			SVAR PathStr =root:Packages:twoP:examine:ExportPath		// the global string were we store the path
-			pathinfo ExportPath
-			AbortOnValue((V_Flag ==0) ||(cmpstr(S_path, PathStr) !=0)), 1// path does not exits or is not the same as shown in the string
-		endif
-		//add the background task for each mode and updates timing globals
-		NVAR multiMode =root:packages:twoP:acquire:multiAqTimeMode
-		NVAR iAq = root:packages:twoP:acquire:multiAqiAq
-		iAq =0
-		NVAR nAqs= root:packages:twoP:acquire:multiAqnAqs
-		NVAR timeToNext = root:packages:twoP:acquire:multiAqTimeToNext
-		SVAR timetoNextStr = root:Packages:twoP:Acquire:multiAqTimeToNextStr
-		string theTask
-		switch(multiMode)
-			case kMultiUsePeriod:
-				NVAR multiAqNum = root:packages:twoP:acquire:multiAqPeriodNum
-				nAqs = multiAqNum
-				NVAR period= root:packages:twoP:acquire:multiAqPeriodPeriod
-				NVAR delay = root:packages:twoP:acquire:multiAqPeriodDelay
-				timeToNext = delay
-				CtrlNamedBackground multAqBkg , period = round(period * 1e-06 * 60), start = round(ticks + delay * 1e-06 * 60), proc=NQ_MultiBkg_Period 
-				// set dependency for time str
-				SetFormula timeToNextStr, "NQ_MultiMSecs2Str(root:packages:twoP:acquire:multiAqTimeToNext)"
-				break
-			case kMultiUseWave:
-				// check that timing wave exists
-				SVAR multiWaveName = root:packages:twoP:Acquire:multiAqWaveWaveStr 
-				WAVE/t/z multiWave = $"root:packages:twoP:acquire:multiAqWaves:" + multiWaveName
-				abortOnValue(!(waveExists(multiWave))), 3
-				// set initial time to next from first point
-				variable waveMS
-				string waveDelayStr = multiWave [0]
-				//waveMS = twoP_MultiParseTimeStr(waveDelayStr)
-				timeToNext = waveMS
-				multiWave [0]= waveDelayStr
-				nAqs = numpnts(multiWave)
-				// add task to backgrounder
-				//sprintf theTask "NQ_MultiBkg_Wave(%d, \"%s\")", stopMSTimer(-2), multiWaveName
-				// BackGrounder_AddTask(theTask, 1) @@@
-				// set dependency for time str
-				SetFormula timeToNextStr, "NQ_MultiMSecs2Str( root:packages:twoP:acquire:multiAqTimeToNext)"
-				break
-			case kMultiUseTrigger:
-				NVAR inputTrigger = root:packages:twoP:acquire:inputTriggerCheck
-				abortOnValue(inputTrigger != 1), 2
-				NVAR imageBoardSlot = root:packages:twoP:acquire:imageBoardSlot
-				NVAR multiAqTriggerNum = root:packages:twoP:acquire:multiAqTriggerNum
-				nAqs =multiAqTriggerNum
-				sprintf theTask, "NQ_MultiBkg_Trigger(%d)", imageBoardSlot
-				//BackGrounder_AddTask(theTask, 1) @@@
-				timeToNextStr = "WAITING"
-				break
-		endswitch
-		// adjust multi-aq controls
-		NVAR curNum = root:Packages:twoP:Acquire:NewScanNum
-		variable/G root:packages:twoP:acquire:StartScanNum = curNum
-		ValDisplay multiAqProgressDisplay win = twoP_Controls, limits={(curNum),(curNum + nAqs -1),(curNum)}
-		ValDisplay multiAqProgressDisplay value=#"root:packages:twoP:acquire:multiAqiAq + root:packages:twoP:acquire:StartScanNum"
-		Button MultiAqStartButton, win = twoP_Controls, fColor=(65280,65280,0), title = "Abort", userdata = "Abort Multi"
-	catch
-		switch(V_abortCode)
-			case 0:
-				doAlert 0,  "Autoincrementing must be enabled for multi-acquisition."
-				break
-			case 1:
-				doAlert 0, "The export path must be set when saving scans during multi-acquisition."
-				break
-			case 2:
-				doAlert 0, "Input trugger must be selected for multi-aquisition with input trigger."
-				break
-			case 3:
-				doAlert 0, "Selected multiple acquisition timing wave does not exist."
-				break
-		endSwitch
-		return 1
-	endTry
-	return 0
-end
-
-
-
-
 
 
 
@@ -7056,4 +6823,44 @@ function twoP_ZeroGalvos()
 	SVAR imageboard = root:Packages:twoP:acquire:imageBoard
 	fDAQmx_WriteChan(imageBoard, 0, 0, -10, 10)
 	fDAQmx_WriteChan(imageBoard, 1, 0, -10, 10)
+end
+
+
+function scantest(boardName)
+	string boardName
+	
+	variable pixtime=400e-06				// time between scanning individual pixels, in seconds
+	variable pixHz =1/PixTime			// clock frequency in Hz
+	// make wave for voltage output, as for output to galvos, but only 8 points used here for testing
+	make/o/s/n=8 wout = {-4, -3, -2, -1, 1, 2, 3, 4}
+	WAVE wout = wout
+	// The scaling here sets the rate of scanning, both galvo output and A/D input
+	setscale/p x 0, pixTime, "s",  wout 
+	// make input wave, as for A/D from PMT, but only 4 points, we will use pause trigger with 4 high, 4 low
+	make/o/s/n=4 win
+	WAVE win=win
+	// input scaling does not control scanning rate, but it must be "reasonable" or DAQmx_Scan complains 
+	setscale/p x 0, pixTime, "s", win 
+	// make pause trigger (line clock) for input scanning using counter 0. idles low
+	// use RTSI 5 as time base. RTSI5 will be ao/SampleClock. 
+	// export pause trigger to RTSI6
+	DAQmx_CTR_OutputPulse /DEV=boardName/TICK={4, 4} /IDLE=0 /NPLS=0/TBAS="/" + boardName + "/RTSI5"/Rate=(pixHz) 0
+	fDAQmx_ConnectTerminals("/" + boardName + "/ctr0InternalOutput", "/" + boardName + "/RTSI6", 0) 
+	// start waveform generator for repeated output with wave wout on channel 0
+	// send the sample clock to RTSI5, where it is used to generate pause trigger (line clock)
+	fDAQmx_ConnectTerminals("/" + boardName + "/ao/SampleClock", "/" + boardName + "/RTSI5", 0)
+	// start repeated input scanning with RTSI 5 (ao/Sample clock) as input clock and RTSI 6 (line gate) as pause trigger.
+	DAQmx_Scan /DEV=boardName/BKG=1/CLK={"/" + boardName + "/RTSI5", 1}/PAUS={ "/" + boardName + "/RTSI6", 1,1} /RPTC WAVES = "win, 0/RSE,-10, 10;"
+	DAQmx_WaveformGen /DEV="B6035" /BKG=0/NPRD=0/Strt=1   "wout, 0;"
+	// optonally, connect ao/Sample clock and ai/SampleClock to output pins for verification
+	fDAQmx_ConnectTerminals("/" + boardName + "/ao/SampleClock", "/" + boardName + "/PFI5", 0)  // high-to-lo pulses
+	fDAQmx_ConnectTerminals("/" + boardName + "/ai/SampleClock", "/" + boardName + "/PFI7", 0)  //  lo-to-high pulses
+end
+
+function scanEnd(boardName)
+	string boardName
+	fDAQmx_CTR_Finished(boardName, 0)	// stops the counter
+	fDAQmx_CTR_Finished(boardName, 1)	// stops the counter
+	fDAQmx_WaveformStop(boardName)		// stops repeated waveform output
+	fDAQmx_ScanStop(boardName)			// stops repeated data acquisition
 end
