@@ -6846,11 +6846,12 @@ function scantest(boardName)
 	// export pause trigger to RTSI6
 	DAQmx_CTR_OutputPulse /DEV=boardName/TICK={4, 4} /IDLE=0 /NPLS=0/TBAS="/" + boardName + "/RTSI5"/Rate=(pixHz) 0
 	fDAQmx_ConnectTerminals("/" + boardName + "/ctr0InternalOutput", "/" + boardName + "/RTSI6", 0) 
-	// start waveform generator for repeated output with wave wout on channel 0
+	// the waveform generator will do repeated output with wave wout on channel 0
 	// send the sample clock to RTSI5, where it is used to generate pause trigger (line clock)
 	fDAQmx_ConnectTerminals("/" + boardName + "/ao/SampleClock", "/" + boardName + "/RTSI5", 0)
 	// start repeated input scanning with RTSI 5 (ao/Sample clock) as input clock and RTSI 6 (line gate) as pause trigger.
 	DAQmx_Scan /DEV=boardName/BKG=1/CLK={"/" + boardName + "/RTSI5", 1}/PAUS={ "/" + boardName + "/RTSI6", 1,1} /RPTC WAVES = "win, 0/RSE,-10, 10;"
+	// start the waveform generator
 	DAQmx_WaveformGen /DEV="B6035" /BKG=0/NPRD=0/Strt=1   "wout, 0;"
 	// optonally, connect ao/Sample clock and ai/SampleClock to output pins for verification
 	fDAQmx_ConnectTerminals("/" + boardName + "/ao/SampleClock", "/" + boardName + "/PFI5", 0)  // high-to-lo pulses
