@@ -5478,39 +5478,39 @@ Function twoP_InitImageScan(s)
 			variable taskPeriod
 			case kLiveMode:		// scan repeats till stopped
 				sprintf RPTChook, "twoP_LiveHook(\"%s\", %d, %d, %d, %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ","), s.numFrames, s.LiveStackAtOnce, s.threadGroupID
-				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5",0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/STRT=0 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5",0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,0}/STRT=1 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 				break
 				
 			case kSingleImage:
 				if(s.AvgDoUpdate)	// collecting one frame at a time and updating scanWave with a running average with a repeated scan hook that calls a thread
 					sprintf RPTChook, "twoP_AvgFramesHook(\"%s\", %d, %d, %d)" s.onlyChansImage, itemsInList(s.onlyChansImage, ","), s.numFrames, s.threadGroupID
-					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/STRT=0 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,0}/STRT=1 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 				else	// collecting all frames at once and averaging at end with an end-of-scan hook
 					sprintf EOShook,  "twoP_AvgFramesEndHook(\"%s\", \"%s\", %d, %d)", s.newScanName, s.onlyChansImage, s.numFrames, s.flybackMode
-					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/STRT=0/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/EOSH=EOShook /ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/STRT=1/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,0}/EOSH=EOShook /ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 				endif
 				break
 			
 			case kLineScan:
 				if (s.LSscanAtOnce) //scan at once, with background task to copy data and update display
-					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/STRT=0/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/STRT=1/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,0}/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 					taskPeriod=ceil(s.LSChunkSize * s.lineTime * 60)
 					CtrlNamedBackground LineScanTask, period = taskPeriod, burst = 0, proc= twoP_LineScanBkg, start=(ticks + taskPeriod)
 				else // scan repeats till scan Wave is full, doing 1 chunk ata time, repeat hook calls thread
 					sprintf RPTChook, "twoP_LineScanHook(\"%s\", %d, %d, %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ","), s.LSnumChunks, s.threadGroupID
-					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/STRT=0 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,0}/STRT=1/RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 				endif
 				break
 				
 			case kTimeSeries:
 				if (s.TSscanAtOnce)
 					// no repeats, scan at once, with background task to update display and end of task hook to redimension and clean up
-					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/STRT=0/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1} /ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/STRT=1/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,0} /ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 					taskPeriod=ceil(s.TSChunkSize * s.frameTime * 60)
 					CtrlNamedBackground tSeriesTask, period =  taskPeriod, burst =0, proc= twoP_timeSeriesBkg, start=(ticks + taskPeriod)
 				else // repeated scan with bkg function
 					sprintf RPTChook, "twoP_timeSeriesHook(\"%s\", %d, %d, %d, %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ","), s.TSChunkSize, s.TSnumChunks, s.threadGroupID
-					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/STRT=0 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+					DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,0}/STRT=0 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 				endif
 				break
 
@@ -5520,7 +5520,7 @@ Function twoP_InitImageScan(s)
 				else
 					sprintf RPTChook "twoP_zSeriesKNextHook((\"%s\", %d,  %d, %d, %d, \"%s\", %d)", s.onlyChansImage, itemsInList(s.onlyChansImage, ","), s.numFrames, s.NumZseriesAvg,  s.StageProc, (s.zStepSize > 0 ? 1 : -1)
 				endif
-				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,1}/STRT=0 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
+				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,0}/STRT=1 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 				break
 		endSwitch		
 		// wave form generator, send sample clock output to RTSI_5
@@ -5535,23 +5535,16 @@ Function twoP_InitImageScan(s)
 		if((s.inPutTrigger) &&(s.scanMode != kLiveMode))
 			DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/TRIG={"/" + s.ImageBoard + "/PFI6", 1, 0}/Strt=1  scanWavesList; ABORTONRTE
 			// waiting for high
-			for(;((fDAQmx_DIO_Read(s.imageBoard, triggerTaskNum) == 0) && (liveStop == 0));)
+			for(;((fDAQmx_DIO_Read(s.imageBoard, triggerTaskNum) == 0) && (liveStop == 0) && (fDAQmx_ScanGetNextIndex(s.imageBoard) ==0));)
 				DoUpdate/W=twoP_Controls
 			endfor
 			ABORTOnValue (liveStop), 0
 			fDAQmx_DIO_Write(s.imageBoard, shutterTaskNum, shutterOpen) // open shutter
-			// now wait for low
-			for(;((fDAQmx_DIO_Read(s.imageBoard, triggerTaskNum) == 1) && (liveStop == 0));)
-				DoUpdate/W=twoP_Controls
-			endfor
-			ABORTOnValue (liveStop), 0
-			fDAQmx_ScanStart(s.imageBoard,1)	// start Image Scan
 			if (s.scanMode == kMultiAq)
 				NVAR startTime = root:packages:twoP:acquire:MultiAqStartTime					// when scan was started
 				startTime = datetime				// the REAL time this scan started
 				NVAR multiAqiAq = root:packages:twoP:acquire:multiAqiAq
 				multiAqiAq += 1		// increment scan count because bkg task does not run if threaded
-			else
 				TitleBox MultiAqTimeToNextTitle win = twoP_Controls, title = "SCANNING"
 			endif
 			Button AqStartButton, win = twoP_Controls, fColor=(65280,0,0)	// also shows user that trigger has happened
@@ -5562,8 +5555,6 @@ Function twoP_InitImageScan(s)
 				Sleep/c=-1/S shutterDelay
 			endif
 			DAQmx_WaveformGen /DEV=s.imageBoard /BKG=0/NPRD=0/Strt=1  scanWavesList; ABORTONRTE
-			Sleep/c=-1/S s.pixTime	// to make sure waveform is started before scan starts
-			fDAQmx_ScanStart(s.imageBoard, 1)
 		endif
 	catch
 		variable err=GetRTError(1)
@@ -7040,7 +7031,7 @@ function scantest(boardName)
 	fDAQmx_ConnectTerminals("/" + boardName + "/ao/SampleClock", "/" + boardName + "/RTSI5", 0)
 	// start repeated input scanning with RTSI 5 (ao/Sample clock) as input clock and RTSI 6 (line gate) as pause trigger.
 	DAQmx_Scan /DEV=boardName/BKG=1/CLK={"/" + boardName + "/RTSI5", 1}/PAUS={ "/" + boardName + "/RTSI6", 1,0} /RPTC WAVES = "win, 0/RSE,-10, 10;"
-	DAQmx_WaveformGen /DEV="B6035" /BKG=0/NPRD=0/Strt=1   "wout, 0;"
+	DAQmx_WaveformGen /DEV=boardName /BKG=0/NPRD=0/Strt=1   "wout, 0;"
 	// optonally, connect ao/Sample clock and ai/SampleClock to output pins for verification
 	fDAQmx_ConnectTerminals("/" + boardName + "/ao/SampleClock", "/" + boardName + "/PFI5", 0)  // high-to-lo pulses
 	fDAQmx_ConnectTerminals("/" + boardName + "/ai/SampleClock", "/" + boardName + "/PFI7", 0)  //  lo-to-high pulses
@@ -7048,8 +7039,7 @@ end
 
 function scanEnd(boardName)
 	string boardName
-	fDAQmx_CTR_Finished(boardName, 0)	// stops the counter
-	fDAQmx_CTR_Finished(boardName, 1)	// stops the counter
+	fDAQmx_CTR_Finished(boardName, 0)	// stops the line gate counter
 	fDAQmx_WaveformStop(boardName)		// stops repeated waveform output
 	fDAQmx_ScanStop(boardName)			// stops repeated data acquisition
 end
