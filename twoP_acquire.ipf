@@ -3239,6 +3239,7 @@ End
 // A structure to hold all the various globals so  that we can pass them easily between functions.
 // Most are set by LoadScanStruct function, some others are added later
 // Last Modified:
+// 2026/08/16 by Jamie Boyd - put all the string first so they can be ignored when saving struct to a global string
 // 2026/07/31 by Jamie Boyd - added fields for scan options like scan-at-once 
 // 2026/07/08 by Jamie Boyd - added fields for multple acquisitions
 // 2025/08/26 by Jamie Boyd 
