@@ -212,10 +212,12 @@ Function twoP_AcquireMakeFolder()
 	variable/G root:packages:twoP:acquire:multiAqiAq =0						// for counting acquisitions
 	variable/G root:packages:twoP:acquire:multiAqnAqs =0
 	variable/G root:packages:twoP:acquire:MultiAqStartTime					// when scan was started
-	variable/G root:packages:twoP:acquire:MultiAqNextTime					// time of next scan
 	variable/G root:packages:twoP:acquire:MultiPreMakeWaves = 0				// will be set when waves for multiaq are to be pre-made
 	string/G root:packages:twoP:acquire:multiAcqScanList = ""				// used to save list of prevetted, maybe pre-made scan names
 	String/G root:packages:twoP:acquire:multiAcqScanNote = ""				//used for multiAq scan Note
+	String/G root:packages:twoP:acquire:multiAcqScanStructStr = ""			// the non-string fields of a scan struct can be stored in a string
+	String/G root:packages:twoP:acquire:multiAcqImScanList = ""				// list of image waves to scan, in NIDAQ format
+	String/G root:packages:twoP:acquire:multiAcqEphysScanWaveList = ""      // list ePhys waves to scan, in NIDAQ format
 	// Period mode
 	string/G root:packages:twoP:acquire:multiAqPeriodPeriodStr = "0:20"	// User enters period and initial delay in time format hh:mm:ss, where hours are optional
 	string/G root:packages:twoP:acquire:multiAqPeriodDelayStr = "0:00"	// initial delay, 0 means start right away
@@ -1506,7 +1508,7 @@ Function twoP_TimesSetTimes()
 	NVAR FlybackProp = root:Packages:twoP:Acquire:FlybackProp
 	NVAR FlybackMode = root:Packages:twoP:Acquire:FlyBackMode
 	
-	// Need to have even number of lines for symmetrical collection on flyback, if bidirectional scanning. 
+	// Need to have even number of lines for symmetrical collection on flyback, if      irectional scanning. 
 	// Line scan always needs even number of lines
 	if (((FlybackMode == 1) || (scanMode == kLineScan)) && (mod(PixHeight, 2)))
 		PixHeight += 1
@@ -3151,6 +3153,7 @@ Function twoP_MultiPrepProc(ba) : ButtonControl
 					WAVE VerWave=root:Packages:twoP:acquire:VerWave
 					fDAQmx_WriteChan(s.ImageBoard, 1, VerWave [0], -10, 10)
 				endif
+				twoP_MultiCheckOverWrite(s)
 				// make Scan waves,if pre-make is set, else we will make the scan waves as we need them
 				if (preMakeWaves)
 					twoP_MultiMakeScanWaves(s)
@@ -3164,7 +3167,7 @@ Function twoP_MultiPrepProc(ba) : ButtonControl
 				SVAR multiAcqScanNote= root:packages:twoP:acquire:multiAcqScanNote
 				multiAcqScanNote = firstScanNote
 				SVAR multiAcqScanList = root:packages:twoP:acquire:multiAcqScanList
-				multiAcqScanList =s.multiScanList
+				multiAcqScanList = s.multiScanList
 				// Select first scan as current scan, with selected channels on scanGraph to match channels being acquired
 				if(s.scanMode != kephysOnly)
 					SVAR selChans = root:packages:twoP:examine:scanGraphSelChans
@@ -3175,16 +3178,21 @@ Function twoP_MultiPrepProc(ba) : ButtonControl
 				pa.popStr = stringfromlist(0, s.multiScanList, ";")
 				twoP_ScanPopMenuProc(pa)
 				// make Scan helper waves, thread waves and temp 1D waves we scan directly into, and adds wave references in threadData
-				twoP_ScanMakeHelperWaves(s)
+				if (s.scanMode != kEPhysOnly)
+					twoP_ScanMakeHelperWaves(s)
+				endif
 				//update experiment size after making waves
 				twoP_ExpSizeUpdate()
 				// adjust multi-aq valDisplay so it will show progress
-				ValDisplay multiAqProgressDisplay win = twoP_Controls, limits={0, nAqs, 0}
-				ValDisplay multiAqProgressDisplay value=_NUM:0
+				ValDisplay multiAqProgressDisplay win = twoP_Controls, limits={0, nAqs, 0}, value=_NUM:0
 				if(s.scanmode != kephysOnly)
 					// Zero globals for counting line, frames, averages, chunks, as specific to each scan mode
 					twoP_ScanZeroGlobals(s)
 				endif
+				// save scanstruct as string
+				SVAR scanStructStr = root:packages:twoP:acquire:multiAcqScanStructStr
+				StructPut/S s scanStructStr
+				
 				// enable start button
 				Button AqStartButton win = twoP_Controls, disable=0
 			catch
@@ -3236,10 +3244,27 @@ End
 // 2025/08/26 by Jamie Boyd 
 // 2016/11/15 by Jamie Boyd - added support for separate back ground tasks for each channel plus merge
 Structure twoP_ScanStruct
-// general scan/run settings
-	variable scanMode			// one of 0=live mode, 1=time series, etc
 	string newScanName			// name to be given to new scan
 	string scanNote				// note entered by user
+	string multiScanList		// semi-colon separated list of scans that will be done
+	string selImageChanList		// list of channel name: aiChan number pairs. e.g. "ch1:0,ch2:1,"
+	string onlyChansImage		// just the channel names, stripped of ai number. e.g. "ch1,ch2"
+	string scanWavePath			// paths to image waves to scan, channels on which to scan them, plus scan options in NIDAQ format "root:twoP_Scans:Scan_000:Scan_000_ch1, 0/DIFF, -5, 5;
+	string imageBoard			// name of NIDAQ board, as configured with NI MAX
+	string obj					// name of microscope objective used for scan
+	string liveRatioTopChan 	// name of top chan for live ratio, or "" if not doing live ratio
+	string liveRatioBottomChan	// name of bottom chan for live ratio, or "" if not doing live ratio
+	string LSLinkWave			// name of scan that line scan was drawn on
+	string ePhysBoard
+	string selEphysChanList		//list of channel name: aiChan pairs
+	string onlyChansEphys
+	string ePhysPath  // string containing paths to ePhys waves to scan and channels on which to scan them, in NIDAQ format
+	string stageProc
+		string vOutWave1
+	string vOutWave2
+// general scan/run settings
+	variable scanMode			// one of 0=live mode, 1=time series, etc
+	
 	variable overWriteWarn		// set if overwrite warning checkbox is on
 	variable inPutTrigger		// set if input trigger for scanning start is on
 	// multi acquisition - note that the struct is saved between acquisitions when multiacqing
@@ -3248,14 +3273,9 @@ Structure twoP_ScanStruct
 	variable multiAqiAq			// to iterate through multiaq. 
 	variable multiAqNaqs		// total number of acquisitions in the multiacq
 	variable multiAqPremake		// if set, waves will be made ahead of time for all scans
-	string multiScanList		// semi-colon separated list of scans that will be done
 	variable multiAqTimeMode	// timing, either from trigger or from waves
 	// image settings
 	variable scanChans			// for compatibility, 1 for "ch1", 2 for "ch2", 3 for both channels. superceded by selImageChanList
-	string selImageChanList		// list of channel name: aiChan number pairs. e.g. "ch1:0,ch2:1,"
-	string onlyChansImage		// just the channel names, stripped of ai number. e.g. "ch1,ch2"
-	string scanWavePath			// paths to image waves to scan, channels on which to scan them, plus scan options in NIDAQ format "root:twoP_Scans:Scan_000:Scan_000_ch1, 0/DIFF, -5, 5;
-	string imageBoard			// name of NIDAQ board, as configured with NI MAX
 	variable numFrames			// number of frames for scanWave, total number of frames to acquire. LiveAvg or NumAvg frames when averaging, 1 for a line scan
 	variable pixHeight			// Pixel height and width of scan waves
 	variable pixWidth
@@ -3265,7 +3285,6 @@ Structure twoP_ScanStruct
 	variable YEV
 	variable threadGroupID		// thread group that does processing durning scanning, one thread per channel
 	// image scaling
-	string obj					// name of microscope objective used for scan
 	variable objNum				// row number of objective in objective list wave
 	variable xImSize			// image size in scaled dimensions (meters)
 	variable yImSize
@@ -3288,8 +3307,6 @@ Structure twoP_ScanStruct
 	variable liveROI 			// set if doing roi live during scanning
 	variable liveROISecs 		// seconds of ROI to display, or 0 if not doing a live ROI
 	variable liveRatio			// set if doing live ratio, one channel / another channel
-	string liveRatioTopChan 	// name of top chan for live ratio, or "" if not doing live ratio
-	string liveRatioBottomChan	// name of bottom chan for live ratio, or "" if not doing live ratio
 	variable ratioTopChanNum	// position in threadData wave of wave used for top channel for live ratio
 	variable ratioBottomChanNum	// position in threadData wave of wave used for bottom channel for live ratio
 	variable LROIleft			// points (not scaled dimensions) for live ROI position
@@ -3303,7 +3320,6 @@ Structure twoP_ScanStruct
 	// Average specific			// number of frames to average is s.numFrames
 	variable AvgDoUpdate		// set if updating average after every frame, cleared to collect all frames at once, then average
 	// LineScan specific  number of frames is 1
-	string LSLinkWave			// name of scan that line scan was drawn on
 	variable LSscanAtOnce		// set if doing the whole scan at once, cleared if scanning chunks at a time
 	variable LSChunkSize		// number of lines that are scanned or processed at a time
 	variable LSnumChunks		// number of chunks that make up the scan
@@ -3316,14 +3332,9 @@ Structure twoP_ScanStruct
 	variable NumZseriesAvg		// number of images to average per plane
 	variable zAvgStackAtOnce 	// set if scanning stack to average at once
 	// ephys
-	string ePhysBoard
-	string selEphysChanList		//list of channel name: aiChan pairs
-	string onlyChansEphys
-	string ePhysPath  // string containing paths to ePhys waves to scan and channels on which to scan them, in NIDAQ format
 	variable ePhysFreq
 	variable ePhysChans
 	// stage
-	string stageProc
 	variable xPos
 	variable yPos
 	variable zPos
@@ -3333,8 +3344,6 @@ Structure twoP_ScanStruct
 	variable trig2Secs
 	// voltage waves
 	variable vOutChans
-	string vOutWave1
-	string vOutWave2
 	variable vOutStart // "1 = on Scan Start;2=on Trig 1;"
 endStructure
 
@@ -3548,6 +3557,10 @@ Function twoP_ScanLoadStruct(s)
 			Offset = chanList [str2num(ai)] [5]							// offset applied after acquisition
 			s.scanWavePath += "root:packages:twoP:acquire:Acq1D_" + chanName +  ", " + ai + "/" + type + ", -" +  range + ", " + range + ", " + scaling + ", " + offset + ";"
 		endfor
+		// save path as global string
+		SVAR ImScanList = root:packages:twoP:acquire:multiAcqImScanList
+		ImScanList = s.scanWavePath
+		// a string containing channel names but not ai channel numbers
 		s.onlyChansImage = twoP_ChansOnlyChans (s.selImageChanList)
 		// Reference PixWidth and height, voltage scaling based on scan mode
 		if(s.scanMode == kLineScan)
@@ -3592,7 +3605,6 @@ Function twoP_ScanLoadStruct(s)
 		NVAR pixWidthTotal = root:Packages:twoP:Acquire:PixWidthTotal
 		NVAR frameTime = root:packages:twoP:Acquire:FrameTime
 		NVAR lineTime = root:packages:twoP:Acquire:LineTime
-		NVAR scanIsCyclic = root:packages:twoP:Acquire:isCyclic
 		s.pixTime = pixTime
 		s.DutyCycle = DutyCycle
 		s.FlybackMode = flybackMode
@@ -3643,7 +3655,7 @@ Function twoP_ScanLoadStruct(s)
 		s.onlyChansePhys = twoP_ChansOnlyChans (s.selePhysChanList)
 		NVAR ePhysFreq = root:Packages:twoP:acquire:ePhysSampFreq
 		s.ePhysFreq = ePhysFreq
-		// scan paths - do this for ePhys but for imaging, it is 
+		// scan paths - do this for ePhys but for imaging, it is done when making helper waves
 		baseName = "root:twoP_Scans:" + s.newScanName +":" +  s.newScanName + "_"
 		WAVE/T chanList = root:packages:twoP:acquire:ePhysChanList	
 		s.ePhysPath = ""
@@ -3657,7 +3669,9 @@ Function twoP_ScanLoadStruct(s)
 			Offset = chanList [str2num(ai)] [5]
 			s.ePhysPath += baseName + chanName + ", " + ai + "/" + type + ", -" +  range + ", " + range + ", " + scaling + ", " + offset + ";"
 		endfor
-		
+		// save paths as global string
+		SVAR ePhysScanList = root:packages:twoP:acquire:multiAcqEphysScanWaveList
+		ePhysScanList = s.ePhysPath
 		// triggers
 		NVAR trig1Check = root:Packages:twoP:Acquire:trig1Check
 		NVAR trig2Check = root:Packages:twoP:Acquire:trig2Check
@@ -5140,7 +5154,7 @@ Function twoP_ScanStartMultiProc(ba) : ButtonControl
 			if (multiTimemode == kMultiUseTrigger)	// load a scanStruct and start the first scan
 				Button AqStartButton win=twoP_Controls, fColor=(65280,65280,0)
 				TitleBox MultiAqTimeToNextTitle win = twoP_Controls, title="Waiting for Trigger...."
-				SVAR infoStructStr = root:packages:twoP:acquire:scanStructStr
+				SVAR infoStructStr = root:packages:twoP:acquire:multiAcqScanStructStr
 				STRUCT twoP_ScanStruct s
 				StructGet/S s, infoStructStr
 				// start Threads
@@ -5149,7 +5163,7 @@ Function twoP_ScanStartMultiProc(ba) : ButtonControl
 				twoP_InitScan(s)
 			else // start the background task
 				Button AqStartButton win=twoP_Controls, fColor=(65280,0,0)
-				CtrlNamedBackground multiScanBKG, period= 60, Burst = 0, proc=twoP_MultiBkg, Start
+				CtrlNamedBackground multiScanBKG, period= 60, Burst = 0, proc=twoP_MultiBkg, Start=1
 			endif
 			break
 		case -1: // control being killed
@@ -5201,7 +5215,7 @@ Function twoP_MultiCheckOverWrite(s)
 		scanList = AddListItem(scanName, scanList, ";")
 	endfor
 	startScanNumG =startNum
-	s.multiScanList= SortList(scanList, ";", 16 )
+	s.multiScanList = SortList(scanList, ";", 16 )
 	return 0
 end
 
@@ -5225,33 +5239,6 @@ Function twoP_MultiMakeScanWaves(s)
 	endfor
 	s.newScanName = stringFromList (0, s.multiScanList) // put this back to the starting position
 End
-
-
-// ********************************* twoP_MultiSetScanWavePaths *********************************************************************************************
-// Sets wave paths in scan struct, usually done whn making scan helper waves
-// Last Modified 2026/08/13 by Jamie Boyd
-function twoP_MultiSetScanWavePaths(s)
-	STRUCT twoP_ScanStruct &s
-	
-	variable nChans = itemsInList(s.selImageChanList)
-	s.scanWavePath = ""		// wave path blank to start with
-	variable iChan			// iterate through selected channels
-	WAVE/T chanList = root:packages:twoP:acquire:imChanList		// from preferences, channel names plus scaling, range, offset info
-	string ai_chanName, ai,chanName, type, range, scaling, offset	// for building up NIDAQ configuration
-	string baseName = "root:twoP_Scans:" + s.newScanName +":" +  s.newScanName + "_"	// everything but channel name
-	for(iChan=0; iChan < nChans; iChan +=1)
-		//read info to configure scan
-		ai_chanName = stringFromList(iChan, s.selImageChanList,";")	// the name of the channel, plus the number of the analog input used to scan it
-		chanName = stringFromList(0, ai_chanName, ":")				// name of the channel, as assigned by user
-		ai = stringFromList(1, ai_chanName, ":")					// num of the analog input channel
-		type = chanList [str2num(ai)] [2]							// differential, pseudo-differential, referenced single endded, etc
-		range =  chanList [str2num(ai)] [3]							// voltage range for A/D
-		Scaling = chanList [str2num(ai)] [4]						// scaling applied after acquisition
-		Offset = chanList [str2num(ai)] [5]							// offset applied after acquisition
-		s.scanWavePath += "root:packages:twoP:acquire:Acq1D_" + chanName +  ", " + ai + "/" + type + ", -" +  range + ", " + range + ", " + scaling + ", " + offset + ";"
-	endfor
-end
-
 
 
 // ***************************************************************************************************************************************
@@ -5469,11 +5456,11 @@ Function twoP_InitImageScan(s)
 		fDAQmx_CTR_Finished(s.ImageBoard, 0)
 		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ctr0InternalOutput", "/" + s.ImageBoard + "/RTSI6", 0), 6
 #ifdef ENV_IS_DEVELOP
-		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth), s.PixWidth} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
+		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={ s.PixWidth, (s.PixWidthTotal - s.PixWidth)} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
 #else
-		DAQmx_CTR_OutputPulse  /DEV=s.ImageBoard/TICK={(s.PixWidthTotal - s.PixWidth + 1), s.PixWidth -1} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
+		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={, s.PixWidth -1, (s.PixWidthTotal - s.PixWidth + 1)} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
 #endif
-		// A/D scanning, we set it all up but don't start it till after waveform generator has started. This ensures we are in the high phase of the linegate when we start
+		// start A/D scanning
 		Switch(s.ScanMode)
 			variable taskPeriod
 			case kLiveMode:		// scan repeats till stopped
@@ -6622,7 +6609,7 @@ function twoP_EndScan (isAbort)
 		if (isAbort)
 			// stop background task
 			CtrlNamedBackground multiScanBKG, Stop
-			Button AqStartButton, win = twoP_Controls, disable =1
+			Button AqStartButton, win = twoP_Controls, disable =2
 		else
 			// prepare for next scan
 			twoP_EndScanMulti()
@@ -6680,6 +6667,7 @@ function twoP_EndScanMulti()
 		if (!(s.multiAqPremake))
 			twoP_ScanMakeScanWaves(s)
 		endif
+
 		// copy and edit scan Note
 		SVAR multiAcqScanNote= root:packages:twoP:acquire:multiAcqScanNote
 		string/G $"root:twoP_Scans:" + s.newScanName + ":" + s.newScanName + "_info" = multiAcqScanNote
@@ -6688,7 +6676,7 @@ function twoP_EndScanMulti()
 		// adjust scanGraph
 		STRUCT WMPopupAction pa
 		pa.eventCode = 2
-		pa.popStr = stringfromlist(0, s.multiScanList, ";")
+		pa.popStr = stringfromlist(multiAqiAq, multiAcqScanList, ";")
 		twoP_ScanPopMenuProc(pa)
 		// Zero globals for counting line, frames, averages, chunks, as specific to each scan mode
 		if(s.scanmode != kephysOnly)
@@ -6875,11 +6863,10 @@ Function twoP_EndScanErr(scanMode)
 end
 
 
-
+scanStructStr
 
 STRUCTURE twoP_MultiBkgStruct
 	STRUCT WMBackgroundStruct WMS
-	STRUCT twoP_scanStruct t
 	uint32 nAcqs 
 	uint32 ScanDurationTicks	// time it takes to do a scan
 	uint32 NextScanTickCount	// tick count when we do next scan
@@ -6901,7 +6888,7 @@ Function twoP_MultiBkg(s)
 	if(s.WMS.started)
 		s.WMS.started = 0
 		// load a scan struct
-		twoP_ScanLoadStruct(s.t)
+		//twoP_ScanLoadStruct(s.t)
 		// get number of acquisitions
 		NVAR nAqs = root:packages:twoP:acquire:multiAqnAqs 
 		s.nAcqs = nAqs
@@ -6924,12 +6911,29 @@ Function twoP_MultiBkg(s)
 		s.ScanDone = 1
 		s.WMS.nextRunTicks = ticks + s.ScanDurationTicks
 		TitleBox MultiAqTimeToNextTitle win = twoP_Controls, title="Scanning..."
-		twoP_ScanStartThreads(s.t)
-		twoP_InitScan(s.t)
+		SVAR imageBoard= root:packages:twoP:acquire:imageBoard
+		SVAR ephysBoard = root:packages:twoP:acquire:ePhysBoard
+		SVAR selImageChanList = root:packages:twoP:acquire:selImageChanList
+		SVAR selEphysCHanList = root:packages:twoP:acquire:selEphysChanList
+		SVAR ImScanList = root:packages:twoP:acquire:multiAcqImScanList
+		SVAR ePhysScanList = root:packages:twoP:acquire:multiAcqEphysScanWaveList
+		// enable start button
+		SVAR ScanStructStr = root:packages:twoP:acquire:multiAcqScanStructStr 
+		STRUCT twoP_scanStruct t
+		StructGet/S t, ScanStructStr
+		t.imageBoard = imageBoard
+		t.ephysBoard = ephysBoard
+		t.selImageChanList = selImageChanList
+		t.selEphysChanList = selEphysChanList
+		t.scanWavePath = ImScanList
+		t.ePhysPath = ePhysScanList
+		twoP_ScanStartThreads(t)
+		twoP_InitScan(t)
 		return 0
 	elseif (s.ScanDone)		// first time being invoked after doing a scan
 		s.ScanDone = 0
 		iAcq += 1
+		ValDisplay multiAqProgressDisplay win = twoP_Controls, value=_NUM:iAcq
 		if (iAcq == s.nAcqs)
 			TitleBox MultiAqTimeToNextTitle win = twoP_Controls, title="Done" // !@# - other adjustments??
 			return 1		
@@ -6940,10 +6944,15 @@ Function twoP_MultiBkg(s)
 			return 0
 		endif
 	else				// Is it time to do a scan?
-		variable ticksToNext = (s.NextScanTickCount - ticks)
+		variable currentTicks = ticks
+		variable ticksToNext = (s.NextScanTickCount - currentTicks)
 		if (ticksToNext < 90)
 			s.DoScan = 1
-			s.WMS.nextRunTicks = s.NextScanTickCount
+			if (ticksToNext <= 0)
+				s.WMS.nextRunTicks = currentTicks + 1
+			else
+				s.WMS.nextRunTicks = s.NextScanTickCount
+			endif
 		endif
 		TitleBox MultiAqTimeToNextTitle win = twoP_Controls, title="Time to Next Scan: " + twoP_MultiFormatSeconds( ticksToNext/ 60)
 		return 0
@@ -7009,8 +7018,9 @@ end
 function scantest(boardName)
 	string boardName
 	
-	variable pixtime=400e-06				// time between scanning individual pixels, in seconds
-	variable pixHz =1/PixTime			// clock frequency in Hz
+	
+	variable pixHz = 2500		// clock frequency in Hz
+	variable pixtime=1/pixHz	// time between scanning individual pixels, in seconds
 	// make wave for voltage output, as for output to galvos, but only 8 points used here for testing
 	make/o/s/n=8 wout = {-4, -3, -2, -1, 1, 2, 3, 4}
 	WAVE wout = wout
@@ -7030,7 +7040,7 @@ function scantest(boardName)
 	// send the sample clock to RTSI5, where it is used to generate pause trigger (line clock)
 	fDAQmx_ConnectTerminals("/" + boardName + "/ao/SampleClock", "/" + boardName + "/RTSI5", 0)
 	// start repeated input scanning with RTSI 5 (ao/Sample clock) as input clock and RTSI 6 (line gate) as pause trigger.
-	DAQmx_Scan /DEV=boardName/BKG=1/CLK={"/" + boardName + "/RTSI5", 1}/PAUS={ "/" + boardName + "/RTSI6", 1,0} /RPTC WAVES = "win, 0/RSE,-10, 10;"
+	DAQmx_Scan /DEV=boardName/BKG=1/CLK={"/" + boardName + "/RTSI5", 1}/PAUS={ "/" + boardName + "/RTSI6", 1,0} /RPTC WAVES = "win, 3/RSE,-10, 10;"
 	DAQmx_WaveformGen /DEV=boardName /BKG=0/NPRD=0/Strt=1   "wout, 0;"
 	// optonally, connect ao/Sample clock and ai/SampleClock to output pins for verification
 	fDAQmx_ConnectTerminals("/" + boardName + "/ao/SampleClock", "/" + boardName + "/PFI5", 0)  // high-to-lo pulses
