@@ -194,7 +194,7 @@ Function twoP_ExamineMakePanel()
 	// Test for the presence of the acquire function to draw controls.
 	variable AqPresent =(exists("twoP_AcquireAddControls" ) == 6) 
 	// Add AcquireExamine tabcontrol and, if acquire proc is loaded, add acquire tab and its controls
-	TabControl AcquireExamineTab, win =twoP_Controls, pos={0,1},size={344,709}, proc=GUIPTabProc
+	TabControl AcquireExamineTab, win =twoP_Controls, pos={0,1},size={344,709}, proc=GUIPTabProc,labelBack=(61166,61166,61166)
 	if(aqPresent)
 		TabControl AcquireExamineTab, win =twoP_Controls, tabLabel(0)="Acquire", tabLabel(1) = "Examine", value = 0
 		GUIPTabNewTabCtrl("twoP_Controls", "AcquireExamineTab", TabList = "Acquire;Examine;", UserFunc = "twoP_ExamineTabCtrlProc", CurTab = 0)
@@ -210,8 +210,7 @@ Function twoP_ExamineMakePanel()
 	// save/apply window position
 	SetWindow twoP_Controls hook(savePosHook)= twoP_UtilSaveWinPosHook, hookevents = 2
 	WC_WindowCoordinatesRestore("twoP_Controls")
-	// start thread for RGB wave
-	twoP_examineRGBstart()
+	// start thread for RGB wave   	twoP_examineRGBstart()
 end
 
 
@@ -444,7 +443,7 @@ Function twoP_ExamineAddControls(able)
 	if(NVAR_EXISTS(gCurTab))
 		curTab = gCurTab
 	endif
-	TabControl ExamineTabCtrl win = twoP_Controls,pos={3,388},size={337,269}, fSize=12, value= 0, proc = GUIPTabProc
+	TabControl ExamineTabCtrl win = twoP_Controls,pos={3,388},size={337,269}, fSize=12, value= 0, proc = GUIPTabProc, labelBack=(61166,61166,61166)
 	TabControl ExamineTabCtrl win = twoP_Controls, disable = able
 	GUIPTabNewTabCtrl("twoP_Controls", "ExamineTabCtrl", TabList = tabList, UserFunc = "twoP_ExamineTabCtrlProc", curTab = curTab)
 	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "Tabcontrol ExamineTabCtrl;")

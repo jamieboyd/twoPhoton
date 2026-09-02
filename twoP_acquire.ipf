@@ -1,7 +1,7 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2026/08/13 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2026/08/17 by Jamie Boyd.
 #pragma IgorVersion = 7			//Not sure about this. Perhaps some Igor 9isms have slipped in
 
 #include "twoP_Prefs"
@@ -164,6 +164,7 @@ Function twoP_AcquireMakeFolder()
 	variable/G root:Packages:twoP:Acquire:AspectRatio = 1
 	// globals for frame/line numbers for acquisition/averaging
 	variable/G root:Packages:twoP:Acquire:ScanStopOrAbort = 0	// set by STOP button to stop or abort a scan
+	variable/G root:packages:twoP:Acquire:iFrame = 0
 	// Live mode
 	variable/G root:Packages:twoP:Acquire:LiveNumAvgFrames = 3	// number of frames averaged in scanGraphWave
 	variable/G root:Packages:twoP:Acquire:LiveiAvgFrame = 0		// used to count frames being averaged
@@ -358,20 +359,30 @@ Function twoP_AcquireAddControls()
 	// Scan Times
 	GroupBox TimesGrpBox,pos={7.00,468.00},size={334.00,72.00},title="Scan Times"
 	GroupBox TimesGrpBox,fSize=12
-	SetVariable LineTimeSetVar,pos={11.00,488.00},size={150.00,22.00}
-	SetVariable LineTimeSetVar,title="Line   ",fSize=14,format="%.2W1Ps"
-	SetVariable LineTimeSetVar,limits={-inf,inf,0},value=root:Packages:twoP:Acquire:LineTime,noedit=1
-	SetVariable FrameTimeSetVar,pos={167.00,489.00},size={149.00,22.00}
+	// Line, frame, and experiment time setvars
+	SetVariable LineTimeSetVar,pos={200.00,486.00},size={133.00,22.00}
+	SetVariable LineTimeSetVar,title="Line  ",fSize=14,format="%.2W1Ps"
+	SetVariable LineTimeSetVar,limits={-inf,inf,0},value=root:packages:twoP:acquire:LineTime,noedit=1
+	SetVariable LineTimeSetVar, help = {"Shows the time taken to scan a single line including flyback and turnaround with current acquisition settings."}
+	SetVariable FrameTimeSetVar,pos={198.00,512.00},size={136.00,22.00}
 	SetVariable FrameTimeSetVar,title="Frame",fSize=14,format="%.1W1Ps"
-	SetVariable FrameTimeSetVar,limits={-inf,inf,0},value=root:Packages:twoP:Acquire:FrameTime,noedit=1
-	SetVariable expTimeSetvar,pos={11.00,514.00},size={149.00,22.00}
-	SetVariable expTimeSetvar,title="Total  ",fSize=14
-	SetVariable expTimeSetvar,value=root:Packages:twoP:Acquire:RunTimeStr,noedit=1
-	CheckBox TurboCheck,pos={169.00,516.00},size={116.00,15.00},proc=twoP_TimesTurboCheckProc
-	CheckBox TurboCheck,title="Bi-Directional Scan"
-	CheckBox TurboCheck,help={"If On, data is collected on both directions of horizontal scan. If alternate lines of image are misaligned using Turbo, adjust  Scan Head Delay."}
-	CheckBox TurboCheck,variable=root:Packages:twoP:Acquire:FlyBackMode
-	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Acquire", "GroupBox TimesGrpBox;SetVariable LineTimeSetVar;SetVariable FrameTimeSetVar;SetVariable expTimeSetvar;CheckBox TurboCheck;")
+	SetVariable FrameTimeSetVar, help = {"Shows the time taken to scan one image frame with current acquisition settings."}
+	SetVariable FrameTimeSetVar,limits={-inf,inf,0},value=root:packages:twoP:acquire:FrameTime,noedit=1
+	SetVariable expTimeSetvar,pos={58.00,512.00},size={126.00,22.00}
+	SetVariable expTimeSetvar,title="Total Time",fSize=14
+	SetVariable expTimeSetvar,value=root:packages:twoP:acquire:RunTimeStr,noedit=1
+	SetVariable expTimeSetvar, help = {"Shows the total time required for the entire scan with current acquisition settings."}
+	// turbo mode (bidirectional scanning)
+	CustomControl turboToggle,pos={9,491}, picture={GUIPControls#Toggle3PosVertMedium,9},focusRing=0
+	CustomControl turboToggle, proc=GUIPControls#ToggleFunc1, value = root:Packages:twoP:Acquire:flybackMode
+	customControl turboToggle help = {"Sets laser scan mode, X galvo scan is either unidirectional with flyback, or Bi-directional with data collection on both directions. With double bi-directional, Y galvo scan is also bi-directional "}
+	toggle1FillStruct("twoP_Controls", "turboToggle", "twoP_TimesTurboCheckProc")
+	TitleBox turboTitle,pos={53.00,490.00},size={124.00,19.00}
+	TitleBox turboTitle,title="Uni-Directional Scan"
+	TitleBox turboTitle,help={"Shows current laser scan mode, Uni-Directional, Bi-Directional, or Double Bi-Directional (both X and Y galvos are bi-directional)."}
+	TitleBox turboTitle,fSize=14,frame=0
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Acquire", "GroupBox TimesGrpBox;SetVariable LineTimeSetVar;SetVariable FrameTimeSetVar;SetVariable expTimeSetvar;")
+	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Acquire", "CustomControl turboToggle;titleBox turboTitle;")
 	// Buttons to Open other windows
 	Button aqShowScansButton,pos={7.00,547.00},size={49.00,18.00},proc=twoP_ScanShowScan
 	Button aqShowScansButton,title="Scans"
@@ -417,7 +428,7 @@ Function twoP_AcquireAddControls()
 	CheckBox AqInPutTrigCheck,variable=root:Packages:twoP:Acquire:inputTriggerCheck
 	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Acquire", "PopupMenu AqExportAtScanEndPop;ValDisplay AqPercentCompleteDisplay;Button AqStartButton;CheckBox AqInPutTrigCheck;")
 	// controls on Scan mode tab control
-	TabControl SmodeTabControl,pos={3.00,149.00},size={339.00,319.00},proc=GUIPTabProc
+	TabControl SmodeTabControl,pos={3.00,149.00},size={339.00,319.00},proc=GUIPTabProc,labelBack=(61166,61166,61166)
 	TabControl SmodeTabControl,help={"Selects one of 6 possible type of scans to perform."}
 	TabControl SmodeTabControl,fSize=12,tabLabel(0)="Live",tabLabel(1)="Tser"
 	TabControl SmodeTabControl,tabLabel(2)="Avg",tabLabel(3)="Lines"
@@ -1480,7 +1491,7 @@ End
 //*************************************************************************************************************************************
 // This function directly sets the calculated pixel, line, frame, and experiment times based on the settings in the control panel.
 // Called in lots of places other than from setvariable controls, so it makes sense to put the code in a dedicated function
-// Last Modified 2026/07/31 by Jamie Boyd
+// Last Modified 2026/09/01 by Jamie Boyd
 Function twoP_TimesSetTimes()
 	
 	// Globals for scan timing
@@ -1508,9 +1519,9 @@ Function twoP_TimesSetTimes()
 	NVAR FlybackProp = root:Packages:twoP:Acquire:FlybackProp
 	NVAR FlybackMode = root:Packages:twoP:Acquire:FlyBackMode
 	
-	// Need to have even number of lines for symmetrical collection on flyback, if      irectional scanning. 
+	// Need to have even number of lines for symmetrical collection on flyback, if bi-drectional scanning. 
 	// Line scan always needs even number of lines
-	if (((FlybackMode == 1) || (scanMode == kLineScan)) && (mod(PixHeight, 2)))
+	if (((FlybackMode > 0) || (scanMode == kLineScan)) && (mod(PixHeight, 2)))
 		PixHeight += 1
 	endif
 	// make sure sizes are adjusted for aspect ratio before calculating times.
@@ -1546,29 +1557,42 @@ Function twoP_TimesSetTimes()
 				SetVariable LiveAvgFramesSetVar win=twoP_Controls, limits={1,inf,1}		// set minimum in setvariable to 1 frame
 			else
 				LiveStackAtOnce = 1
+				if ((flybackMode ==2) && (mod (LiveNumAvgFrames, 2)))	// we want an even number of frames scanned if doing stack-at-once
+					LiveNumAvgFrames += 1
+				endif
 				LiveMinFrames = min(LiveNumAvgFrames, ceil (minHookTime / FrameTime))			// minimum number of frames to meet minHookTime
+				if ((flybackMode ==2) && (mod (LiveMinFrames, 2)))
+					LiveMinFrames += 1
+				endif
 				LiveNumAvgFrames = max(LiveNumAvgFrames, LiveMinFrames)							// increase LiveNumAvgFrames if needed
-				SetVariable LiveAvgFramesSetVar win=twoP_Controls, limits={LiveMinFrames,inf,1}	// set minimum in setvariable to LiveMinFrames
+				SetVariable LiveAvgFramesSetVar win=twoP_Controls, limits={LiveMinFrames,inf, (flybackMode ==2 ? 2 : 1)}	// set minimum in setvariable to LiveMinFrames
 			endif
 			numFrames = LiveNumAvgFrames
 			break
 			
-		case ksingleImage:
-			// if frame time <  Minimum Hook Time, clear the AvgDoUpdate global as collected. We will do scan-at-once
-			// if frame time <  Minimum Hook Time, make sure we have enough frames to meet Minimum Hook Time
-			NVAR AvgNumFrames = root:Packages:twoP:acquire:AvgNumFrames
-			NVAR AvgDoUpdate=root:packages:twoP:acquire:AvgDoUpdate
-			if (FrameTime < minHookTime)
-				AvgDoUpdate = 0
-				LiveMinFrames = min(AvgNumFrames, ceil (minHookTime / FrameTime))			// minimum number of frames to meet minHookTime
-				AvgNumFrames = max(AvgNumFrames, LiveMinFrames)							// increase LiveNumAvgFrames if needed
-				setvariable AvgNumFramesSetVar win=twoP_Controls, limits={1,inf,1}				// set minimum in setvariable to LiveMinFrames
-			else
-				setvariable AvgNumFramesSetVar win=twoP_Controls, limits={LiveMinFrames,inf,1}	// set minimum in setvariable to 1 frame
+	case ksingleImage:
+		// if frame time <  Minimum Hook Time, clear the AvgDoUpdate global as collected. We will do scan-at-once
+		// if frame time <  Minimum Hook Time, make sure we have enough frames to meet Minimum Hook Time
+		NVAR AvgNumFrames = root:Packages:twoP:acquire:AvgNumFrames
+		NVAR AvgDoUpdate=root:packages:twoP:acquire:AvgDoUpdate
+		if (FrameTime > minHookTime)		
+			AvgDoUpdate = 1
+			setvariable AvgNumFramesSetVar win=twoP_Controls, limits={LiveMinFrames,inf,1}	// set minimum in setvariable to 1 frame
+		else  // doing Stack at Once then averaging at end
+			AvgDoUpdate = 0
+			if ((flybackMode ==2) && (mod (AvgNumFrames, 2)))	// we need an even number of frames scanned
+				AvgNumFrames += 1
 			endif
-			NumFrames = AvgNumFrames
-			break
-			
+			LiveMinFrames = min(AvgNumFrames, ceil (minHookTime / FrameTime))			// minimum number of frames to meet minHookTime
+			if ((flybackMode ==2) && (mod (LiveMinFrames, 2)))
+				LiveMinFrames +=1
+			endif
+			AvgNumFrames = max(AvgNumFrames, LiveMinFrames)							// increase LiveNumAvgFrames if needed
+			setvariable AvgNumFramesSetVar win=twoP_Controls, limits={LiveMinFrames,inf,(flybackMode ==2 ? 2 : 1)}				// set minimum in setvariable to LiveMinFrames
+		endif
+		NumFrames = AvgNumFrames
+		break
+
 		case kLineScan:
 			// if frame time <  Minimum Hook Time, we have 1 chunk, chunk size = pixHeight, scan-at-once
 			// Else we calulate chunk size to meet Minimum Hook Time and enforce pixHeight to be a multiple of chunk size
@@ -1606,18 +1630,21 @@ Function twoP_TimesSetTimes()
 			NVAR TSnumChunks = root:packages:twoP:acquire:tSeriesNumChunks
 			NVAR TSscanAtOnce = root:packages:twoP:acquire:tSeriesScanAtOnce
 			TSchunkSize = ceil (minHookTime/FrameTime)			// use minimum number of frames to meet minHookTime
+			if ((flybackMode ==2) && (mod (TSchunkSize, 2)))
+				TSchunkSize +=1
+			endif
 			TSnumChunks = round (TSnumFrames / TSchunkSize)
-			TSnumFrames = TSnumFrames * TSchunkSize
+			TSnumFrames = TSnumChunks * TSchunkSize
 			if(TSnumFrames * PixWidth * pixHeight >= 2^kNQImageCounterSize)
 				TSscanAtOnce = 0
 			else
 				TSscanAtOnce = 1
 			endif
-			SetVariable NumTSeriesFramesSetVar win = twoP_Controls, limits={TSchunkSize,inf,(TSchunkSize)}
+			SetVariable NumTSeriesFramesSetVar win = twoP_Controls, limits={TSchunkSize,inf,TSchunkSize}
 			numFrames = TSnumFrames
 			break
 			
-		case kZseries:
+		case kZseries:  
 			// check if the size of the stack to be averaged for each Z-step exceeds counter size
 			// if so, clear zAvgStackAtOnce. use KalManamNext to average while scanning a single frame at a time
 			// if stack at once, make sure enough frames are averaged to meet minimum hook time
@@ -1631,14 +1658,19 @@ Function twoP_TimesSetTimes()
 				endif
 				setvariable zKalmanAvgSetvar win=twoP_Controls,limits={1, inf, 1}
 			else
-				zAvgStackAtOnce = 1
+				zAvgStackAtOnce = 1		// doing stack at once
+				if ((flybackMode ==2) && (mod (NumZSeriesAvg, 2)))	// we need an even number of frames scanned
+					NumZSeriesAvg += 1
+				endif
 				LiveMinFrames =ceil(minHookTime/frametime)
+				if ((flybackMode ==2) && (mod (LiveMinFrames, 2)))	// we need an even number of frames scanned
+					LiveMinFrames += 1
+				endif
 				numZseriesAvg = max(numZseriesAvg, LiveMinFrames)
-				setvariable zKalmanAvgSetvar win=twoP_Controls,limits={LiveMinFrames, inf, 1}
+				setvariable zKalmanAvgSetvar win=twoP_Controls,limits={LiveMinFrames, inf, (flybackMode ==2 ? 2 : 1)}
 			endif
 			NumFrames = NumZSeriesAvg
 			break
-		
 	endswitch
 	// now do some checks to ensure even point numbers or nasty NIDAQ drivers will fail
 	// 1) Need to acquire an even number of data points(pixHeight x pixWidth x number of frames)
@@ -1742,25 +1774,25 @@ end
 
 //*************************************************************************************************************************************
 // Runs setTimes Procedure when (Bi-directional scanning) Turbo is checked/unchecked. The global variable, root:packages:twoP:acquire:FlybackMode,
-// is set automatically by Igor
-// Last Modified Jul 24 2011 by Jamie Boyd
-Function twoP_TimesTurboCheckProc(cba) : CheckBoxControl
-	STRUCT WMCheckboxAction &cba
-
-	switch( cba.eventCode )
-		case 2: // mouse up
-			if(cba.checked)
-				CheckBox TurboCheck win= twoP_Controls, title="Bi-Directional Scan is ON"
-			else
-				CheckBox TurboCheck win= twoP_Controls, title="Bi-Directional Scan is OFF"
-			endif
-			twoP_TimesSetTimes()
+// is set by CustomControl procedure
+// Last Modified 2026/09/01 by Jamie Boyd
+Function twoP_TimesTurboCheckProc (toggleVal, controlName)
+	variable toggleVal
+	string controlName
+	
+	switch (toggleVal)
+		case 0:
+			TitleBox turboTitle win= TwoP_Controls, title="Uni-Directional Scan"
 			break
-	endswitch
-	return 0
-End
-
-
+		case 1:
+			TitleBox turboTitle win= TwoP_Controls, title="Bi-Directional Scan"
+			break
+		case 2:
+			TitleBox turboTitle win= TwoP_Controls, title="Double Bi-Directional"
+			break
+	endSwitch
+	twoP_TimesSetTimes()
+end
 
 // ***************************************************************************************************************************************
 // ***************************************** Set Aspect Ratio *********************************************************
@@ -3933,8 +3965,11 @@ Function/S twoP_ScanNoter(s)
 end
 
 
+
 //*************************************** twoP_ScanMakeGalvoWaves ***************************************************************
 // Makes the X and Y scan waves output to the Galvos by the Analog out channels on the image board for the various scan types
+// number of lines must be even for bi-directional scanning
+// number of frames must be even for double-biderectional scanning
 //  returns 1 if an error ocurred, else 0
 // Last Modified 2026/08/14 by Jamie Boyd
 Function twoP_ScanMakeGalvoWaves(s)
@@ -3951,14 +3986,13 @@ Function twoP_ScanMakeGalvoWaves(s)
 			AbortOnValue (s.pixHeight < 2), 2
 		endif
 		//PixHeight needs to be even for turbo mode
-		if(s.flybackMode == 1)
+		if(s.flybackMode)
 			AbortOnValue (mod(s.PixHeight, 2) != 0), 3
 		endif
 		//dutyCycle needs to be between 0 and 1
 		AbortOnValue ((s.dutyCycle < 0) ||(s.dutyCycle > 1)), 4
 		//Pixel Time needs to be greater than 1/analog out max frequency (2.5 MHz for S-series boards) , probably a generous maximum is .01 sec
 		AbortOnValue ((s.pixTime < 0.4e-06) ||(s.pixTime > 0.1)), 5
-		
 		WAVE StraightLine =  root:Packages:twoP:acquire:StraightLine	// straight line over portion we want to scan
 		WAVE tempCos = root:packages:twoP:acquire:tempCos				// the constrained cosine wave
 		WAVE Scan_coefs =  root:packages:twoP:acquire:Scan_Coefs 		//Coeficient wave for cosine curve fitting, will hold the fitted values
@@ -3966,7 +4000,6 @@ Function twoP_ScanMakeGalvoWaves(s)
 		variable scanPnts = round(s.Pixwidth/s.DutyCycle)	// 50 number of points in data collection half, including turnaround
 		variable turnAroundPts = scanPnts - s.Pixwidth		// 10 when the laser is reversing direction, not collecting data
 		variable FlyBackPnts =  round(scanPnts * s.FlyBackProp)	// the non-collecting data direction of laser wave, including turnarond
-		
 		variable cyclePnts 	// full number of points in the hozizontal cycle 2x scan points for bideirectional. scanPnts + turnAroundPts for non-bidirectional
 		variable VerCyclePoints
 		variable ScanPnts_total // total number of points in wave.  scanPnts * s.PixHeight for biderectional, cyclePnts * s.PixHeight for non-biderectional
@@ -4031,6 +4064,9 @@ Function twoP_ScanMakeGalvoWaves(s)
 				verTurnAroundPts = flybackPnts + turnAroundPts
 			endif
 			ScanPnts_total = VerCyclePoints * s.PixHeight
+			if (s.flybackMode ==2)
+				ScanPnts_total *= 2 // because we have to have 2 frames's worth of points, normal and reversed
+			endif
 			make/o/n=(Scanpnts_total) root:packages:twoP:acquire:HorWave
 			WAVE HorWave = root:packages:twoP:acquire:HorWave
 			SetScale/p x 0,(s.pixtime) ,"", HorWave		// pix time sets analog out clock, which controls ai and line gate clock
@@ -4041,23 +4077,26 @@ Function twoP_ScanMakeGalvoWaves(s)
 			WAVE VerWave = root:packages:twoP:acquire:VerWave
 			verwave=0
 			SetScale/p x 0,(s.pixtime) ,"", verWave
+			if (s.flybackMode < 2)
 			// make vertical flyback
-			if(s.flybackMode)
-				verTurnAroundPts = turnAroundPts
-				VerCyclePoints = scanPnts
-			else
-				verTurnAroundPts = flybackPnts + turnAroundPts
-				VerCyclePoints = scanPnts + flybackPnts
+				if(s.flybackMode)
+					verTurnAroundPts = turnAroundPts
+					VerCyclePoints = scanPnts
+				else
+					verTurnAroundPts = flybackPnts + turnAroundPts
+					VerCyclePoints = scanPnts + flybackPnts
+				endif
+				// re-use tempcos for vertical flyback
+				redimension/n=(verTurnAroundPts) tempCos
+				setscale/I x 0, pi, "rad", tempCos
+				scal = (s.yev - s.ysv)/2
+				Voffset =(s.yev + s.ysv)/2
+				tempCos = cos(x)*scal + Voffset
+				// copy tempCos to last points of verWave
+				variable startCopy =(Scanpnts_total -verTurnAroundPts)
+				VerWave[(Scanpnts_total - verTurnAroundPts), Scanpnts_total-1]= tempCos [p-(Scanpnts_total - verTurnAroundPts)]
 			endif
-			// re-use tempcos for vertical flyback
-			redimension/n=(verTurnAroundPts) tempCos
-			setscale/I x 0, pi, "rad", tempCos
-			scal = (s.yev - s.ysv)/2
-			Voffset =(s.yev + s.ysv)/2
-			tempCos = cos(x)*scal + Voffset
-			// copy tempCos to last points of verWave
-			variable startCopy =(Scanpnts_total -verTurnAroundPts)
-			VerWave[(Scanpnts_total - verTurnAroundPts), Scanpnts_total-1]= tempCos [p-(Scanpnts_total - verTurnAroundPts)]
+			
 			// first data collection pixWidth at starting Voltage, starting level is held for fewer points
 			variable voltOut = s.YSV
 			VerWave [0, s.pixWidth -1]= voltOut
@@ -4067,6 +4106,15 @@ Function twoP_ScanMakeGalvoWaves(s)
 			for(voltOut += voltDiv, iPnt = s.pixWidth ; voltOut < s.YEV ; voltOut += voltDiv, iPnt += VerCyclePoints)
 				VerWave [iPnt, iPnt + VerCyclePoints-1]=voltOut
 			endfor
+			
+			// if double-bi, go back down
+			if (s.flybackMode == 2)
+				for(voltOut = s.YEV; voltOut > s.YSV; voltOut -= voltDiv, iPnt += VerCyclePoints)
+					VerWave [iPnt, iPnt + VerCyclePoints-1]=voltOut
+				endfor
+				VerWave [iPnt, Scanpnts_total-1] = s.YSV
+			endif
+			
 		endif
 	catch
 		switch(V_abortCode)
@@ -4105,11 +4153,11 @@ Function twoP_ScanCosExpansion(w,x) : FitFunc
 	//CurveFitDialog/ These comments were created by the Curve Fitting dialog. Altering them will
 	//CurveFitDialog/ make the function less convenient to work with in the Curve Fitting dialog.
 	//CurveFitDialog/ Equation:
-	//CurveFitDialog/ f(x) = H1 *(cos(x+ph)) + H3 *(cos(3 *(x+ph))) + H5 *(cos(5 *(x+ph))) + offset
+	//CurveFitDialog/ f(x) = H1 * (cos(x)) + H3 *(cos(3 *x)) + H5 *(cos(5 *x)) + offset
 	//CurveFitDialog/ End of Equation
 	//CurveFitDialog/ Independent Variables 1
 	//CurveFitDialog/ x
-	//CurveFitDialog/ Coefficients 5
+	//CurveFitDialog/ Coefficients 4
 	//CurveFitDialog/ w[0] = H1
 	//CurveFitDialog/ w[1] = H3
 	//CurveFitDialog/ w[2] = H5
@@ -5038,6 +5086,10 @@ function twoP_ScanZeroGlobals(s)
 			// reset global for counting frames to average, it will also be reset when it overflows   
 			NVAR iFrame = root:Packages:twoP:Acquire:LiveiAvgFrame
 			iFrame = 0
+			if ((s.flyBackMode ==2) && (s.LiveStackAtOnce == 0))
+				NVAR iFrameForOddEven =  root:packages:twoP:Acquire:iFrame 
+				iFrameForOddEven = 0
+			endif
 			break
 
 		case kSingleImage:
@@ -5064,6 +5116,10 @@ function twoP_ScanZeroGlobals(s)
 			iFrame = 0
 			NVAR iAvg = root:Packages:twoP:Acquire:ZseriesiAvg		// when averaging with kalman next
 			iAvg = 0
+			if ((s.flyBackMode ==2) && (s.zAvgStackAtOnce == 0))
+				NVAR iFrameForOddEven =  root:packages:twoP:Acquire:iFrame 
+				iFrameForOddEven = 0
+			endif
 			break
 		case kePhysOnly:
 			break
@@ -5454,7 +5510,6 @@ Function twoP_InitImageScan(s)
 		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ctr0InternalOutput", "/" + s.ImageBoard + "/ctr0Out", 0), 5   // rests low, brief high pulse on low-to-high of ao sample clock
 		
 		// mnake lineGate on ctr0, source is RTSI_5, where we will put ao signal of the waveform generator, direct the output to RTSI_6 where it is used to gate analog input
-		fDAQmx_CTR_Finished(s.ImageBoard, 0)
 		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ctr0InternalOutput", "/" + s.ImageBoard + "/RTSI6", 0), 6
 #ifdef ENV_IS_DEVELOP
 		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={ s.PixWidth, (s.PixWidthTotal - s.PixWidth)} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
@@ -5569,7 +5624,7 @@ end
 
 //**************************************************************************************************
 // Repeated Scan Hook for live mode. Runs after every stack of frames to average is scanned. 
-// Last modified 2026/07/28 by Jamie Boyd
+// Last modified 2026/09/02 by Jamie Boyd
 Function twoP_LiveHook(selImageChanList, nChans, LiveNframes, stackAtOnce, threadGrpID)
 	string selImageChanList
 	variable nChans
@@ -5577,28 +5632,37 @@ Function twoP_LiveHook(selImageChanList, nChans, LiveNframes, stackAtOnce, threa
 	variable stackAtOnce
 	variable threadGrpID
 	
-	// post each channel to the thread group with frame number. iFrame resets below when it reaches LiveNframes
-	variable iChan
-	NVAR iFrame = root:Packages:twoP:Acquire:LiveiAvgFrame
-	for(ichan =0; iChan < nChans; iChan +=1)
-		newdatafolder/O :tdata
-		variable/G  :tdata:iChanG = iChan
-		variable/G :tdata:iFrameG = iFrame
-		ThreadGroupPutDF threadGrpID, :tData
-	endfor
 	
-	// post an RGB update request
 	NVAR hasRGB = root:Packages:twoP:examine:RGB_hasRGB
+	variable iChan
+	if (stackAtOnce == 0)
+		NVAR iFrame = root:Packages:twoP:Acquire:LiveiAvgFrame
+		NVAR iFrameOE =  root:packages:twoP:Acquire:iFrame
+		// post each channel to the thread group with frame number. iFrame resets below when it reaches LiveNframes
+		for(ichan =0; iChan < nChans; iChan +=1)
+			newdatafolder/O :tdata
+			variable/G  :tdata:iChanG = iChan
+			variable/G :tdata:iFrameG = iFrame
+			variable/G :tdata:isOddG = mod (iFrameOE, 2)	// because iFrame is zero-based, frame zero is 1st frame, which is odd 
+			ThreadGroupPutDF threadGrpID, :tData
+		endfor
+		// update variable for couting frames to average
+		iFrame +=1
+		iFrameOE += 1
+		if(iFrame == LiveNframes)
+			iFrame = 0
+		endif
+	else		// doing a whole stack at once
+		for(ichan =0; iChan < nChans; iChan +=1)
+			newdatafolder/O :tdata
+			variable/G  :tdata:iChanG = iChan
+			ThreadGroupPutDF threadGrpID, :tData
+		endfor
+	endif
+	// post an RGB update request
 	if(hasRGB)
 		twoP_PostRGBChans (selImageChanList)
 	endif
-	
-	// update variable for couting frames to average
-	iFrame +=1
-	if(iFrame == LiveNframes)
-		iFrame = 0
-	endif
-	
 	// percent complete Display - just setting it to 1 advances the phase, which is all we want to do for live mode
 	// Seems to fail when time between calls to hook function are more than a second or two
 	ValDisplay AqPercentCompleteDisplay, value= _NUM:1, win=twoP_Controls
@@ -5616,7 +5680,7 @@ end
 
 //**************************************************************************************************
 // Thread function for live mode. Called after every frame is scanned, or if live averaging is on, runs after every stack of frames to average is scanned
-// Last modified 2026/07/28 by Jamie Boyd
+// Last modified 2026/09/02 by Jamie Boyd
 ThreadSafe Function twoP_LiveThread(threadfWaves, nChans, stackAtOnce, numFrames, framePoints, flybackMode, LiveHist, LiveROI, LROIleft, LROItop, LROIright, LROIbottom, liveRatio, topChan, bottomChan)
 	WAVE/WAVE threadfWaves
 	variable nChans
@@ -5651,31 +5715,37 @@ ThreadSafe Function twoP_LiveThread(threadfWaves, nChans, stackAtOnce, numFrames
 		WAVE acq1d = threadfWaves [iChan * nThreadWaves]
 		WAVE acq3D = threadfWaves [iChan * nThreadWaves + 1]
 		WAVE scanWave = threadfWaves [iChan * nThreadWaves + 2]
-		NVAR iFrame = dfr:iFrameG	
-		// copy freshly scanned data into temp 3d wave. 
 		if(stackAtOnce) // If stack-at-once, data for all the frames in the stack are collected at once and copied into the whole stack
 			//acq3D = acq1d
 			//acq3D = acq3D > 32767 ? 0: acq3D
 			fastIntCopy (acq1d, 0, acq3D, 0, 0, 1)
-		else	// If isByFrame a single frame's worth at a time is scanned and inserted into a plane
+			if (flybackMode == 2)
+				SwapEvenReverseEven (acq3D)
+			elseif (flybackMode == 1)
+				SwapEven (acq3D)
+			endif
+		else	// If acquisition is Frame By Frame, a single frame's worth at a time is scanned and inserted into a plane
+			NVAR iFrame = dfr:iFrameG
+			NVAR isOdd = :tdata:isOddG
 			//acq3D [*] [*] [iFrame] = acq1d [q*pixWidth + p]
 			//acq3D [*] [*] [iFrame] = acq3D > 32767 ? 0 :  acq3D
 			fastIntCopy (acq1d, 0, acq3D, (iFrame * framePoints), 0, 1)
+			if (flyBackMode ==2)
+				if (isOdd)
+					ReverseEvenFrame(acq3D, iFrame)
+				else
+					SwapEvenFrame(acq3D, iFrame)
+				endif
+			elseif (flybackmode ==1)
+				SwapEvenFrame(acq3D, iFrame)
+			endif
 		endif
-		
 		// average the temp 3D stack into the 2D scanGraphWave, which is also the scanWave
 		KalmanSpecFrames(acq3D, 0,(numFrames -1), scanWave, 0, 8)
-		
-		// swap even lines in ScanWave for bidirectional scanning. acq3D is always kept un-swapped, so adding and averaging new frames works
-		if(flybackMode)
-			SwapEven(scanWave)
-		endif
-
 		if(liveHist)
 			WAVE histWave = threadfWaves [iChan * nThreadWaves + 3]
 			Histogram /B=2 acq1d, HistWave
 		endif
-
 		if(liveROI)
 			WAVE LROIWave = threadfWaves [iChan * nThreadWaves + 4]
 			ImageStats/M=1/GS={ LROIleft,LROIright,LROIbottom,  LROItop } scanWave
@@ -5710,6 +5780,7 @@ function twoP_AvgFramesHook(selImageChanList, numChans, numFrames, threadGroupID
 	variable iChan
 	// counting frames with global variable
 	NVAR iFrame = root:packages:twoP:acquire:AvgiFrame
+
 	for(ichan =0; iChan < numChans; iChan +=1)
 		newdatafolder/O :tdata
 		variable/G :tdata:iChanG = iChan
@@ -5738,7 +5809,7 @@ end
 	
 //**************************************************************************************************
 // Thread function for average frames mode, when using KalmAnNext to average each frame into the scanWave
-// Last modified 2026/07/30 by Jamie Boyd
+// Last modified 2026/9/02 by Jamie Boyd
 threadsafe function twoP_AvgFramesThread(threadWaves, flybackMode)
 	WAVE/WAVE threadWaves
 	variable flybackMode
@@ -5758,7 +5829,13 @@ threadsafe function twoP_AvgFramesThread(threadWaves, flybackMode)
 		//acq2D = acq1d
 		//acq2D = acq2D > 32767 ? 0: acq2D
 		fastIntCopy (acq1d, 0, acq2D, 0, 0, 1)
-		if(flybackMode)
+		if(flybackMode ==2)
+			if (mod (iFrame, 2))
+				SwapEvenReverseEven(acq2D)
+			else
+				SwapEven(acq2D)
+			endif
+		elseif (flybackMode ==1)
 			SwapEven(acq2D)
 		endif
 		KalmanNext(acq2D, scanWave, iFrame)
@@ -5770,7 +5847,7 @@ end
 
 //**************************************************************************************************
 // End-of-scan Hook function for average frames mode, when averaging all frames at once, at the end of the scan. No threads
-// Last modified 2026/07/29 by Jamie Boyd
+// Last modified 2026/09/02 by Jamie Boyd
 Function twoP_AvgFramesEndHook(scanName, selImageChanList,  numFrames, flybackMode)
 	string scanName
 	string selImageChanList
@@ -5789,10 +5866,12 @@ Function twoP_AvgFramesEndHook(scanName, selImageChanList,  numFrames, flybackMo
 		//acq3D = acq1d
 		//acq3D = acq3D > 32767 ? 0: acq3D
 		fastIntCopy (acq1d, 0, acq3D, 0, 0, 1)
-		KalmanSpecFrames(acq3D, 0, numFrames-1, scanWave, 0, 8)
-		if(flybackMode)
-			SwapEven(scanWave)
+		if(flybackMode ==2)
+			SwapEvenReverseEven(acq3D)
+		elseif (flyBackMode ==1)
+			SwapEven (acq3D)
 		endif
+		KalmanSpecFrames(acq3D, 0, numFrames-1, scanWave, 0, 8)
 	endfor
 	// post an RGB update request
 	NVAR hasRGB = root:Packages:twoP:examine:RGB_hasRGB
@@ -5883,7 +5962,7 @@ ThreadSafe Function twoP_lineScanCyclicThread(threadfWaves, nChans, lScanChunkSi
 		//acq2D = acq2D > 32767 ? 0: acq2D
 		fastIntCopy (acq1d, 0, acq2D, 0, 0, 1)
 		
-		if(flybackMode)
+		if(flybackMode==1)
 			SwapEven(acq2D)
 		endif
 		// insert this chunk into ScanWave. lScanChunkSize will fit evenly into line scan size
@@ -6066,7 +6145,7 @@ end
 
 //**************************************************************************************************
 // Repeated Scan Hook used for time series, repeated scan mode
-// Last modified 2026/07/31 by Jamie Boyd
+// Last modified 2026/09/02 by Jamie Boyd
 Function twoP_timeSeriesHook(selImageChanList, nChans, chunkSize, numChunks, threadGroupID)
 	string selImageChanList
 	variable nChans
@@ -6148,9 +6227,12 @@ ThreadSafe Function twoP_timeSeriesCyclicThread(threadfWaves, nChans, chunkSize,
 		// acq3D = acq3D > 32767 ? 0: acq3D
 		fastintCopy(acq1d, 0, acq3D, 0, chunkPoints, 1)
 		
-		if(flybackMode)
+		if(flybackMode ==2)
+			SwapEvenReverseEven(acq3D)
+		elseif (flyBackMode==1)
 			SwapEven(acq3D)
 		endif
+		
 		// copy ALL of 3D wave into appropriate offset of scanWave
 		//startPlane = iChunk * chunkSize
 		// scanGraphWave [*] [*] [startPlane, startPlane + chunkSize -1] = acq3D [p] [q] [r-startPlane] !@     #
@@ -6265,7 +6347,7 @@ end
 	
 //**************************************************************************************************
 // Thread function for time series when all data is scanned at once into acq1D, and a chunk of acq1D at a time is copied into acq3D
-// Last modified 2026/08/11 by Jamie Boyd
+// Last modified 2026/09/02 by Jamie Boyd
 ThreadSafe Function twoP_timeSeriesAtOnceThread(threadfWaves, nChans, chunkSize, FramePoints, flybackMode, LiveROI, LROIleft, LROItop, LROIright, LROIbottom, liveRatio, TopChan, BottomChan)
 	WAVE/WAVE threadfWaves
 	variable nChans
@@ -6310,7 +6392,9 @@ ThreadSafe Function twoP_timeSeriesAtOnceThread(threadfWaves, nChans, chunkSize,
 		//acq3D = acq3D > 32767 ? 0: acq3D
 		fastIntCopy(acq1d, chunkOffset, acq3D, 0, chunkPoints, 1)
 		
-		if(flybackMode)
+		if(flybackMode==2)
+			SwapEvenReverseEven(acq3D)
+		elseif (flyBackMode==1)
 			SwapEven(acq3D)
 		endif
 		// copy all of 3D wave into scanWave
@@ -6413,11 +6497,13 @@ Threadsafe Function twoP_ZseriesAtOnceThread(threadfWaves, framePoints, zAvgFram
 		//acq3D = acq1D
 		//acq3D = acq3D > 32767 ? 0: acq3D
 		fastIntCopy (acq1D, 0, acq3D, 0, chunkPoints, 1)
+		if (flybackmode ==2)
+			SwapEvenReverseEven(acq3D)
+		elseif (flyBackMode == 1)
+			SwapEven(acq3D)
+		endif
 		// average 3D stack into scanGraph
 		KalmanSpecFrames (acq3D, 0, zAvgFrames-1, scanGraphWave, 0, 8)
-		if (flybackmode)
-			SwapEven(scanGraphWave)
-		endif
 		// copy scanGraph wave into ScanWave
 		//scanWave [*] [*] [iFrame] = scanGraphWave [p] [q]
 		fastIntCopy(scanGraphWave, 0, scanWave, (iFrame * framePoints), framePoints, 0)
@@ -6440,7 +6526,7 @@ Function twoP_zSeriesKNextHook(selImageChanList, numChans, gThreadGroupID, numFr
 	
 	NVAR iFrame = root:Packages:twoP:Acquire:ZseriesiFrame		// for counting frames in stack
 	NVAR iAvg = root:Packages:twoP:Acquire:ZseriesiAvg			// for counting averages per frame (may be 1, for no averaging)
-	
+	NVAR iFrameOE =  root:packages:twoP:Acquire:iFrame  
 	variable iChan
 	// post a folder to threads with iFrame and iAvg
 	for(ichan =0; iChan < numChans; iChan +=1)
@@ -6448,10 +6534,12 @@ Function twoP_zSeriesKNextHook(selImageChanList, numChans, gThreadGroupID, numFr
 		variable/G :tdata:iChanG = iChan 
 		variable/G :tdata:iFrameG = iFrame 
 		variable/G :tdata:iAvgG = iAvg
+		variable/G :tdata:frameIsOddG = mod (iFrameOE, 2)
 		ThreadGroupPutDF gThreadGroupID, :tdata
 	endfor
 	
 	// increment iAverage
+	iFrameOE += 1
 	iAvg += 1
 	if (iAvg == zAvg)
 		iAvg = 0
@@ -6479,7 +6567,7 @@ End
 	
 // ************************************** twoP_ZseriesKNextThread **********************************************************
 // Thread function for z Series when not zAvgStackAtOnce. Every image is acquired separately, and averaged with KalmanNext
-// Last modified 2026/08/11 by Jamie Boyd
+// Last modified 2026/09/02 by Jamie Boyd
 Threadsafe Function twoP_ZseriesKNextThread(threadfWaves, FramePoints, zAvgFrames, flybackMode)
 	WAVE/WAVE threadfWaves
 	variable FramePoints
@@ -6496,13 +6584,19 @@ Threadsafe Function twoP_ZseriesKNextThread(threadfWaves, FramePoints, zAvgFrame
 		WAVE scanWave = threadfWaves [iChan * nThreadWaves + 3]
 		NVAR iFrame = dfr:iFrameG
 		NVAR iAvg = dfr:iAvgG
-
+		NVAR frameIsOdd = dfr:frameIsOddG
 		// copy all of freshly acquired data in acq1D into acq2d
 		//acq2d = acq1D
 		//acq2d = acq2d > 32767 ? 0: acq2d
 		FastIntCopy(acq1D, 0, acq2d, 0, FramePoints, 1)
-		if (flybackmode)
-			SwapEven(acq2d)
+		if (flybackmode ==2)
+			if (frameIsOdd)
+				ReverseEvenFrame(acq2D, 0)
+			else
+				SwapEvenFrame(acq2D, 0)
+			endif
+		elseif (flyBackMode == 1)
+			SwapEvenFrame(acq2D, 0)
 		endif
 		// Klaman next into scan Graph wave
 		KalmanNext(acq2d, scanGraphWave, iAvg)
@@ -7037,6 +7131,8 @@ function scantest(boardName)
 	// export pause trigger to RTSI6
 	DAQmx_CTR_OutputPulse /DEV=boardName/TICK={5, 3} /IDLE=0 /NPLS=0/TBAS="/" + boardName + "/RTSI5"/Rate=(pixHz) 0
 	fDAQmx_ConnectTerminals("/" + boardName + "/ctr0InternalOutput", "/" + boardName + "/RTSI6", 0) 
+	DAQmx_CTR_OutputPulse /DEV=boardName/TICK={3, 5} /IDLE=1 /NPLS=0/TBAS="/" + boardName + "/RTSI5"/Rate=(pixHz) 1
+	
 	// the waveform generator will do repeated output with wave wout on channel 0
 	// send the sample clock to RTSI5, where it is used to generate pause trigger (line clock)
 	fDAQmx_ConnectTerminals("/" + boardName + "/ao/SampleClock", "/" + boardName + "/RTSI5", 0)
@@ -7051,6 +7147,9 @@ end
 function scanEnd(boardName)
 	string boardName
 	fDAQmx_CTR_Finished(boardName, 0)	// stops the line gate counter
+	fDAQmx_CTR_Finished(boardName, 1)	// stops the un-line gate counter
+	DAQmx_CTR_OutputPulse /DEV=boardname/SEC={1e-6, 1e-6} /IDLE=0 /NPLS=1/STRT=0 1
+	fDAQmx_CTR_Finished(boardName, 1)
 	fDAQmx_WaveformStop(boardName)		// stops repeated waveform output
 	fDAQmx_ScanStop(boardName)			// stops repeated data acquisition
 end
