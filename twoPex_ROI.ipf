@@ -1,6 +1,6 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3
-#pragma version = 3  	// Last Modified: 2025/09/18 by Jamie Boyd.
+#pragma version = 3  	// Last Modified: 2026/09/10 by Jamie Boyd.
 #pragma IgorVersion = 9
 
 //******************************************************************************************************
@@ -12,7 +12,7 @@
 Menu "GraphMarquee"
 	submenu "twoP Examine"
 		"Set Dark Fluorescence Region",/Q, twoP_Set_Dark_Fluorescence ()
-		"Do ROI", /Q,twoP_DoRoi()
+		"Do ROI", /Q,twoP_DoMarqueeRoi()
 	end
 end
 
@@ -20,33 +20,33 @@ end
 // These values will be used to subtract dark fluorescence in the ROI functions. 
 // Only left and right are saved for line scan, setting the globals for top and bottom in the examine folder to nan, to prevent using line scan dark
 // area for an image scan
-// Last Modified 2025/07/24 by Jamie Boyd
+// Last Modified 2026/09/10 by Jamie Boyd
 Function twoP_Set_Dark_Fluorescence()
 
 	GetMarquee/k left,bottom
-	//always set left and right
-	variable/G root:packages:twoP:examine:darkL = v_left
-	variable/G root:packages:twoP:examine:darkR = v_right
-	// set V_top and V_bottom to NaN for linescan
+	variable/G root:packages:twoP:examine:darkL = min (v_left, v_right)
+	variable/G root:packages:twoP:examine:darkR = max (v_left, v_right)
+	variable/G root:packages:twoP:examine:darkB = min (v_Bottom, V_top)
+	variable/G root:packages:twoP:examine:darkT = max (V_Bottom, v_top)
+	NVAR darkL = root:packages:twoP:examine:darkL
+	NVAR darkR = root:packages:twoP:examine:darkR
+	NVAR darkB = root:packages:twoP:examine:darkB
+	NVAR darkT =  root:packages:twoP:examine:darkT
+	// set darkT and darkB to NaN for linescan
 	SVAR curscan = root:Packages:twoP:examine:CurScan
-	if (cmpStr (CurScan, "LiveScan") != 0)
-		SVAR scanNote = $"root:twoP_Scans:" + curscan  + ":" + curScan +  "_info"
-	else
-		SVAR scanNote = root:twoP_Scans:LiveScan_info
-	endif
-	variable scanMode= NumberByKey("mode", scanNote, ":", "\r")
+	SVAR scanNote = $"root:twoP_Scans:" + curscan  + ":" + curScan +  "_info"
+	variable scanMode= NumberByKey("mode", scanNote, "=", "\r")
 	if (scanMode == kLineScan)
-		v_top = Nan
-		v_bottom =Nan
+		darkB = Nan
+		darkT =Nan
 	endif
-	variable/G root:packages:twoP:examine:darkT = v_top
-	variable/G root:packages:twoP:examine:darkB = v_Bottom
+	// save in scan note as well as globals
 	if (scanMode != kLiveMode)
-		ScanNote = ReplaceNumberByKey("darkL", ScanNote, V_left, ":", "\r")
-		ScanNote = ReplaceNumberByKey("darkR", ScanNote, V_right, ":", "\r")
+		ScanNote = ReplaceNumberByKey("darkL", ScanNote, darkL, "=", "\r")
+		ScanNote = ReplaceNumberByKey("darkR", ScanNote, darkR, "=", "\r")
 		if (scanMode != kLineScan)
-			ScanNote = ReplaceNumberByKey("darkT", ScanNote, V_top, ":", "\r")
-			ScanNote = ReplaceNumberByKey("darkB", ScanNote, V_Bottom, ":", "\r")
+			ScanNote = ReplaceNumberByKey("darkT", ScanNote, darkT, "=", "\r")
+			ScanNote = ReplaceNumberByKey("darkB", ScanNote, darkB, "=", "\r")
 		endif
 	endif
 end
@@ -260,105 +260,108 @@ End
 
 //******************************************************************************************************
 // Graph marquee function to make a square ROI from the graph marquee coordinates and make an ROI avg from the current scan.
-// Last modified Sep 02 2010 by Jamie Boyd
-Function twoP_DoRoi()
+// Last modified 2026/09/10 by Jamie Boyd
+Function twoP_DoMarqueeRoi()
 	
 	// Get dark values if shift key is held down
 	variable getDark = ((getkeystate(0) & 4) == 4)
 	// for linescans, command/ctrl key for boxCar averaging
 	variable doBCavg = ((getKeyState (0) & 1) == 1)
-	// check for ScanGraph (also sets coordinates to pixel values used for Igor5
-	GetMarquee
+	// get marquee values for left and bottom axes
+	GetMarquee/K left, bottom
+	// check that marquee is on the scan Graph
 	if (cmpStr (stringfromlist (0, S_marqueeWin, "#"), "twoPScanGraph") != 0)
 		doalert 0, "This function only works with the current scan displayed on twoPhoton Scan Graph."
 		return 1
 	endif
-	// Get current scan; check scan Mode
+	// Get current scan and get scan note
 	SVAR curscan = root:Packages:twoP:examine:CurScan
-	if (cmpStr (CurScan, "LiveWave") == 0)
-		doalert 0, "This function only works with a time series, a Z- series,  or a Line Scan."
-		return 1
-	endif
 	SVAR ScanNote = $"root:twoP_Scans:" + curscan  + ":" + curScan +  "_info"
-	variable scanMode = numberByKey ("Mode", scanNote, ":", "\r")
+	// check scan mode
+	variable scanMode = numberByKey ("Mode", scanNote, "=", "\r")
 	if (!(((scanMode == kLineScan) || (scanMode == kTimeSeries)) || (scanMode == kZseries)))
 		doalert 0, "This function only works with a time series, a Z- series,  or a Line Scan."
 		return 1
 	endif
-	// which channel, i.e., which subWindow was marquee drawn on
-	string chStr
-	GetMarquee/K left,bottom
-	chStr = "_" + (stringfromlist (1, S_marqueeWin, "#")) [1,3] //^^^
-	// if a linescan, check for box car averaging
-	variable BCwidth
+	// put marquee coordinates in local variables, checking max and min in cases axes are inverted
+	variable roi_left, roi_right, roi_bottom, roi_top
+	roi_left = min (V_left, V_right)
+	roi_right = max (V_left, V_right)
+	roi_bottom = min (V_Top, V_bottom)
+	roi_top = max (V_Top, V_bottom)
+	// check dark fluorescence, first check scan info and then check global variables
+	variable darkL = Nan, darkR = Nan, darkB = Nan, darkT = Nan
+	if (getDark)
+		darkL = numberbykey ("DarkL", scanNote, "=", "\r")
+		darkR = numberbykey ("DarkR", scanNote, "=", "\r")
+		if (scanMode != kLineScan)
+			darkT = numberbykey ("DarkT", scanNote, "=", "\r")
+			darkB = numberbykey ("DarkB", scanNote, "=", "\r")
+		endif
+		if (((numtype (DarkB) ==2) || (numtype (DarkT) ==2)) || ((scanMode != kLineScan) && ((numtype (DarkL) ==2) || (numtype (DarkR) ==2))))  // dark not set for this scan, so set it from globals
+			NVAR/Z darkLG = root:packages:twoP:examine:darkL
+			NVAR/Z darkRG = root:packages:twoP:examine:darkR
+			if (scanMode != kLineScan)
+				NVAR/Z darkBG = root:packages:twoP:examine:darkB
+				NVAR/Z darkTG = root:packages:twoP:examine:darkT
+			endif
+			if	((!NVAR_Exists(darkTG)) || (!NVAR_Exists(darkBG)) || ((scanMode != kLineScan) && ((!NVAR_Exists(darkLG)) || (!NVAR_Exists(darkRG)))))
+				doAlert 0, "No dark region has been set."
+				return 1
+			endif
+			darkB = darkBG
+			darkT = darkTG
+			ScanNote = ReplaceNumberByKey("darkB", scanNote, darkB, "=", "\r")
+			ScanNote = ReplaceNumberByKey("darkT", scanNote, darkT, "=", "\r")
+			if (scanMode != kLineScan)
+				darkL = darkLG
+				darkR = darkRG
+				ScanNote = ReplaceNumberByKey("darkL", scanNote, darkL, "=", "\r")
+				ScanNote = ReplaceNumberByKey("darkR", scanNote, darkR, "=", "\r")
+			endif
+		endif
+	endif
+	// check box car averaging for line scans
+	variable BCwidth=0
 	if ((scanMode == kLineScan) && (doBCavg))
-		BCwidth = round ((V_Top - V_Bottom)/ numberbykey ("LineTime", scanNote, ":", "\r"))
-		if (mod (BCWIdth,2) ==0)
+		BCwidth = round ((ROI_Top - ROI_bottom)/ numberbykey ("LineTime", scanNote, "=", "\r"))
+		if (BCWidth == 0)
+			doBCavg = 0
+		elseif (mod (BCWIdth,2) ==0)
 			BCWidth += 1
 		endif
-	else
-		BCWidth =0
 	endif
-	// getDark vlues will be NaN if not doing dark subtraction
-	variable darkL =Nan, darkT =Nan, darkR =NaN, darkB =Nan
-	if (getDark)
-		darkL = numberbykey ("DarkL", scanNote, ":", "\r")
-		darkT = numberbykey ("DarkT", scanNote, ":", "\r")
-		darkR = numberbykey ("DarkR", scanNote, ":", "\r")
-		darkB = numberbykey ("DarkB", scanNote, ":", "\r")
-		if (scanMode == kLineScan)
-			if ((numtype (DarkL) ==2) || (numtype (DarkR) ==2))
-				NVAR/Z darkLG = root:packages:twoP:examine:darkL
-				NVAR/Z darkRG = root:packages:twoP:examine:darkR
-				if (!(((NVAR_Exists(darkLG)) && (NVAR_Exists(darkRG)))))
-					doAlert 0, "No dark region has been set."
-					return 1
-				endif
-				darkL = darkLG
-				darkR = darkRG
-				ScanNote = ReplaceNumberByKey("darkL", scanNote, darkL, ":", "\r")
-				ScanNote = ReplaceNumberByKey("darkR", scanNote, darkR, ":", "\r")
-			endif
-		else
-			if ((((numtype (DarkL) ==2) || (numtype (DarkT) ==2)) || (numtype (DarkR) ==2))|| (numtype (DarkB) ==2))
-				NVAR/Z darkLG = root:packages:twoP:examine:darkL
-				NVAR/Z darkTG = root:packages:twoP:examine:darkT
-				NVAR/Z darkRG = root:packages:twoP:examine:darkR
-				NVAR/Z darkBG = root:packages:twoP:examine:darkB
-				if (!((((NVAR_Exists(darkLG)) && (NVAR_Exists(darkTG))) && (NVAR_Exists(darkRG))) && (NVAR_Exists(darkBG))))
-					doAlert 0, "No dark region has been set."
-					return 1
-				endif
-				darkL = darkLG
-				darkT = darkTG
-				darkR = darkRG
-				darkB = darkBG
-				ScanNote = ReplaceNumberByKey("darkL", scanNote, darkL, ":", "\r")
-				ScanNote = ReplaceNumberByKey("darkT", scanNote, darkT, ":", "\r")
-				ScanNote = ReplaceNumberByKey("darkR", scanNote, darkR, ":", "\r")
-				ScanNote = ReplaceNumberByKey("darkB", scanNote, darkB, ":", "\r")
-			endif
+	// get which channel to use based on which subWindow marquee was drawn on
+	// subwin is named G + channel name
+	string subwin, chStr
+	subwin = stringfromlist (1, S_marqueeWin, "#")
+	chStr = "_" + subwin [1,strlen (subwin) -1]	// the [1, gets rid of the G at the beginning
+	// reference channel waves - drawing on the RGB subwin signals to do ratio
+	variable isRatio
+	if (cmpStr (chStr, "_RGB") == 0)
+		SVAR topChan = root:packages:twoP:examine:ROITopChan
+		SVAR bottomChan = root:Packages:twoP:examine:ROIbottomChan
+		Wave/z topWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + topChan
+		Wave/z bottomWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + bottomChan
+		if (!(WaveExists (topWave) && (waveExists (bottomWave))))
+			doAlert 0, "Top or bottom waves for ratio imaging were not found."
+			return 1
 		endif
-	endif
-	// reference channel waves
-	if (cmpStr (chStr, "_mrg") == 0)
-		NVAR topChan = root:packages:twoP:examine:ROITopChan
-		if (topChan == 1)
-			Wave topWave = $"root:twoP_Scans:" + curScan + ":" + curScan+ "_ch1"
-			Wave bottomWave = $"root:twoP_Scans:" + curScan + ":" + curScan+ "_ch2"
-		else
-			Wave topWave = $"root:twoP_Scans:" + curScan + ":" + curScan+ "_ch2"
-			Wave bottomWave = $"root:twoP_Scans:" + curScan + ":" + curScan+ "_ch1"
-		endif
+		isRatio =1
 	else
-		WAVE chWave = $"root:twoP_Scans:" + curScan + ":" + curScan+chStr
+		WAVE chWave = $"root:twoP_Scans:" + curScan + ":" + curScan + chStr
+		if (!(WaveExists (chWave)))
+			doAlert 0, "Could not find wave for the channel, " + curScan + chStr
+			return 1
+		endif
+		isRatio = 0
 	endif
 	//Find the first free name for the ROI and make the ROI wave
 	if (!(dataFolderExists ("root:twoP_ROIs")))
 		newdatafolder root:twoP_ROIs
 	endif
 	variable ii
-	For (ii=0; WaveExists($"root:twoP_ROIs:"  + curScan +  "_R" + num2str (ii) + "_y") == 1; ii += 1)
+	For (ii=0; WaveExists($"root:twoP_ROIs:"  + curScan +  "_R" + num2str (ii) + "_y"); ii += 1)
 	Endfor
 	variable ROINum = ii
 	String ROIBaseName =  "root:twoP_ROIs:"  + curScan + "_R" + num2str (ROINum)
@@ -369,42 +372,52 @@ Function twoP_DoRoi()
 	WAVE RoiXWave = $ROIBaseName + "_x"
 	WAVE RoiYWave = $ROIBaseName + "_y"
 	if (scanMode == kLineScan)
-		numFrames =  numberbykey ("PixHeight", ScanNote, ":", "\r")
+		numFrames =  numberbykey ("PixHeight", ScanNote, "=", "\r")
 		Note RoiXWave, "WaveType:ROIlinescan;" + "Red:" + num2str (red) + ";Green:" + num2str (green) + ";Blue:" + num2str (blue) + ";"
 		variable bottomMost = numberbykey ("yPos", scanNote, ":", "\r")
 		variable TopMost = BottomMost + (numberbykey ("PixHeight", scanNote, ":", "\r")-2) * numberbykey ("LineTime", scanNote, ":", "\r")
-		ROIxWave [0,1] = V_left
+		ROIxWave [0,1] = roi_left
 		ROIxWave [2] = Nan
-		ROIxWave [3,4] = V_right
+		ROIxWave [3,4] = roi_right
 		ROIyWave [0] = bottomMost
 		ROIyWave [1] = topMost
 		ROIyWave [2] = Nan
 		ROIYWave [3] = bottomMost
 		ROIyWave [4] = topMost
 	else
-		NumFrames = numberbykey ("NumFrames", ScanNote, ":", "\r")
+		NumFrames = numberbykey ("NumFrames", ScanNote, "=", "\r")
 		Note RoiXWave, "WaveType:ROIsquare;" + "Red:" + num2str (red) + ";Green:" + num2str (green) + ";Blue:" + num2str (blue) + ";"
-		ROIxWave [0,1] = V_left
-		ROIxWave [2,3] = V_right
-		ROIxWave [4] = V_Left
-		ROIyWave [0] = v_bottom
-		ROIyWave [1,2] = V_Top
-		ROIYWave [3,4] = V_Bottom
+		ROIxWave [0,1] = roi_left
+		ROIxWave [2,3] = roi_right
+		ROIxWave [4] = roi_left
+		ROIyWave [0] = roi_bottom
+		ROIyWave [1,2] = roi_top
+		ROIYWave [3,4] = roi_bottom
 	endif
 	// add ROI to list of ROIS 
 	WAVE/t RoiListWave = root:Packages:twoP:examine:RoiListWave
 	WAVE RoiListSelWave = root:Packages:twoP:examine:RoiListSelWave
 	insertpoints (numpnts (ROIListWave)), 1, RoiListWave, RoiListSelWave
 	RoiListWave [numpnts (ROIListWave) -1] = curScan + "_R" + num2str (ROINum)
+	// Draw ROI on twoP ScanGraph, if not there already
+	doWindow/F twoPScanGraph
+	if (V_Flag)	// window is there
+		string subWinTraces = TraceNameList(S_marqueeWin, ";", 1)
+		if (whichListItem(ROIBaseName + "_y", subWinTraces, ";") == -1)	// trace is not there
+			appendtograph/W=$S_marqueeWin/C =(red,green,blue) ROIyWave vs ROIxWave
+		endif
+	else	// window is not open
+		twoP_ImGraphNew (curScan)
+	endif
 	//Find the first free name for the ROIavg and make the ROIavg wave
 	string ROIAvgBaseName
-	if (cmpStr (chStr, "_mrg") ==0)
+	if (cmpStr (chStr, "_RGB") ==0)
 		ROIAvgBaseName = "root:twoP_Scans:" + curScan + ":" + curScan + "_R" + num2str (ROINum) + "_ratio"
 	else
 		ROIAvgBaseName = "root:twoP_Scans:" + curScan + ":" +curScan +  "_R" + num2str (ROINum) + chStr + "avg"
 	endif
 	if (waveExists ($ROIAvgBaseName))
-		For (ii =1; WaveExists($ROIAvgBaseName + num2str (ii)) == 1; ii += 1)
+		For (ii =1; WaveExists($ROIAvgBaseName + num2str (ii)); ii += 1)
 		endfor
 		make/o/n= (NumFrames)$ROIAvgBaseName + num2str (ii)
 		WAVE Roiavg = $ROIAvgBaseName + num2str (ii)
@@ -413,34 +426,46 @@ Function twoP_DoRoi()
 		WAVE Roiavg = $ROIAvgBaseName
 	endif
 	if (scanMode == kTimeSeries)
-		setscale/P x 0,(numberbykey ("FrameTime",ScanNote, ":", "\r")),"s", RoiAvg
+		setscale/P x 0,(numberbykey ("FrameTime",ScanNote, "=", "\r")),"s", RoiAvg
 	elseif (scanMode == kLineScan)
-		setscale/P x 0,(numberbykey ("LineTime",ScanNote, ":", "\r")),"s", RoiAvg
+		setscale/P x 0,(numberbykey ("LineTime",ScanNote, "=", "\r")),"s", RoiAvg
 	elseif (scanMode == kZseries)
-		setscale/P x (numberbykey ("ZPos",ScanNote, ":", "\r")),(numberbykey ("ZstepSize",ScanNote, ":", "\r")),"m", RoiAvg
+		setscale/P x (numberbykey ("ZPos",ScanNote, "=", "\r")),(numberbykey ("ZstepSize",ScanNote, "=", "\r")),"m", RoiAvg
 	endif
 	note RoiAvg, "ImWave:" + CurScan + ";ROI:" +stringfromlist (2, ROIBaseName, ":") + ";Red:" + num2str (red) + ";Green:" + num2str (green) + ";Blue:" + num2str (blue) + ";deltafed:0;"
 	// do the ROI  2^3=8 different ways: Line Scan vs 3D wave, with Dark Subtraction or not, ROI avg vs ROI ratio
-	//variable topAvg, darkAvg, darkAvgTop, darkAvgBottom
 	if (scanMode == kLineScan)
-		if (cmpStr (chStr, "_mrg") == 0)
-			NQ_doSquareROIRatio (topWave, bottomWave,  curScan + "_R" + num2str (ROINum), ROIavg, darkL, darkR, darkT, darkB)
+		if (isRatio)
+			NQ_doLineScanROIRatio(topWave, bottomWave,  curScan + "_R" + num2str (ROINum), ROIavg, darkL, darkR)
 		else
-			NQ_doLineScanROIavg (chWave,  curScan + "_R" + num2str (ROINum), ROIavg, darkL, darkR)
+			NQ_doLineScanROIavg(chWave,  curScan + "_R" + num2str (ROINum), ROIavg, darkL, darkR)
 		endif
 		// boxCar averaging?
-		if (BCwidth > 0)
+		if (doBCavg)
 			Smooth/B (BCwidth), RoiAvg
 		endif
 	else // a 3D scan
-		if (cmpStr (chStr, "_mrg") == 0)
-			NQ_doSquareROIRatio (topWave, bottomWave, curScan + "_R" + num2str (ROINum), ROIavg, darkL, darkR, darkT, darkB)
+		if (isRatio)
+			NQ_doSquareROIRatio(topWave, bottomWave, curScan + "_R" + num2str (ROINum), ROIavg, darkL, darkR, darkT, darkB)
 		else
-			NQ_doSquareROIavg (chWave, curScan + "_R" + num2str (ROINum), ROIavg, darkL, darkR, darkT, darkB)
+			NQ_doSquareROIavg(chWave, curScan + "_R" + num2str (ROINum), ROIavg, darkL, darkR, darkT, darkB)
 		endif
 	endif
-	// apend ROIs and roiAvg to ScanGraph and TracesGraph
-	NQ_AppendROIandAvg (ROIavg, curScan + "_R" + num2str (ROINum), 0)
+	// apend roiAvg to TracesGraph
+	Dowindow/F twoP_tracesGraph
+	if (V_Flag)	// window exists
+		RemoveFromGraph/Z /W=twoP_tracesGraph $ROIAvgBaseName + "_y"
+		appendtograph /W=twoP_TracesGraph/C=(red, green, blue)/L=ROIL/B=Bottom  ROIavg	
+		NQ_TracesGraphShareAxes ()	
+		Label ROIL "\\Z12Raw 12 bit A/D"  
+		ModifyGraph /W=twoP_TracesGraph freePos(ROIL)={0,bottom}, lblPos(ROIL)=45
+		ModifyGraph /W=twoP_TracesGraph btLen (ROIL)=2
+		ModifyGraph /W=twoP_TracesGraph stLen (ROIL)=1
+		ModifyGraph /W=twoP_TracesGraph ftLen (ROIL)=2
+	else
+		NQ_NewTracesGraph (curScan)
+	endif
+	
 end
 
 //******************************************************************************************************
@@ -1040,8 +1065,8 @@ Function/S ROI_ListScansByNoteKeys (Key, ValueList)
 	for (iScan =0; iScan < nScans; iScan +=1)
 		aScan = StringFromList(iScan, scanList)
 		SVAR/Z infoStr = $"root:twoP_Scans:" + aScan + ":" + aScan + "_info"
-		expNote = StringByKey("ExpNote", infoStr, ":", "\r")
-		keyVal = StringByKey (Key, expNote, "=", ";")
+		expNote = StringByKey("ExpNote", infoStr, "=", "\r")
+		keyVal = StringByKey (Key, expNote, ":", ";")
 		if (WhichListItem(KeyVal, ValueList, ";", 0,0) >= 0)
 			matchList += aScan
 		endif
@@ -1055,7 +1080,7 @@ Function NQ_DoRoiFromList (curScan)
 	string curScan
 			
 	SVAR ScanNote = $"root:twoP_Scans:" + curscan  + ":" + curScan +  "_info"
-	variable scanMode = numberByKey ("Mode", scanNote, ":", "\r")
+	variable scanMode = numberByKey ("Mode", scanNote, "=", "\r")
 	if (!(((scanMode == kLineScan) || (scanMode == kTimeSeries)) || (scanMode == kZseries)))
 		doalert 0, "This function only works with a time series, a Z- series,  or a Line Scan."
 		return 1
@@ -1065,10 +1090,10 @@ Function NQ_DoRoiFromList (curScan)
 	variable getDark = V_Value
 	variable darkL =Nan, darkT =Nan, darkR =NaN, darkB =Nan
 	if (getDark)
-		darkL = numberbykey ("DarkL", scanNote, ":", "\r")
-		darkT = numberbykey ("DarkT", scanNote, ":", "\r")
-		darkR = numberbykey ("DarkR", scanNote, ":", "\r")
-		darkB = numberbykey ("DarkB", scanNote, ":", "\r")
+		darkL = numberbykey ("DarkL", scanNote, "=", "\r")
+		darkT = numberbykey ("DarkT", scanNote, "=", "\r")
+		darkR = numberbykey ("DarkR", scanNote, "=", "\r")
+		darkB = numberbykey ("DarkB", scanNote, "=", "\r")
 		if (scanMode == kLineScan)
 			if ((numtype (DarkL) ==2) || (numtype (DarkR) ==2))
 				NVAR/Z darkLG = root:packages:twoP:examine:darkL
@@ -1079,8 +1104,8 @@ Function NQ_DoRoiFromList (curScan)
 				endif
 				darkL = darkLG
 				darkR = darkRG
-				ScanNote = ReplaceNumberByKey("darkL", scanNote, darkL, ":", "\r")
-				ScanNote = ReplaceNumberByKey("darkR", scanNote, darkR, ":", "\r")
+				ScanNote = ReplaceNumberByKey("darkL", scanNote, darkL, "=", "\r")
+				ScanNote = ReplaceNumberByKey("darkR", scanNote, darkR, "=", "\r")
 			endif
 		else
 			if ((((numtype (DarkL) ==2) || (numtype (DarkT) ==2)) || (numtype (DarkR) ==2))|| (numtype (DarkB) ==2))
@@ -1096,10 +1121,10 @@ Function NQ_DoRoiFromList (curScan)
 				darkT = darkTG
 				darkR = darkRG
 				darkB = darkBG
-				ScanNote = ReplaceNumberByKey("darkL", scanNote, darkL, ":", "\r")
-				ScanNote = ReplaceNumberByKey("darkT", scanNote, darkT, ":", "\r")
-				ScanNote = ReplaceNumberByKey("darkR", scanNote, darkR, ":", "\r")
-				ScanNote = ReplaceNumberByKey("darkB", scanNote, darkB, ":", "\r")
+				ScanNote = ReplaceNumberByKey("darkL", scanNote, darkL, "=", "\r")
+				ScanNote = ReplaceNumberByKey("darkT", scanNote, darkT, "=", "\r")
+				ScanNote = ReplaceNumberByKey("darkR", scanNote, darkR, "=", "\r")
+				ScanNote = ReplaceNumberByKey("darkB", scanNote, darkB, "=", "\r")
 			endif
 		endif
 	endif	
@@ -1128,9 +1153,9 @@ Function NQ_DoRoiFromList (curScan)
 	endif
 	variable numFrames
 	if (scanMode == kLineScan)
-		numFrames =  numberbykey ("PixHeight", ScanNote, ":", "\r")
+		numFrames =  numberbykey ("PixHeight", ScanNote, "=", "\r")
 	else
-		numFrames = numberbykey ("NumFrames", ScanNote, ":", "\r")
+		numFrames = numberbykey ("NumFrames", ScanNote, "=", "\r")
 	endif
 	// look for selected ROIs
 	WAVE/T ROIListWave = root:Packages:twoP:examine:ROIListWave
@@ -1171,11 +1196,11 @@ Function NQ_DoRoiFromList (curScan)
 			WAVE Roiavg = $ROIAvgBaseName
 		endif
 		if (scanMode == kTimeSeries)
-			setscale/P x 0,(numberbykey ("FrameTime",ScanNote, ":", "\r")),"s", RoiAvg
+			setscale/P x 0,(numberbykey ("FrameTime",ScanNote, "=", "\r")),"s", RoiAvg
 		elseif (scanMode == kLineScan)
-			setscale/P x 0,(numberbykey ("LineTime",ScanNote, ":", "\r")),"s", RoiAvg
+			setscale/P x 0,(numberbykey ("LineTime",ScanNote, "=", "\r")),"s", RoiAvg
 		elseif (scanMode == kZseries)
-			setscale/P x (numberbykey ("ZPos",ScanNote, ":", "\r")),(numberbykey ("ZstepSize",ScanNote, ":", "\r")),"m", RoiAvg
+			setscale/P x (numberbykey ("ZPos",ScanNote, "=", "\r")),(numberbykey ("ZstepSize",ScanNote, "=", "\r")),"m", RoiAvg
 		endif
 		note RoiAvg, "ImWave:" + CurScan + ";ROI:" +ROIListWave [iROI] + ";Red:" + num2str (red) + ";Green:" + num2str (green) + ";Blue:" + num2str (blue) + ";deltafed:0;"
 		// do the ROI
@@ -1231,8 +1256,8 @@ function NQ_doLineScanROIavg (chWave, ROI, ROIavg, darkL, darkR)
 	scan = removeEnding (removeEnding (scan, "_ch1"), "_ch2")
 	SVAR scanNote = $"root:twoP_Scans:" + scan + ":" + scan + "_info"
 	
-	variable startP = (roix [0] - numberbykey ("XPos", scanNote, ":", "\r"))/numberbykey ("XpixSize", scanNote, ":", "\r")
-	variable endP = (roix [3] - numberbykey ("XPos", scanNote, ":", "\r"))/numberbykey ("XpixSize", scanNote, ":", "\r")
+	variable startP = (roix [0] - numberbykey ("XPos", scanNote, "=", "\r"))/numberbykey ("XpixSize", scanNote, "=", "\r")
+	variable endP = (roix [3] - numberbykey ("XPos", scanNote, "=", "\r"))/numberbykey ("XpixSize", scanNote, "=", "\r")
 	variable ii, numLines = dimsize (chWave, 1)
 	// look at each line in the lineScan
 	for (ii=0; ii < numLines; ii += 1)
@@ -1262,8 +1287,8 @@ function NQ_doLineScanROIRatio (topWave, bottomWave, ROI, ROIratio, darkL, darkR
 	string scan = nameofWave (topWave) 
 	scan = removeEnding (removeEnding (scan, "_ch1"), "_ch2")
 	SVAR scanNote = $"root:twoP_Scans:" + scan + ":" + scan + "_info"
-	variable startP = (roix [0] - numberbykey ("XPos", scanNote, ":", "\r"))/numberbykey ("XpixSize", scanNote, ":", "\r")
-	variable endP = (roix [3] - numberbykey ("XPos", scanNote, ":", "\r"))/numberbykey ("XpixSize", scanNote, ":", "\r")
+	variable startP = (roix [0] - numberbykey ("XPos", scanNote, "=", "\r"))/numberbykey ("XpixSize", scanNote, "=", "\r")
+	variable endP = (roix [3] - numberbykey ("XPos", scanNote, "=", "\r"))/numberbykey ("XpixSize", scanNote, "=", "\r")
 	// calculate dark values ?
 	variable darkAvgTop, darkAvgBottom
 	variable getDark = (!((numtype (darkL) ==2) || (numType (darkR) ==2)))
@@ -1300,10 +1325,12 @@ Function NQ_doSquareROIavg (chWave, ROI, ROIavg, darkL, darkR, darkT, darkB)
 	
 	WAVE roix = $"root:twoP_ROIs:" + ROI  + "_x"
 	WAVE roiy = $"root:twoP_ROIs:" + ROI  + "_y"
-	variable left = roix [0]
-	variable right = roix [2]
+	variable left =roix [0]
+	variable right =roix [2]
+	variable bottom = roiy[0]
 	variable top = roiy [1]
-	variable bottom = roiy [0]
+	
+	printf "left = %.4f, right = %.4f, bottom=%.4f, top = %.4f\r", left*1E4, right*1E4, bottom*1E4, top*1E4
 	// look at each frame in the scan
 	variable ii, numFrames = dimsize (chWave, 2)
 	FOR (ii=0; ii < NumFrames; ii += 1)
@@ -1315,7 +1342,7 @@ Function NQ_doSquareROIavg (chWave, ROI, ROIavg, darkL, darkR, darkT, darkB)
 	if (getDark)  // calculate dark value
 		variable darkAvg
 		for (darkAvg =0, ii=0; ii < NumFrames; ii += 1)
-			imagestats/GS={darkL ,darkR, darkB,darkT}/P=(ii) chwave
+			imagestats/GS={darkL ,darkR, darkB, darkT}/P=(ii) chwave
 			darkAvg += V_avg
 		endfor
 		darkAvg /= NumFrames
@@ -1471,7 +1498,7 @@ end
  	variable M = C*(1-Saturation)
  	variable X = (C-M)*(1-abs(mod(Hue/60,2)-1))
     
-    if (Hue >=   0 && Hue < 60)
+    if (Hue >= 0 && Hue < 60)
     	Red = C; Green = M; Blue = X+M;
     elseif (Hue >=  60 && Hue < 120)
 		Red = X+M; Green = M; Blue = C;
@@ -1525,7 +1552,7 @@ Function NQ_DoDeltaFProc (pa) : PopupMenuControl
 			string RoiList	// Will contain a list of ROIs, if select all is chosen. Otherwise, contains the name of the chosen ROI
 			SVAR curscan = root:Packages:twoP:examine:curscan
 			variable bstart, bend, baseline
-			ControlInfo /W=twoP_TracesGraph CursorCheck
+			ControlInfo /W=twoP_TracesGraph#controlPanel CursorCheck
 			if (V_Value == 1) // then taking baseline from between cursors
 				bstart = min ((pcsr(A  , "twoP_tracesGraph" )), (pcsr(B  , "twoP_tracesGraph" )))
 				bend = max ((pcsr(A  , "twoP_tracesGraph" )), (pcsr(B  , "twoP_tracesGraph" )))
@@ -1545,6 +1572,7 @@ Function NQ_DoDeltaFProc (pa) : PopupMenuControl
 			string aRecLine
 			variable numRois = itemsinList (RoiList)
 			string tempstr
+			string traceName
 	
 			variable hasRROI =0
 			if ((cmpstr (AxisInfo("twoP_TracesGraph", "ROIRAxis"), "")) != 0)
@@ -1554,16 +1582,17 @@ Function NQ_DoDeltaFProc (pa) : PopupMenuControl
 				string infoStr= stringByKey("axisEnab(x)", axisinfo ("twoP_TracesGraph", "ROILAxis"),"=", ";")
 				sscanf infoStr, "{%f,%f}", axStart, axEnd
 			endif
-	
+		
 			FOR (ii =0; ii < numRois; ii+=1)
-				WAVE roiwave = $"root:twoP_Scans:" + curscan + ":" + stringfromlist (ii, RoiList)
-				if (waveExists (roiwave))
-					baseline = mean(roiwave, pnt2x(roiwave,bstart), pnt2x(roiwave,bend))
-					roiwave = (roiwave - baseline)/baseline
+				traceName =  stringfromlist (ii, RoiList)
+				WAVE roiAvgwave = $"root:twoP_Scans:" + curscan + ":" + traceName
+				if (waveExists (roiAvgwave))
+					baseline = mean(roiAvgwave, pnt2x(roiAvgwave,bstart), pnt2x(roiAvgwave,bend))
+					roiAvgwave = (roiAvgwave - baseline)/baseline
 			
-					string RecStr = TraceInfo("twoP_TracesGraph", nameofwave (roiwave), 0)
-					removefromgraph  /W=twoP_TracesGraph $nameofwave (roiwave)
-					appendtograph /W=twoP_TracesGraph/R=ROIRAxis/B=Bottom roiwave
+					string RecStr = TraceInfo("twoP_TracesGraph", nameofwave (roiAvgwave), 0)
+					removefromgraph  /W=twoP_TracesGraph traceName
+					appendtograph /W=twoP_TracesGraph/R=ROIRAxis/B=Bottom roiAvgwave
 
 					startp = strsearch (RecStr, "RECREATION", 0)
 					RecStr = RecStr [startp + 11, strlen (recStr) -1]
@@ -1572,14 +1601,14 @@ Function NQ_DoDeltaFProc (pa) : PopupMenuControl
 					FOR (iii = 0; iii < numRecLines; iii += 1)
 						aRecLine = stringfromlist (iii, RecStr)
 						startp = strsearch (aRecline, "(x)", 0)
-						aRecline = "modifyGraph/W=twoP_TracesGraph " + aRecline [0, startp] + nameofwave (roiwave) + aRecLine [startp + 2, strlen (arecline) -1]
+						aRecline = "modifyGraph/W=twoP_TracesGraph " + aRecline [0, startp] + traceName + aRecLine [startp + 2, strlen (arecline) -1]
 						execute arecline
 					ENDFOR
 		
-					tempstr = ReplaceNumberByKey("deltafed", note (roiwave), 1 )
+					tempstr = ReplaceNumberByKey("deltafed", note (roiAvgwave), 1 )
 					tempstr = ReplaceStringByKey ( "baseline", tempstr, num2str(baseline))
-					note/K roiwave
-					note Roiwave, tempstr
+					note/K roiAvgwave
+					note roiAvgwave, tempstr
 				endif
 			endfor
 			if (!hasRROI)
@@ -1727,7 +1756,7 @@ Function NQ_DeleteRoiProc(pa) : PopupMenuControl
 			string RoiList	// Will contain a list of ROIs, if select all is chosen. Otherwise, contains the name of the chosen ROI
 			SVAR curscan = root:Packages:twoP:examine:curscan
 			variable DelROI
-			controlinfo /W=twoP_TracesGraph AndROICheck
+			controlinfo /W=twoP_TracesGraph#controlPanel AndROICheck
 			DelRoi = V_Value
 			if ((cmpstr (pa.popStr, "All Roi Avgs"))==0)
 				RoiList = NQ_ListROIAvgs (curScan, 3)
@@ -1747,10 +1776,10 @@ Function NQ_DeleteRoiProc(pa) : PopupMenuControl
 					GUIPKillDisplayedWave (roiAvgwave)
 					// Delete ROI if requested by user
 					if (DelRoi)
-						WAVE/z ROIYWave = $"root:twoP_ROIs:" + ROIBase + "_y"
-						WAVE/z ROIXWave = $"root:twoP_ROIs:" + ROIBase + "_x"
-						if (waveExists(ROIYWave) && WaveExists (ROIXWave))
-							RemoveFromGraph /W=twoPScanGraph /Z $nameofwave (ROIYWave)
+						WAVE/z ROIYWave = $"root:twoP_ROIS:" + ROIBase + "_y"
+						WAVE/z ROIXWave = $"root:twoP_ROIS:" + ROIBase + "_x"
+						if (waveExists(ROIYWave) || WaveExists (ROIXWave))
+							twoP_removeTraceFromSubwins(ROIYWave)
 							GUIPKillDisplayedWave (ROIYWave)
 							GUIPKillDisplayedWave (ROIXWave)
 							// remove ROI from list
@@ -1769,21 +1798,53 @@ Function NQ_DeleteRoiProc(pa) : PopupMenuControl
 	endSwitch
 End
 
+
+
+
+function twoP_removeTraceFromSubwins(theYtrace)
+	wave theYtrace
+	
+	string subWinList = removeFromList("controlPanel", ChildWindowList("twoPscanGraph"))
+	variable iSubWin, nSubwins=itemsinlist (subWinList)
+	for (iSubwin=0; iSubWin < nSubWins; iSubWin +=1)
+		RemoveFromGraph /W=$"twoPScanGraph#" + stringfromlist (iSubWin, subWinList) /Z $nameofwave (theYtrace)
+	endfor
+end
+
+
+function/S twoP_findTraceOnAXis (theGraph, theAxis)
+	string theGraph
+	string theAxis
+	
+	string traceList = TraceNameList(theGraph, ";", 1 )
+	string aTrace, infoStr
+	variable iTrace, nTraces= itemsinlist (traceList)
+	for (iTrace =0; iTrace < nTraces; iTrace +=1)
+		aTrace = stringFromList(iTrace, traceList)
+		infoStr = traceInfo (theGraph, aTrace, 0)
+		if (CmpStr (theAxis,  stringbykey ("YAXIS", infoStr)) ==0)
+			return aTrace
+		endif
+	endfor
+	return ""
+end
+
 //******************************************************************************************************
 // Puts cursors on the first ROI avg in the twoP Traces Graph, for the purpose of defining a baseline value
-// Last modified Jul 16 2010 by Jamie Boyd
+// Last modified 2026/09/10 by Jamie Boyd
 Function NQ_cursorCheckProc(cba) : CheckBoxControl
 	STRUCT WMCheckboxAction &cba
 
 	switch( cba.eventCode )
 		case 2: // mouse up
 			if (cba.checked)
-				showinfo
-				string firstTrace = stringFromList (0, TraceNameList("twoP_TracesGraph", ";", 1 ), ";")
+				//showinfo
+				string firstTrace=twoP_findTraceOnAXis ("twoP_TracesGraph", "ROILAxis")
+				//string firstTrace = stringFromList (0, TraceNameList("twoP_TracesGraph", ";", 1 ), ";")
 				Cursor/P/W= twoP_TracesGraph A, $firstTrace,  0
 				Cursor/P/W= twoP_TracesGraph B, $firstTrace, 5
 			else
-				hideinfo
+				//hideinfo
 				cursor/K A
 				cursor/K B
 			endif

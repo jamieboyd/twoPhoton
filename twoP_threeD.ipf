@@ -17,7 +17,7 @@ static constant kGreenChan = 2
 			// reference to string of scan data
 			SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 			// read in scan mode and test for z-stack
-			variable mode = numberbykey ("Mode", scanStr, ":", "\r")
+			variable mode = numberbykey ("Mode", scanStr, "=", "\r")
 			if (!(mode == kZSeries))
 				doalert 0, "This function only works with a Z-stack."
 				return 1
@@ -25,7 +25,7 @@ static constant kGreenChan = 2
 			// which channels are selected?
 			NVAR stackChan = root:packages:twoP:examine:StacksSelChan
 			// which channels are available for this scan?
-			variable imChans = numberbykey ("ImChans", scanStr,  ":", "\r")
+			variable imChans = numberbykey ("ImChans", scanStr,  "=", "\r")
 			variable doChans =0
 			if (stackChan & 1)
 				if  (imChans & 1)
@@ -52,15 +52,15 @@ static constant kGreenChan = 2
 				return 1
 			endif
 			// read in Scaling and offsets
-			variable xscaling = numberbykey ("XpixSize", scanStr, ":", "\r")
-			variable xOffset = numberbykey ("xPos", scanStr, ":", "\r")
-			variable xPix = numberbyKey ("PixWidth", scanStr, ":", "\r")
+			variable xscaling = numberbykey ("XpixSize", scanStr, "=", "\r")
+			variable xOffset = numberbykey ("xPos", scanStr, "=", "\r")
+			variable xPix = numberbyKey ("PixWidth", scanStr, "=", "\r")
 			variable yscaling =  numberbykey ("YpixSize", scanStr, ":", "\r")
-			variable yOffset =numberbykey ("yPos", scanStr, ":", "\r")
-			variable yPix = numberbykey ("pixHeight", scanStr, ":", "\r")
-			variable zscaling = numberbykey ("ZstepSize", scanStr, ":", "\r")
-			variable zOffset = numberbykey ("zPos", scanStr, ":", "\r")
-			variable zPix = numberbykey ("NumFrames", scanStr, ":", "\r")
+			variable yOffset =numberbykey ("yPos", scanStr, "=", "\r")
+			variable yPix = numberbykey ("pixHeight", scanStr, "=", "\r")
+			variable zscaling = numberbykey ("ZstepSize", scanStr, "=", "\r")
+			variable zOffset = numberbykey ("zPos", scanStr, "=", "\r")
+			variable zPix = numberbykey ("NumFrames", scanStr, "=", "\r")
 			// Check existence of selected wave(s)
 			variable zWaveType
 			if ((doChans & 1) || (doChans & 4))
@@ -319,12 +319,12 @@ Function NQ_3DResize (The3DScanName, left, top, right, bottom)
 	string theScan =removeEnding (removeEnding (removeEnding (the3dscanName, "_3D_1"), "_3D_2"), "_3D_3")
 	SVAR scanStr = $"root:twoP_scans:" + theScan + ":" + theScan + "_info"
 	// read in Scaling and offsets
-	variable xscaling = numberbykey ("XpixSize", scanStr, ":", "\r")
-	variable xPix = numberbyKey ("PixWidth", scanStr, ":", "\r")
-	variable yscaling =  numberbykey ("YpixSize", scanStr, ":", "\r")
-	variable yPix = numberbykey ("pixHeight", scanStr, ":", "\r")
+	variable xscaling = numberbykey ("XpixSize", scanStr, "=", "\r")
+	variable xPix = numberbyKey ("PixWidth", scanStr, "=", "\r")
+	variable yscaling =  numberbykey ("YpixSize", scanStr, "=", "\r")
+	variable yPix = numberbykey ("pixHeight", scanStr, "=", "\r")
 	variable zscaling = abs (numberbykey ("ZstepSize", scanStr, ":", "\r"))
-	variable zPix = numberbykey ("NumFrames", scanStr, ":", "\r")
+	variable zPix = numberbykey ("NumFrames", scanStr, "=", "\r")
 	// width and height of resized panel
 	variable WinWidth = right - left 
 	variable WinHeight = bottom - top
@@ -434,8 +434,8 @@ Function NQ_3DSliderProc(sa) : SliderControl
 						NQ_3DGetRGBSlice (Top3D, dimStr)
 					endif
 					// move dragger
-					scaling =  numberbykey (DimStr + SelectString((cmpstr (dimStr, "Z")) , "stepsize", "pixsize"), scanStr, ":", "\r")
-					offset = numberbykey (DimStr + "pos", scanStr, ":", "\r")
+					scaling =  numberbykey (DimStr + SelectString((cmpstr (dimStr, "Z")) , "stepsize", "pixsize"), scanStr, "=", "\r")
+					offset = numberbykey (DimStr + "pos", scanStr, "=", "\r")
 					WAVE ValWave = $"root:packages:twoP:examine:" + Top3D + ":" + dimStr + "ValWave"
 					ValWave = offset + curVal * scaling
 				endif

@@ -152,7 +152,7 @@ function/S twoP_StacksListChans()
 	SVAR curScan = root:packages:twoP:examine:curScan
 	SVAR/Z scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 	if (SVAR_EXISTS(scanStr))
-		string chanList = StringByKey("imChanDesc", scanStr, ":", "\r")
+		string chanList = StringByKey("imChanDesc", scanStr, "=", "\r")
 		SVAR selChans = root:packages:twoP:examine:StacksSelChans
 		variable iChan, nChans = itemsInList(chanList, ",")
 		string aChan, outList = ""
@@ -217,7 +217,7 @@ Function NQ_ProjectImageProc(ba) : ButtonControl
 	
 			SVAR CurScan = root:Packages:twoP:examine:curScan
 			SVAR infoString = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-			variable scanMode = NumberByKey("Mode", infoString, ":", "\r")
+			variable scanMode = NumberByKey("Mode", infoString, "=", "\r")
 			if (!((scanMode == kTimeSeries) || (scanMode == kZseries)))
 				doalert 0, "This function only works with a Time Series or a Z-stack."
 				return 1
@@ -235,7 +235,7 @@ Function NQ_ProjectImageProc(ba) : ButtonControl
 			NVAR isMax = root:packages:twoP:examine:ProjMode // 0 = avg, 1=max
 
 			// Check that first and last frames are within range
-			variable numFrames = numberbykey ("NumFrames", infoString, ":", "\r")
+			variable numFrames = numberbykey ("NumFrames", infoString, "=", "\r")
 			if (endFrame >= numFrames)
 				endFrame = numFrames -1
 			endif
@@ -416,7 +416,7 @@ Function NQ_FilterButtonProc(ba) : ButtonControl
 
 			SVAR curScan = root:packages:twoP:examine:curScan
 			SVAR infoStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
-			//variable mode = NumberByKey("Mode", infoStr, ":", "\r")
+			//variable mode = NumberByKey("Mode", infoStr, "=", "\r")
 			SVAR selChan = root:Packages:twoP:examine:StacksSelChan
 			WAVE Scanwave =  $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_" + selChan
 			// read controls

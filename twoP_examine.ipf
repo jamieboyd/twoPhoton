@@ -46,7 +46,7 @@ End
 // Graph Marquee functions to do useful things on the scan graph
 Menu "GraphMarquee"
 	Submenu "twoP Examine"
-		"Draw Scale Bar",/Q, NQ_DrawScaleBar()
+		"Draw Scale Bar",/Q, twoP_DrawScaleBar()
 		"Measure Object",/Q, NQ_MeasureMarquee()
 	end
 end
@@ -591,10 +591,10 @@ Function/S twoP_ScanListScans(modeList)
 	for(iFolder = 0,  nFolders=CountObjects("root:twoP_Scans:", 4) ; iFolder < nFolders; iFolder += 1)
 		aFolder = GetIndexedObjName("root:twoP_Scans:", 4, iFolder)
 		SVAR/Z scanStr = $"root:twoP_Scans:" + aFolder + ":" + aFolder + "_info"
-		if((SVAR_EXISTS(scanStr)) &&(WhichListItem(stringbyKey("Mode", scanStr, ":", "\r"), modeList, ",", 0,0) > -1))
+		if((SVAR_EXISTS(scanStr)) &&(WhichListItem(stringbyKey("Mode", scanStr, "=", "\r"), modeList, ",", 0,0) > -1))
 			tempForScanList [nScans] = aFolder
 			nScans +=1
-			aMode = numberbyKey("Mode", scanStr, ":", "\r")
+			aMode = numberbyKey("Mode", scanStr, "=", "\r")
 			switch(aMode)
 				case kLiveMode:
 					LiveModeList += aFolder + ";"
@@ -718,8 +718,8 @@ Function twoP_ScanPopMenuProc(pa) : PopupMenuControl
 			NVAR scanNum = root:packages:twoP:Examine:curScanNum
 			scanNum = str2num(stringfromlist(1, pa.popStr, "_"))
 			// Get some variables from scan note
-			variable mode = NumberByKey("mode",ScanNote, ":", "\r")
-			variable doephys = itemsInList(StringByKey("ePhysChanDesc",ScanNote, ":", "\r"), ",")
+			variable mode = NumberByKey("mode",ScanNote, "=", "\r")
+			variable doephys = itemsInList(StringByKey("ePhysChanDesc",ScanNote, "=", "\r"), ",")
 			if(mode != kePhysOnly)
 				// set RGB wave sources
 				WAVE/WAVE rgbSources = root:packages:twoP:examine:rgbSources
@@ -764,12 +764,12 @@ Function twoP_ScanUpdateScanGraph(curScan)
 		return 1
 	endif
 	// scan mode
-	variable scanMode = NumberByKey("Mode", ScanInfo, ":", "\r")
+	variable scanMode = NumberByKey("Mode", ScanInfo, "=", "\r")
 	if (scanMode == kEPhysOnly)
 		return 0
 	endif
 	// channels existing for this scan - limit selected to these channels, delete if neccesary
-	string scanChans = StringByKey("imChanDesc", ScanInfo, ":", "\r")
+	string scanChans = StringByKey("imChanDesc", ScanInfo, "=", "\r")
 	// which channels are selected?
 	SVAR selChans = root:packages:twoP:examine:ScanGraphSelChans
 	if(itemsInList(selChans, ",") ==0)
@@ -785,12 +785,12 @@ Function twoP_ScanUpdateScanGraph(curScan)
 	endif
 	string aChan
 	variable iChan, nChans = itemsInList(chansPlusRGB, ",")
-	variable xSize= NumberByKey("PixWidth", ScanInfo, ":", "\r")
-	variable ySize = NumberByKey("PixHeight", ScanInfo, ":", "\r")
-	variable xPixSize = NumberByKey("XpixSize", ScanInfo, ":", "\r")
-	variable yPixSize =  NumberByKey("YpixSize", ScanInfo, ":", "\r")
-	variable Xoffset = NumberByKey("Xoffset", ScanInfo, ":", "\r")
-	variable Yoffset = NumberByKey("Yoffset", ScanInfo, ":", "\r")
+	variable xSize= NumberByKey("PixWidth", ScanInfo, "=", "\r")
+	variable ySize = NumberByKey("PixHeight", ScanInfo, "=", "\r")
+	variable xPixSize = NumberByKey("XpixSize", ScanInfo, "=", "\r")
+	variable yPixSize =  NumberByKey("YpixSize", ScanInfo, "=", "\r")
+	variable Xoffset = NumberByKey("Xoffset", ScanInfo, "=", "\r")
+	variable Yoffset = NumberByKey("Yoffset", ScanInfo, "=", "\r")
 	for (iChan =0; iChan < nChans; iChan +=1)
 		aChan = stringFromList(iChan, chansPlusRGB, ",")
 		WAVE channelWave = $"root:packages:twoP:examine:scanGraph_" + aChan
@@ -879,14 +879,14 @@ Function twoP_ScanAdjustExamineControls(curScan)
 	endif
 	NVAR FrameTime = root:Packages:twoP:examine:FrameTime
 	NVAR NumFrames =root:Packages:twoP:examine:Numframes
-	variable mode = numberbykey("mode", ScanStr, ":", "\r")
+	variable mode = numberbykey("mode", ScanStr, "=", "\r")
 	// change the title box to reflect the current scan
-	TitleBox CurScanTitleBox win = twoP_Controls, title= stringbykey("Scan Type", ScanStr, ":", "\r") + ":" + curScan
+	TitleBox CurScanTitleBox win = twoP_Controls, title= stringbykey("Scan Type", ScanStr, "=", "\r") + ":" + curScan
 	// Change the info displayed about the current scan
 	twoP_ScanShowNote("root:twoP_Scans:" + curScan + ":" + curScan + "_info")
-	TitleBox DateTimeTitleBox Win=twoP_Controls, title =  secs2date(numberbykey("ExpTime", ScanStr, ":", "\r"),0) + " " + secs2Time(numberbykey("ExpTime",ScanStr, ":", "\r"),1)
+	TitleBox DateTimeTitleBox Win=twoP_Controls, title =  secs2date(numberbykey("ExpTime", ScanStr, "=", "\r"),0) + " " + secs2Time(numberbykey("ExpTime",ScanStr, "=", "\r"),1)
 	string ChanTitleStr = ""
-	string scanChans = StringByKey("ImChanDesc", scanStr, ":", "\r")
+	string scanChans = StringByKey("ImChanDesc", scanStr, "=", "\r")
 	variable iChan, nChans = ItemsInList(scanChans, ",")
 	if(nChans > 0)
 		ChanTitleStr += "Img:"
@@ -894,7 +894,7 @@ Function twoP_ScanAdjustExamineControls(curScan)
 			ChanTitleStr += stringFromList(iChan, scanChans, ",") + ", "
 		endfor
 	endif
-	string ePhysChans = StringByKey("ePhysChanDesc", scanStr, ":", "\r")
+	string ePhysChans = StringByKey("ePhysChanDesc", scanStr, "=", "\r")
 	nChans = ItemsInList(ePhysChans, ",")
 	if(nChans > 0)
 		ChanTitleStr += " ePhys:"
@@ -918,8 +918,8 @@ Function twoP_ScanAdjustExamineControls(curScan)
 		// reset the slider values
 		NVAR CurFramePos = root:Packages:twoP:examine:CurFramePos
 		CurFramePos = 0
-		FrameTime =  numberbykey("FrameTime", ScanStr, ":", "\r")
-		NumFrames = numberbykey("NumFrames", ScanStr, ":", "\r")
+		FrameTime =  numberbykey("FrameTime", ScanStr, "=", "\r")
+		NumFrames = numberbykey("NumFrames", ScanStr, "=", "\r")
 		Slider FramePositionSlider, Win =twoP_Controls,limits={0,NumFrames-1,1}, value =0
 	else	// not a stack, so hide
 		movieAbleState = 1
@@ -954,7 +954,7 @@ function twoP_ScanShowNote(ScanStrName)
 	
 	SVAR scanStr = $ScanStrName
 	WAVE/T notelistwave = root:Packages:twoP:examine:notelistwave
-	string theNoteStr = stringbykey("expnote", scanStr, ":", "\r")
+	string theNoteStr = stringbykey("expnote", scanStr, "=", "\r")
 	variable notelen = strlen(theNoteStr)
 	variable ii, ie, ni
 	Redimension/N=0 NoteListWave
@@ -977,7 +977,7 @@ end
 
 //******************************************************************************************************
 // Allows you to edit the scan note by double clicking on the wave note textbox in the examine scans list box.
-// Last Modified: 2012/06/13 by Jamie Boyd
+// Last Modified: 2026/09/09 by Jamie Boyd
 Function twoP_ScanEditNoteProc(lba) : ListBoxControl
 	STRUCT WMListboxAction &lba
 	
@@ -989,35 +989,35 @@ Function twoP_ScanEditNoteProc(lba) : ListBoxControl
 				return 1
 			endif
 			SVAR scanStr = $"root:twoP_Scans:" + CurScan + ":" + curScan +"_info"
-			string ExpNoteStr  = stringbykey("ExpNote",scanStr, ":", "\r")
+			string ExpNoteStr  = stringbykey("ExpNote",scanStr, "=", "\r")
 			Prompt ExpNoteStr, "Experiment Note For " + CurScan + ":"
 			DoPrompt "Edit the Experiment Note", ExpNoteStr
 			if(V_Flag)
 				return 1
 			else
-				// check for semicolons with char2num
+				// check for "=" and "\r" with char2num, replace with ":" and ";" respectively
 				variable badChar =0, iChar, nChars = strlen(ExpNoteStr)
 				For(iChar = 0; iChar < nChars; iChar +=1)
-					if (char2num(ExpNoteStr [iChar]) == 58)
-						ExpNoteStr [iChar, iChar]= "="
+					if (char2num(ExpNoteStr [iChar]) == 61)
+						ExpNoteStr [iChar, iChar]= ":"
 						badChar=(1 | badChar)
 					elseif(char2num(ExpNoteStr [iChar]) == 13)
 						ExpNoteStr [iChar, iChar]= ";"
 						badChar=(2 | badChar)
 					endif
 				endfor
-				scanStr = ReplaceStringByKey("ExpNote", scanStr, ExpNoteStr, ":", "\r")
+				scanStr = ReplaceStringByKey("ExpNote", scanStr, ExpNoteStr, "=", "\r")
 				twoP_ScanShowNote("root:twoP_Scans:" + CurScan + ":" + curScan +"_info")
 				string alertStr
 				if((badChar & 3) ==3)
-					AlertStr = "Colons and Returns are used as separator characters "
+					AlertStr = "Equals signs are used to separate keys and values and returns are used to separate key=value pairs "
 				elseif(badChar & 1)
-					AlertStr = "Colons are used to separate keys and values "
+					AlertStr = "Equals signs are used to separate keys and values "
 				elseif(badChar & 2)
-					AlertStr = "Returns are used to separate key:value pairs "
+					AlertStr = "Returns are used to separate key=value pairs "
 				endif
 				if(badChar)
-					doAlert 0, AlertStr + "in the\rkey:value\rkey:value\r map in the scan info string,and are unavailable for use in your experiment notes. key=value;key=value can be used, though."  
+					doAlert 0, AlertStr + "in the key=value map in the scan info string,and are unavailable for use in your experiment notes. key:value;key:value can be used, though."  
 				endif
 			endif
 			break
@@ -1058,7 +1058,7 @@ function/S twoP_ScanListImChans()
 			//DoAlert 0, "Can't find scan note for current scan!"
 			chanlist = ""
 		else
-			chanlist = replaceString(",", stringbykey("imChanDesc", scanNote, ":", "\r"), ";")
+			chanlist = replaceString(",", stringbykey("imChanDesc", scanNote, "=", "\r"), ";")
 		endif
 	endif
 	return chanlist
@@ -1080,7 +1080,7 @@ function/S twoP_ScanListEphysChans()
 			DoAlert 0, "Can't find scan note for current scan!"
 			chanlist = ""
 		else
-			chanlist = replaceString(",", stringbykey("ePhysChanDesc", scanNote, ":", "\r"), ";")
+			chanlist = replaceString(",", stringbykey("ePhysChanDesc", scanNote, "=", "\r"), ";")
 		endif
 	endif
 	return chanlist
@@ -1114,16 +1114,16 @@ Function twoP_ImGraphFillcs(cs, curScan, aChan)
 	cs.subWin = "G" + aChan
 	// info from scan info
 	SVAR ScanInfo = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-	variable mode = NumberByKey("mode",ScanInfo, ":", "\r")
-	variable xSize = NumberByKey("PixWidth", ScanInfo, ":", "\r")
-	variable ySize = NumberByKey("PixHeight", ScanInfo, ":", "\r")
-	variable xPixSize =  NumberByKey("xPixSize", ScanInfo, ":", "\r")
-	variable yPixSize =  NumberByKey("yPixSize", ScanInfo, ":", "\r")
-	variable xOffset =  NumberByKey("Xoffset", ScanInfo, ":", "\r")
-	variable yOffset =  NumberByKey("Yoffset", ScanInfo, ":", "\r")
-	variable zSize =  NumberByKey("NumFrames", ScanInfo, ":", "\r")
-	variable zOffset =  NumberByKey("ZPos", ScanInfo, ":", "\r")
-	variable frameTime =  NumberByKey("FrameTime", ScanInfo, ":", "\r")
+	variable mode = NumberByKey("mode",ScanInfo, "=", "\r")
+	variable xSize = NumberByKey("PixWidth", ScanInfo, "=", "\r")
+	variable ySize = NumberByKey("PixHeight", ScanInfo, "=", "\r")
+	variable xPixSize =  NumberByKey("xPixSize", ScanInfo, "=", "\r")
+	variable yPixSize =  NumberByKey("yPixSize", ScanInfo, "=", "\r")
+	variable xOffset =  NumberByKey("Xoffset", ScanInfo, "=", "\r")
+	variable yOffset =  NumberByKey("Yoffset", ScanInfo, "=", "\r")
+	variable zSize =  NumberByKey("NumFrames", ScanInfo, "=", "\r")
+	variable zOffset =  NumberByKey("ZPos", ScanInfo, "=", "\r")
+	variable frameTime =  NumberByKey("FrameTime", ScanInfo, "=", "\r")
 	// some things are done differently when acquiring a new scan
 	Controlinfo /w = twoP_Controls AcquireExamineTab
 	variable isAcquire =(cmpstr(S_Value, "Acquire") == 0) // 1 if called from acquiring tab, 0 if examining.
@@ -1164,7 +1164,7 @@ Function twoP_ImGraphFillcs(cs, curScan, aChan)
 	cs.nUserStrings = 3 + numROIs
 	for(iROI =0; iROI < numROIs; iROI += 1)
 		WAVE anAvg = $"root:twoP_Scans:" + curScan + ":" + stringFromList(iROI, roiStr, ";")
-		cs.UserStrings [iROI + 3] = StringByKey("ROI", note(anAvg), ":", ";")
+		cs.UserStrings [iROI + 3] = StringByKey("ROI", note(anAvg), "=", ";")
 	endfor
 	// add channel info
 	sprintf cs.UserStrings[2], "%s", aChan
@@ -1183,7 +1183,7 @@ Function twoP_ImGraphFillcs(cs, curScan, aChan)
 		elseif (mode == kZseries)
 			// make a z-projection of the whole stack
 			ProjectSpecFrames(ScanWave, 0, zSize-1, channelWave, 0, 2, 1)
-			sprintf cs.UserStrings[2], "%s%.2W0Pm to %.2W0Pm", aChan, zOffset, zOffset + zSize * numberbyKey("ZstepSize",  ScanInfo, ":", "\r")
+			sprintf cs.UserStrings[2], "%s%.2W0Pm to %.2W0Pm", aChan, zOffset, zOffset + zSize * numberbyKey("ZstepSize",  ScanInfo, "=", "\r")
 		endif
 	endif
 	WAVE cs.userWaves[0] = channelWave
@@ -1264,9 +1264,9 @@ Function twoP_ImGraphNew(curScan)
 		return 1
 	endif
 	// Get scan mode
-	variable mode = NumberByKey("mode",ScanStr, ":", "\r")
+	variable mode = NumberByKey("mode",ScanStr, "=", "\r")
 	// which channels exist for this scan?
-	string imChanList = stringbykey("imChanDesc", scanStr, ":", "\r")
+	string imChanList = stringbykey("imChanDesc", scanStr, "=", "\r")
 	// which channels are selected for display
 	SVAR selScanChans = root:packages:twoP:examine:ScanGraphSelChans
 	// limit selScanChans to imchans
@@ -1280,12 +1280,12 @@ Function twoP_ImGraphNew(curScan)
 		endif
 	endfor
 	// info on wave size and dimension
-	variable xSize = NumberByKey("PixWidth", ScanStr, ":", "\r") 
-	variable ySize = NumberByKey("PixHeight", ScanStr, ":", "\r")
-	variable xPixSize =  NumberByKey("xPixSize", ScanStr, ":", "\r")
-	variable yPixSize =  NumberByKey("yPixSize", ScanStr, ":", "\r")
-	variable xOffset =  NumberByKey("xPos", ScanStr, ":", "\r")
-	variable yOffset =  NumberByKey("yPos", ScanStr, ":", "\r")
+	variable xSize = NumberByKey("PixWidth", ScanStr, "=", "\r") 
+	variable ySize = NumberByKey("PixHeight", ScanStr, "=", "\r")
+	variable xPixSize =  NumberByKey("xPixSize", ScanStr, "=", "\r")
+	variable yPixSize =  NumberByKey("yPixSize", ScanStr, "=", "\r")
+	variable xOffset =  NumberByKey("xPos", ScanStr, "=", "\r")
+	variable yOffset =  NumberByKey("yPos", ScanStr, "=", "\r")
 	// subwin plot structures
 	STRUCT GUIPSubWin_UtilStruct us
 	us.graphName = "twoPscanGraph"
@@ -1391,7 +1391,7 @@ end
 function/S twoP_imGraphListChans()
 	SVAR curScan = root:packages:twoP:examine:curScan
 	SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-	string chanList = StringByKey("imChanDesc", scanStr, ":", "\r")
+	string chanList = StringByKey("imChanDesc", scanStr, "=", "\r")
 	SVAR selChans = root:packages:twoP:examine:ScanGraphSelChans
 	variable iChan, nChans = itemsInList(chanList, ",")
 	string aChan, outList = ""
@@ -1505,7 +1505,7 @@ Function twoP_imGraphRGBPopMenuProc(pa) : PopupMenuControl
 		case 2: // mouse up
 			SVAR curScan = root:packages:twoP:examine:curScan
 			SVAR scanStr=$"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-			variable scanMode= numberbykey ("Mode", scanStr, ":", "\r")
+			variable scanMode= numberbykey ("Mode", scanStr, "=", "\r")
 			WAVE/WAVE rgbSources = root:packages:twoP:examine:rgbSources
 			string baseName
 			variable channel,  toDo=0
@@ -1583,15 +1583,15 @@ Function twoP_imGraphHookProc(s)
 				variable ypos =  AxisvalFromPixel(s.winName, "left", s.mouseLoc.v)
 				SVAR curScan = root:Packages:twoP:examine:CurScan
 				SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-				variable scanMode = numberbykey("Mode", scanStr, ":", "\r")
-				variable xPixSIze = numberbykey("xPixSize", scanStr, ":", "\r")
-				variable xOffset = numberbykey("XOffset", scanStr, ":", "\r")
+				variable scanMode = numberbykey("Mode", scanStr, "=", "\r")
+				variable xPixSIze = numberbykey("xPixSize", scanStr, "=", "\r")
+				variable xOffset = numberbykey("XOffset", scanStr, "=", "\r")
 				variable xPixPos = round((xpos - xOffset)/xPixSIze)
-				variable yPixSize = numberbykey("yPixSize", scanStr, ":", "\r")
-				variable pixHeight = numberbykey("PixHeight", scanStr, ":", "\r")
-				variable yOffset = numberbykey("YOffset", scanStr, ":", "\r")
+				variable yPixSize = numberbykey("yPixSize", scanStr, "=", "\r")
+				variable pixHeight = numberbykey("PixHeight", scanStr, "=", "\r")
+				variable yOffset = numberbykey("YOffset", scanStr, "=", "\r")
 				variable yPixPos = round((yPos - yOffset)/yPixSize)
-				variable pixWidth = numberbykey("PixWidth", scanStr, ":", "\r")
+				variable pixWidth = numberbykey("PixWidth", scanStr, "=", "\r")
 				if(!((((yPixPos > 0) && (yPixPos < PixHeight)) && (xPixPos > 0)) &&(xPixPos < PixWidth)))
 					return 1
 				endif
@@ -1624,7 +1624,7 @@ Function twoP_imGraphHookProc(s)
 					SVAR DROISelChans = root:Packages:twoP:examine:DROISelChans
 					string chanList = DROISelChans
 					
-					string scanChans = StringByKey("imChanDesc", scanStr, ":", "\r")
+					string scanChans = StringByKey("imChanDesc", scanStr, "=", "\r")
 					variable doRatio =0
 					if(WhichListItem("ratio", chanList, ",") > -1)
 						chanList = RemoveFromList("ratio",chanList, ",")
@@ -1645,7 +1645,7 @@ Function twoP_imGraphHookProc(s)
 						
 					endif
 					
-					variable iFrame, nFrames = NumberByKey("numFrames", scanStr, ":", "\r")
+					variable iFrame, nFrames = NumberByKey("numFrames", scanStr, "=", "\r")
 					nChans = itemsInList(chanList, ",")
 					for(iChan=0;iCHan < nCHans; iCHan +=1)
 						aChan=stringFromList(iChan, chanList, ",")
@@ -1718,7 +1718,7 @@ Function NQ_NewTracesGraph(curScan)
 	SVAR ScanInfo = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 	string ePhysWaves=""
 	// ePhys channels existing for this scan -
-	string ePhysChans = StringByKey("ePhysChanDesc", ScanInfo, ":", "\r")
+	string ePhysChans = StringByKey("ePhysChanDesc", ScanInfo, "=", "\r")
 	string roiWaves = GUIPListObjs("root:twoP_Scans:" + CurScan, 1, "*avg*", 0, "") 
 	string ratioWaves = GUIPListObjs("root:twoP_Scans:" + CurScan, 1, "*ratio*", 0, "")
 	variable nEphysChans=itemsinList(ePhysChans, ",")
@@ -1920,7 +1920,7 @@ Function twoP_HistMakeGraph()
 	endif
 	SVAR ScanInfo = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 	// channels existing for this scan - limit Histograms to these channels, delete if neccesary
-	string scanChans = StringByKey("imChanDesc", ScanInfo, ":", "\r")
+	string scanChans = StringByKey("imChanDesc", ScanInfo, "=", "\r")
 	// selected channels for histogram
 	SVAR selChans = root:packages:twoP:examine:HistGraphSelChans 
 	// remove what don't belong
@@ -2036,7 +2036,7 @@ function/S twoP_HistGraphListChans()
 	SVAR curScan = root:packages:twoP:examine:curScan
 	SVAR/Z scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 	if(SVAR_EXISTS(scanStr))
-		string chanList = StringByKey("imChanDesc", scanStr, ":", "\r")
+		string chanList = StringByKey("imChanDesc", scanStr, "=", "\r")
 		SVAR selChans = root:packages:twoP:examine:HistGraphSelChans
 		variable iChan, nChans = itemsInList(chanList, ",")
 		string aChan, outList = ""
@@ -2098,7 +2098,7 @@ Function twoP_HistDoChannel(aChan)
 	string aChan
 	SVAR curScan = root:packages:twoP:examine:curScan
 	SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-	variable mode = NumberByKey("mode", scanStr, ":", "\r") 
+	variable mode = NumberByKey("mode", scanStr, "=", "\r") 
 	variable doframe 	// set to do a single frame from a stack, else doing whole wave
 	if((mode == kLineScan) ||(mode == kSingleImage) ||(mode == kLiveMode)) 
 		doFrame = 0
@@ -2235,7 +2235,7 @@ function twoP_LUTApplysettings(LUTchan)
 	string LUTchan  //not limited to ch1 or ch2 anymore
 	SVAR curScan = root:packages:twoP:examine:curScan
 	SVAR ScanStr = $"root:twoP_Scans:" + CurScan + ":" + CurScan + "_info"
-	variable scanMode = numberbykey("mode", curScan, ":", "\r" )
+	variable scanMode = numberbykey("mode", curScan, "=", "\r" )
 	Switch(scanMode)
 		case kLiveMode:
 		case kZSeries:
@@ -2893,7 +2893,7 @@ function/S twoP_DROIListChans()
 	SVAR curScan = root:packages:twoP:examine:curScan
 	SVAR/Z scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 	if(SVAR_EXISTS(scanStr))
-		string chanList = StringByKey("imChanDesc", scanStr, ":", "\r") + ",ratio"
+		string chanList = StringByKey("imChanDesc", scanStr, "=", "\r") + ",ratio"
 		SVAR selChans = root:packages:twoP:examine:DROISelChans
 		variable iChan, nChans = itemsInList(chanList, ",")
 		string aChan, outList = ""
@@ -2992,7 +2992,7 @@ Function twoP_DROICheckProc(cba) : CheckBoxControl
 			if(checked) // turn on DROI
 				SVAR CurScan =root:Packages:twoP:examine:curScan
 				SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-				variable mode = numberbykey("mode", scanStr, ":", "\r")
+				variable mode = numberbykey("mode", scanStr, "=", "\r")
 				if(!((mode == kTimeSeries) ||(mode == kZseries)))
 					NVAR doDroi = root:packages:twoP:examine:doDROI
 					doDroi =0
@@ -3003,17 +3003,17 @@ Function twoP_DROICheckProc(cba) : CheckBoxControl
 				variable frameSize, zStart
 				if(mode == kTimeSeries)
 					modeUnits = "s"
-					FrameSize = numberbykey("FrameTime", scanStr, ":", "\r")
+					FrameSize = numberbykey("FrameTime", scanStr, "=", "\r")
 					zStart = 0
 				elseif(mode == kZseries)
 					modeUnits = "m"
-					FrameSize = numberbykey("zStepSize", scanStr, ":", "\r")
-					zStart = numberbykey("zPos", scanStr, ":", "\r")
+					FrameSize = numberbykey("zStepSize", scanStr, "=", "\r")
+					zStart = numberbykey("zPos", scanStr, "=", "\r")
 				endif
-				variable ROIpnts = numberbykey("NumFrames", scanStr, ":", "\r")
+				variable ROIpnts = numberbykey("NumFrames", scanStr, "=", "\r")
 				
 				// make waves so they can be appened later, even if not selected now
-				string aChan, imChans = StringByKey("imChanDesc", scanStr, ":", "\r") + ",ratio"
+				string aChan, imChans = StringByKey("imChanDesc", scanStr, "=", "\r") + ",ratio"
 				variable iChan, nChans = itemsInList(imChans, ",")
 				for(iChan = 0; iChan < nCHans; iChan += 1)
 					aChan = stringFromList(iChan, imChans, ",")
@@ -3188,10 +3188,10 @@ Function twoP_MovieDisplayFrame(sa) : SliderControl
 					sscanf  StringFromList(iChan, SubWinList),"G%s", aChan
 					WAVE chanWave =  $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
 					WAVE scanGraphWave  = $"root:packages:twoP:examine:scanGraph_" + aChan
-					if(NumberByKey("mode", scanStr , ":", "\r") == kTimeSeries)
-						sprintf valueStr "%.2W0Ps", curval* numberbyKey("frameTime", scanStr, ":", "\r")
+					if(NumberByKey("mode", scanStr , "=", "\r") == kTimeSeries)
+						sprintf valueStr "%.2W0Ps", curval* numberbyKey("frameTime", scanStr, "=", "\r")
 					else // Z series
-						sprintf valueStr "%.2W0Pm",  numberbyKey("zPos", scanStr, ":", "\r") + curval* numberbyKey("zStepSize", scanStr, ":", "\r")
+						sprintf valueStr "%.2W0Pm",  numberbyKey("zPos", scanStr, "=", "\r") + curval* numberbyKey("zStepSize", scanStr, "=", "\r")
 					endif
 					ProjectZSlice(chanWave, scanGraphWave, curval)
 					TextBox/W = $"twoPscanGraph#G" + aChan/C/N=PosText/F=0/A=LT/X=0.00/Y=0.00 aChan + ": " + valueStr
@@ -3203,10 +3203,10 @@ Function twoP_MovieDisplayFrame(sa) : SliderControl
 				// if mouse up AND shift is held, do an Average(T series) or a Max Projection(zSeries) over the range from mouse down to mouse up
 			elseif((sa.eventCode & 4) &&(sa.eventMod & 2))
 				NVAR FrameSliderStart = root:packages:twoP:examine:FrameSliderStart
-				variable mode = NumberByKey("mode", scanStr , ":", "\r")
+				variable mode = NumberByKey("mode", scanStr , "=", "\r")
 				if(mode == kZSeries)
-					variable stepSize = numberbyKey("zStepSize", scanStr, ":", "\r")
-					variable zOffset =  numberbyKey("zPos", scanStr, ":", "\r")
+					variable stepSize = numberbyKey("zStepSize", scanStr, "=", "\r")
+					variable zOffset =  numberbyKey("zPos", scanStr, "=", "\r")
 					variable startz, endz
 					if(FrameSliderStart < curval)
 						startZ = zOffset + FrameSliderStart * stepSize
@@ -3225,7 +3225,7 @@ Function twoP_MovieDisplayFrame(sa) : SliderControl
 						doRGB = 1
 					endfor
 				else // mode = time series
-					variable frameTime = numberbyKey("FrameTime", scanStr, ":", "\r")
+					variable frameTime = numberbyKey("FrameTime", scanStr, "=", "\r")
 					if(FrameSliderStart < curVal)
 						startZ = FrameSliderStart * frameTime
 						endZ =  curval*frameTime
@@ -3306,10 +3306,33 @@ Function/S sInfo()
 	return curScanStr
 end
 
+// *******************************************************************************
+// this function returns a list of scans whose user-entered experiment notes have 
+// an entry for theKey with a value matching requestedValue
+function/S getScansByKeyValue(theKey, requestedValue)
+	string theKey
+	string requestedValue
+	
+	string scanList = GUIPListObjs("root:twoP_Scans:" , 4, "*",0, "")
+	string returnList = ""
+	variable iScan,nScans= itemsinlist (scanList, ";")
+	string aScan, expNote, value
+	for (iScan=0; iScan < nScans; iScan +=1)
+		aScan= stringFromlist (iScan, scanList, ";")
+		SVAR noteStr = $"root:twoP_Scans:" + aScan + ":" + aScan + "_info"
+		expNote = StringByKey("ExpNote", noteStr, "=", "\r")
+		value = StringByKey (theKey, expNote, ":", ";")
+		if (StringMatch(value, requestedValue))
+			returnList += aScan + ";"
+		endif
+	endfor
+	return returnList
+End
+
 //******************************************************************************************************
 //Draws a nice scale-bar on an image using scaling of bottom axis
 // Last modified Aug 31 2011 by Jamie Boyd
-Function NQ_DrawScaleBar()
+Function twoP_DrawScaleBar()
 	
 	//Get the marquee coordinates and calculate xsize as distance between left and right
 	string vAxis = "left", hAxis = "bottom"
@@ -3608,4 +3631,17 @@ end
 
 
 
-
+// *******************************************************************************
+// changes key value separator used in scan info notes from ":" to "="
+// this was done so users can have the default key:value; for experiement notes
+function changeNoteSeps()
+	
+	string scanList = GUIPListObjs("root:twoP_Scans:" , 4, "*",0, "")
+	variable iScan,nScans= itemsinlist (scanList, ";")
+	string aScan
+	for (iScan=0; iScan < nScans; iScan +=1)
+		aScan= stringFromlist (iScan, scanList, ";")
+		SVAR noteStr = $"root:twoP_Scans:" + aScan + ":" + aScan + "_info"
+		noteStr = replaceString (":", noteStr, "=")
+	endfor
+end

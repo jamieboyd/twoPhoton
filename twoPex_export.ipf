@@ -420,7 +420,7 @@ Function twoP_ExportScan_tif (curScan, doOverWrite, inSubFolder,  tiffScaleMode,
 	setdatafolder $"root:twoP_scans:" + curScan
 	// get scan note and experiment time
 	SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-	variable timeinSecs = numberbykey ("ExpTime", scanStr, ":", "\r")
+	variable timeinSecs = numberbykey ("ExpTime", scanStr, "=", "\r")
 	// look for other tiff files in export path, if overwriting is not set
 	if (!(doOverWrite))
 		string tifsAlready =GUIPListFiles ("ExportPath",  ".tif", "*", 0, "", sepStr = ";")
@@ -429,7 +429,7 @@ Function twoP_ExportScan_tif (curScan, doOverWrite, inSubFolder,  tiffScaleMode,
 	variable owCode
 	
 	
-	string aChan, chanList= StringByKey("imChanDesc", scanStr, ":", "\r")
+	string aChan, chanList= StringByKey("imChanDesc", scanStr, "=", "\r")
 	variable iChan, nChans = itemsinlist (chanList, ",")
 	string otherChanIms
 	variable iOther,nOthers
@@ -504,7 +504,7 @@ Function twoP_ExportScan_tifCurFrame (curScan, doOverWrite, inSubFolder,TiffScal
 	
 	// get scan note and experiment time
 	SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-	variable timeinSecs = numberbykey ("ExpTime", scanStr, ":", "\r")
+	variable timeinSecs = numberbykey ("ExpTime", scanStr, "=", "\r")
 	string ExportPathStr
 	if (inSubFolder)
 		ExportPathStr = "ExportPathSubFolder"
@@ -554,12 +554,12 @@ Function twoP_ExportScan_QTMovie (curScan, doOverWrite, inSubFolder)
 		
 	// get scan note and experiment time
 	SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-	variable mode = numberbykey ("mode", scanStr, ":", "\r")
+	variable mode = numberbykey ("mode", scanStr, "=", "\r")
 	if ((mode == kLineScan) || (mode == kSingleImage))
 		print  "Sorry, but " + curScan + " is not an image stack, and you need an image stack to make a movie."
 		return 1
 	endif
-	variable ii, numFrames = numberbykey ("numFrames", scanStr, ":", "\r")
+	variable ii, numFrames = numberbykey ("numFrames", scanStr, "=", "\r")
 	// Bring ScanGraph to the front
 	twoP_ScanUpdateScanGraph(curScan)
 	// set export path

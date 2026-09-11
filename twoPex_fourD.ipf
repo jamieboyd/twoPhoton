@@ -40,7 +40,7 @@ Function NQ_fourDCropStack()
 	// crop images
 	SVAR curscanStr = root:Packages:twoP:examine:CurScan
 	SVAR infoStr = $"root:twoP_Scans:" + curscanStr + ":" + curscanStr + "_info"
-	variable imchans =  numberbykey ("ImChans", infoStr, ":" , "\r")
+	variable imchans =  numberbykey ("ImChans", infoStr, "=" , "\r")
 	if (imChans&1)
 		WAVE aWave = $"root:twoP_Scans:" + curscanStr + ":" + curscanStr + "_ch1"
 		Duplicate /O/R=(V_left, V_right)(V_bottom, V_top)  aWave, $"root:twoP_Scans:" + curscanStr + ":" + curscanStr + "_ch1T"
@@ -57,10 +57,10 @@ Function NQ_fourDCropStack()
 		Rename Croppped, $curscanStr + "_ch2"
 		WAVE aWave = $"root:twoP_Scans:" + curscanStr + ":" + curscanStr + "_ch2"
 	endif
-	infoStr = ReplaceNumberByKey("XPos", infoStr, ( dimoffset (aWave, 0)), ":"  , "\r")
-	infoStr = ReplaceNumberByKey("YPos", infoStr, (dimOffset (aWave, 1)), ":"  , "\r")
-	infoStr = ReplaceNumberByKey("PixWidth", infoStr, (dimSize (aWave, 0)), ":"  , "\r")
-	infoStr = ReplaceNumberByKey("PixHeight", infoStr, (dimSize (aWave, 1)), ":"  , "\r")
+	infoStr = ReplaceNumberByKey("XPos", infoStr, ( dimoffset (aWave, 0)), "="  , "\r")
+	infoStr = ReplaceNumberByKey("YPos", infoStr, (dimOffset (aWave, 1)), "="  , "\r")
+	infoStr = ReplaceNumberByKey("PixWidth", infoStr, (dimSize (aWave, 0)), "="  , "\r")
+	infoStr = ReplaceNumberByKey("PixHeight", infoStr, (dimSize (aWave, 1)), "="  , "\r")
 	doWindow/K twoP_ScanGraph
 	twoP_ImGraphNew (curScanStr)
 end
@@ -195,7 +195,7 @@ Function NQ_FourDallFramesProc(ba) : ButtonControl
 			string stackstr
 			sprintf stackStr, "root:twoP_Scans:%s_%03d:%s_%03d_info", baseName, startStack,baseName, startStack
 			svar infostr = $stackStr
-			endFrame = NumberByKey("NumFrames", infostr , ":", "\r") -1
+			endFrame = NumberByKey("NumFrames", infostr , "=", "\r") -1
 		case -1: // control being killed
 			break
 	endswitch
@@ -265,25 +265,25 @@ Function NQ_SubStacks2Stack (basename, startStack, endStack, startFrame, endFram
 	sprintf StackStr, "root:twoP_Scans:%s_%03d:%s_%03d_info", baseName, startStack,baseName, startStack
 	SVAR startStackNoteStr = $StackStr
 	noteStr = startStackNoteStr
-	noteStr = ReplaceNumberByKey("Mode", noteStr, kTimeSeries , ":" , "\r" )
-	noteStr =ReplaceStringByKey ("Scan Type", noteStr, "Time Series", ":" , "\r" )
-	noteStr =  ReplaceNumberByKey("NumFrames", noteStr, numStacks , ":" , "\r" )
+	noteStr = ReplaceNumberByKey("Mode", noteStr, kTimeSeries , "=" , "\r" )
+	noteStr =ReplaceStringByKey ("Scan Type", noteStr, "Time Series", "=" , "\r" )
+	noteStr =  ReplaceNumberByKey("NumFrames", noteStr, numStacks , "=" , "\r" )
 	variable zPos = NumberByKey("ExpTime", noteStr , ":", "\r")
 	sprintf StackStr, "root:twoP_Scans:%s_%03d:%s_%03d_info", baseName, startStack + 1,baseName, startStack + 1
 	SVAR startStack2NoteStr = $StackStr
-	variable zDelta = NumberByKey("ExpTime", startStack2NoteStr , ":", "\r") - zPos
-	noteStr = ReplaceNumberByKey("FrameTime", noteStr, zDelta , ":" , "\r" )
-	noteStr = RemoveByKey("Zavg", noteStr, ":" , "\r" )
-	noteStr = RemoveByKey("ZstepSize", noteStr, ":" , "\r" )
+	variable zDelta = NumberByKey("ExpTime", startStack2NoteStr , "=", "\r") - zPos
+	noteStr = ReplaceNumberByKey("FrameTime", noteStr, zDelta , "=" , "\r" )
+	noteStr = RemoveByKey("Zavg", noteStr, "=" , "\r" )
+	noteStr = RemoveByKey("ZstepSize", noteStr, "=" , "\r" )
 	// make outPut wave(s)
-	variable xPos =NumberByKey("XPos", startStackNoteStr , ":", "\r")
-	variable yPos =NumberByKey("YPos", startStackNoteStr , ":", "\r")
-	variable xDelta = NumberByKey("XPixSize", startStackNoteStr , ":", "\r")
-	variable yDelta = NumberByKey("YPixSize", startStackNoteStr , ":", "\r")
-	variable xSize = NumberByKey("PixWidth", startStackNoteStr , ":", "\r")
-	variable ySize = NumberByKey("PixHeight", startStackNoteStr , ":", "\r")
+	variable xPos =NumberByKey("XPos", startStackNoteStr , "=", "\r")
+	variable yPos =NumberByKey("YPos", startStackNoteStr , "=", "\r")
+	variable xDelta = NumberByKey("XPixSize", startStackNoteStr , "=", "\r")
+	variable yDelta = NumberByKey("YPixSize", startStackNoteStr , "=", "\r")
+	variable xSize = NumberByKey("PixWidth", startStackNoteStr , "=", "\r")
+	variable ySize = NumberByKey("PixHeight", startStackNoteStr , "=", "\r")
 	
-	variable doChans=  NumberByKey("ImChans", startStackNoteStr , ":", "\r")
+	variable doChans=  NumberByKey("ImChans", startStackNoteStr , "=", "\r")
 	if (doChans&1)
 		make/w/u/o/n= (xSize, ySize, numStacks)$"root:twoP_Scans:" + outPutName +":" + outPutName + "_ch1"
 		WAVE ch1Wave = $"root:twoP_Scans:" + outPutName +":" + outPutName + "_ch1"
@@ -327,7 +327,7 @@ Function NQ_fourDmarkalignButtonProc(ba) : ButtonControl
 			SetWindow twoP_ScanGraph hook (Alignhook) = NQ_FourDmarkalignHookProc, hookevents = 1
 			SVAR CurScanStr = root:Packages:twoP:examine:curScan
 			SVAR infostr = $"root:twoP_Scans:" + CurScanStr + ":" + CurScanStr + "_info"
-			variable zsize= NumberByKey("NumFrames", infostr , ":", "\r")
+			variable zsize= NumberByKey("NumFrames", infostr , "=", "\r")
 			WAVE AdjustmentY = root:Packages:twoP:examine:fourdAdjustmentWaveY
 			WAVE AdjustmentX= root:Packages:twoP:examine:fourdAdjustmentWaveX
 			redimension/n= (zsize) AdjustmentY, AdjustmentX
@@ -381,15 +381,15 @@ Function NQ_fourDdoneMarkingButtonProc(ba) : ButtonControl
 			SVAR CurScan = root:Packages:twoP:examine:curScan
 			SVAR noteStr =  $"root:twoP_Scans:" + CurScan + ":" +  CurScan + "_info"
 			variable xPixSize = NumberByKey("XpixSize", NoteStr , ":", "\r")
-			variable xPos = NumberByKey("Xpos", NoteStr , ":", "\r")
-			variable yPos = NumberByKey("Ypos", NoteStr , ":", "\r")
-			variable yPixSize =  NumberByKey("YpixSize", NoteStr , ":", "\r")
-			variable xsize = NumberByKey("PixWidth", NoteStr , ":", "\r") 
-			variable Ysize = NumberByKey("PixHeight", NoteStr , ":", "\r")
-			variable zSize = NumberByKey("NumFrames", NoteStr , ":", "\r")
-			variable zPixSize = NumberByKey("ZstepSize", NoteStr , ":", "\r")
-			variable zPos =  NumberByKey("Zpos", NoteStr , ":", "\r")
-			variable doChans = NumberByKey("ImChans", NoteStr , ":", "\r")
+			variable xPos = NumberByKey("Xpos", NoteStr , "=", "\r")
+			variable yPos = NumberByKey("Ypos", NoteStr , "=", "\r")
+			variable yPixSize =  NumberByKey("YpixSize", NoteStr , "=", "\r")
+			variable xsize = NumberByKey("PixWidth", NoteStr , "=", "\r") 
+			variable Ysize = NumberByKey("PixHeight", NoteStr , "=", "\r")
+			variable zSize = NumberByKey("NumFrames", NoteStr , "=", "\r")
+			variable zPixSize = NumberByKey("ZstepSize", NoteStr , "=", "\r")
+			variable zPos =  NumberByKey("Zpos", NoteStr , "=", "\r")
+			variable doChans = NumberByKey("ImChans", NoteStr , "=", "\r")
 			// copy adjustment wave and change from meters to pixels from center
 			NVAR fillVal = root:Packages:twoP:examine:FourDFillVal
 			WAVE GAdjustmentY = root:Packages:twoP:examine:fourdAdjustmentWaveY
@@ -455,8 +455,8 @@ Function NQ_fourDdoneMarkingButtonProc(ba) : ButtonControl
 			variable newXPos = xPos + V_min
 			wavestats/q AdjustmentY
 			variable newYPos = yPos + V_min
-			noteStr = ReplaceNumberByKey("Xpos", NoteStr, newXPos  , ":", "\r")
-			noteStr = ReplaceNumberByKey("Ypos", NoteStr, newYPos  , ":", "\r")
+			noteStr = ReplaceNumberByKey("Xpos", NoteStr, newXPos  , "=", "\r")
+			noteStr = ReplaceNumberByKey("Ypos", NoteStr, newYPos  , "=", "\r")
 			AdjustmentX = round (AdjustmentX/xPixSize)
 			AdjustmentY = round (AdjustmentY/yPixSize)
 			// calculate new wave size
@@ -466,8 +466,8 @@ Function NQ_fourDdoneMarkingButtonProc(ba) : ButtonControl
 			WaveStats/q AdjustmentY
 			variable yPixOffset =  -V_min
 			variable newYSize = ySize + (V_Max - V_min)
-			noteStr = ReplaceNumberByKey("PixWidth", NoteStr, newXSize  , ":", "\r")
-			noteStr = ReplaceNumberByKey("PixHeight", NoteStr, newYSize  , ":", "\r")
+			noteStr = ReplaceNumberByKey("PixWidth", NoteStr, newXSize  , "=", "\r")
+			noteStr = ReplaceNumberByKey("PixHeight", NoteStr, newYSize  , "=", "\r")
 			if (doChans&1)
 				WAVE ch1Old =  $"root:twoP_Scans:" + curScan + ":" + curscan + "_ch1"
 				Rename ch1Old, ch1Old

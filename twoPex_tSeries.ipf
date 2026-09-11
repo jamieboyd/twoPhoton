@@ -102,7 +102,7 @@ Function NQ_tSeriesallFramesProc(ba) : ButtonControl
 			string stackstr
 			sprintf stackStr, "root:Nidaq_Scans:%s_%03d:%s_%03d_info", baseName, startStack,baseName, startStack
 			svar infostr = $stackStr
-			endFrame = NumberByKey("NumFrames", infostr , ":", "\r") -1
+			endFrame = NumberByKey("NumFrames", infostr , "=", "\r") -1
 		case -1: // control being killed
 			break
 	endswitch
@@ -174,14 +174,14 @@ Function NQ_StackAvg (basename, startStack, endStack, startFrame, endFrame, outp
 	noteStr = startStackNoteStr
 	
 	// make outPut wave(s)
-	variable xPos =NumberByKey("XPos", startStackNoteStr , ":", "\r")
-	variable yPos =NumberByKey("YPos", startStackNoteStr , ":", "\r")
-	variable xDelta = NumberByKey("XPixSize", startStackNoteStr , ":", "\r")
-	variable yDelta = NumberByKey("YPixSize", startStackNoteStr , ":", "\r")
-	variable xSize = NumberByKey("PixWidth", startStackNoteStr , ":", "\r")
-	variable ySize = NumberByKey("PixHeight", startStackNoteStr , ":", "\r")
-	variable zSize =  NumberByKey("NumFrames", startStackNoteStr , ":", "\r")
-	variable frameTIme = NumberByKey("FrameTime", startStackNoteStr , ":", "\r")
+	variable xPos =NumberByKey("XPos", startStackNoteStr , "=", "\r")
+	variable yPos =NumberByKey("YPos", startStackNoteStr , "=", "\r")
+	variable xDelta = NumberByKey("XPixSize", startStackNoteStr , "=", "\r")
+	variable yDelta = NumberByKey("YPixSize", startStackNoteStr , "=", "\r")
+	variable xSize = NumberByKey("PixWidth", startStackNoteStr , "=", "\r")
+	variable ySize = NumberByKey("PixHeight", startStackNoteStr , "=", "\r")
+	variable zSize =  NumberByKey("NumFrames", startStackNoteStr , "=", "\r")
+	variable frameTIme = NumberByKey("FrameTime", startStackNoteStr , "=", "\r")
 	
 	if (((endFrame > zSize) || (startFrame > endFrame)) || (startFrame < 0))
 		doAlert 0, "Range of frames chosen is not possible"

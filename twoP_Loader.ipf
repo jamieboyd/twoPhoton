@@ -1,15 +1,16 @@
 #pragma rtGlobals=3		// Use modern global access method.
 #pragma IgorVersion=6.2
 #pragma version =2
-// Last Modified 2025/07/09 by Jamie Boyd added checks for XOPs
+// Last Modified 2026/09/07 by Jamie Boyd - added menu item to load just the preferences editor
 
 //**********************************************************************************************************************************************************
 // Light weight loader procedure for twoP code. This can be placed in Igor Procedures folder so it loads every time Igor launches, but
 // only loads whole twoP program if user wants it. One-click access to twoP, no baggage.
 Menu "Data", dynamic
 	Submenu "Packages"
-		SelectString ((exists("twoP_MakeExamineFolder") == 0), "",  "Load twoP LSM"),/Q, TwoPloader(hasXOPs())
+		SelectString ((exists("twoP_ExamineMakeFolder") == 0), "",  "Load twoP LSM"),/Q, TwoPloader(hasXOPs())
 		SelectString((exists("twoP_ZeroGalvos")== 6) , "", "Unload twoP acquire"),/Q, TwoPAqUnloader()
+		SelectString((exists("twoP_PrefsMakePanel") == 0), "", "Edit twoP Acquire Preferences"), /Q, twoP_OnlyPrefs()
 	End
 End
 
@@ -62,3 +63,17 @@ Function TwoPLoader (hasXOPs)
 		Execute/P/Q/Z "twoP_ExamineMakePanel () "
 	endif
 end
+
+
+//**********************************************************************************************************************************************************
+// Inserts or deletes include specifications for acquire or examine depending on presence of needed XOPs
+// Last modified:
+// 2026/01/07 by Jamie Boyd - removed lines for make panel when hasXOPs and moved it to twoP_PrefsTest
+// 2016/11/04 by Jamie Boyd - added code to include stage proc as well
+// 2016/11/04 by Jamie Boyd - added switch for loading/unloading code
+Function twoP_OnlyPrefs()
+	Execute/P/Q/Z "INSERTINCLUDE \"twoP_Prefs\""
+	Execute/P/Q/Z "COMPILEPROCEDURES "
+	newPath/O/Q twoPPrefsPath SpecialDirPath("Igor Pro User Files" , 0, 0, 0) + "User Procedures:twoPhoton"
+	Execute/P/Q/Z "twoP_PrefsMakePanel()"
+End

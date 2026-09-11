@@ -1246,14 +1246,14 @@ Function twoP_ImScaleRevertToScanProc(pa) : PopupMenuControl
 			YSVBU = YSV
 			YEVBU = YEV
 			// Set current values to those read from wave and from waveNote
-			XSV = NumberByKey("XSV", scanStr, ":", "\r")
-			XEV = NumberByKey("XEV", scanStr, ":", "\r")
-			YSV = NumberByKey("YSV", scanStr, ":", "\r")
-			YEV = NumberByKey("YEV", scanStr, ":", "\r")
-			pixHeight =  NumberByKey("pixHeight", scanStr, ":", "\r")
-			pixWidth = NumberByKey("pixWidth", scanStr, ":", "\r")
+			XSV = NumberByKey("XSV", scanStr, "=", "\r")
+			XEV = NumberByKey("XEV", scanStr, "=", "\r")
+			YSV = NumberByKey("YSV", scanStr, "=", "\r")
+			YEV = NumberByKey("YEV", scanStr, "=", "\r")
+			pixHeight =  NumberByKey("pixHeight", scanStr, "=", "\r")
+			pixWidth = NumberByKey("pixWidth", scanStr, "=", "\r")
 			// Set Aspect ratio to width/height and Run Set Times Proc
-			AspectRatio =  NumberByKey("xPixSize", scanStr, ":", "\r")/ NumberByKey("yPixSize", scanStr, ":", "\r")
+			AspectRatio =  NumberByKey("xPixSize", scanStr, "=", "\r")/ NumberByKey("yPixSize", scanStr, "=", "\r")
 			twoP_TimesSetTimes()
 			break
 	endswitch
@@ -1337,11 +1337,11 @@ Function twoP_ImScaleLSrevertToScanProc(pa) : PopupMenuControl
 			LSEndVoltageBU = LSEndVoltage
 			LSYVoltageBU = LSYVoltageBU
 			// Set current values to those read from wave and from waveNote
-			LSStartVoltage = NumberByKey("XSV", scanStr, ":", "\r")
-			LSEndVoltage = NumberByKey("XEV", scanStr, ":", "\r")
-			LSYVoltage = NumberByKey("YSV", scanStr, ":", "\r")
-			LSHeight =  NumberByKey("pixHeight", scanStr, ":", "\r")
-			LSWidth = NumberByKey("pixWidth", scanStr, ":", "\r")
+			LSStartVoltage = NumberByKey("XSV", scanStr, "=", "\r")
+			LSEndVoltage = NumberByKey("XEV", scanStr, "=", "\r")
+			LSYVoltage = NumberByKey("YSV", scanStr, "=", "\r")
+			LSHeight =  NumberByKey("pixHeight", scanStr, "=", "\r")
+			LSWidth = NumberByKey("pixWidth", scanStr, "=", "\r")
 			// Run Set Times Proc
 			twoP_TimesSetTimes()
 			break
@@ -1410,16 +1410,16 @@ Function twoP_ImScaleSetMarquee(type)
 	GetMarquee/K left,bottom
 	// Note that V_left and V_right and V_top and V_bottom are in scaled dimensions(meters in this case), not pixels
 	// Read scaling values from scan string
-	variable WaveXSV = NumberByKey("XSV", scanStr, ":", "\r")
-	variable WaveXEV = NumberByKey("XEV", scanStr, ":", "\r")
-	variable WaveYSV = NumberByKey("YSV", scanStr, ":", "\r")
-	variable WaveYEV = NumberByKey("YEV", scanStr, ":", "\r")
-	variable WavePixWidth = NumberByKey("PixWidth", scanStr, ":", "\r")
-	variable WavePixHeight =NumberByKey("PixHeight", scanStr, ":", "\r")
-	variable WaveXOffset = NumberByKey("Xoffset", scanStr, ":", "\r")
-	Variable waveYOffset = NumberByKey("Yoffset", scanStr, ":", "\r")
-	variable waveXPixSize = NumberByKey("xPixSize", scanStr, ":", "\r")
-	variable waveYPixSize = NumberByKey("yPixSize", scanStr, ":", "\r")
+	variable WaveXSV = NumberByKey("XSV", scanStr, "=", "\r")
+	variable WaveXEV = NumberByKey("XEV", scanStr, "=", "\r")
+	variable WaveYSV = NumberByKey("YSV", scanStr, "=", "\r")
+	variable WaveYEV = NumberByKey("YEV", scanStr, "=", "\r")
+	variable WavePixWidth = NumberByKey("PixWidth", scanStr, "=", "\r")
+	variable WavePixHeight =NumberByKey("PixHeight", scanStr, "=", "\r")
+	variable WaveXOffset = NumberByKey("Xoffset", scanStr, "=", "\r")
+	Variable waveYOffset = NumberByKey("Yoffset", scanStr, "=", "\r")
+	variable waveXPixSize = NumberByKey("xPixSize", scanStr, "=", "\r")
+	variable waveYPixSize = NumberByKey("yPixSize", scanStr, "=", "\r")
 	// calculate scaling in m/Volts
 	variable WaveXScal =(WavePixWidth * waveXPixSize)/(WaveXEV - WaveXSV)
 	variable WaveYScal =(WavePixHeight * waveYPixSize)/(WaveYEV - WaveYSV)
@@ -3822,7 +3822,7 @@ end
 // returns a formatted string containing useful information about the scan to be made
 // Some variables are used in calculations, and need to be accessed later, some are just for maintaining
 // a record of settings for the user. The latter can be printed with easier to read but harder to parse %W formatting
-// Last Modified 2025/08/08 by Jamie Boyd
+// Last Modified 2026/09/10 by Jamie Boyd
 Function/S twoP_ScanNoter(s)
 	STRUCT twoP_ScanStruct &s
 	
@@ -3833,49 +3833,49 @@ Function/S twoP_ScanNoter(s)
 		tempStr = s.scanNote
 		variable iChar, nChars = strlen(tempStr)
 		For(iChar = 0; iChar < nChars; iChar +=1)
-			if (char2num(tempStr [iChar]) == 58)
-				tempStr [iChar, iChar]= "="
+			if (char2num(tempStr [iChar]) == 61)
+				tempStr [iChar, iChar]= ":"
 			elseif(char2num(tempStr [iChar]) == 13)
 				tempStr [iChar, iChar]= ";"
 			endif
 		endfor
 		
-		NoteStr += "ExpNote:" + tempStr + "\r"
+		NoteStr += "ExpNote=" + tempStr + "\r"
 	endif
 	// Scan Type - easier for user to read than the scan mode numeric code
 	variable scanMode = s.scanMode
 	switch(scanMode)
 		case kLiveMode:
-			NoteStr += "Scan Type:Live Scanning\r"
+			NoteStr += "Scan Type=Live Scanning\r"
 			break
 		case kTimeSeries:
-			NoteStr += "Scan Type:Time Series\r"
+			NoteStr += "Scan Type=Time Series\r"
 			break
 		case kSingleImage:
-			NoteStr += "Scan Type:Average\r"
+			NoteStr += "Scan Type=Average\r"
 			break
 		case kzSeries:
-			NoteStr += "Scan Type:Z Stack\r"
+			NoteStr += "Scan Type=Z Stack\r"
 			break
 		case kLineScan:
-			NoteStr += "Scan Type:Line Scan\r"
+			NoteStr += "Scan Type=Line Scan\r"
 			break
 		case kePhysOnly:
-			NoteStr += "Scan Type:ePhys Only\r"
+			NoteStr += "Scan Type=ePhys Only\r"
 			break
 	endSwitch
 	// Scan Mode - easier for a function to parse than the string
-	NoteStr += "Mode:" + num2str(s.scanMode) + "\r"
+	NoteStr += "Mode=" + num2str(s.scanMode) + "\r"
 	// Time, in Igor Format, when the scan was started, i.e., now. This value will have to be updated for triggered or for multi-mode
-	sprintf tempStr, "ExpTime:%.0f\r",  datetime	// use sprintf to keep enough precision
+	sprintf tempStr, "ExpTime=%.0f\r",  datetime	// use sprintf to keep enough precision
 	NoteStr +=  tempStr
 	// image specific stuff
 	// image channels, bitwise, 1 for ch1, 2 for ch2, 3 for both channels
 	variable imChans=0
 	if(scanMode == kEphysOnly)
-		NoteStr += "ImChans:0\r"
+		NoteStr += "ImChans=0\r"
 		// channel descriptions, for forwards compatibility
-		NoteStr += "imChanDesc:\r"
+		NoteStr += "imChanDesc=\r"
 	else
 		if(WhichListItem("ch1", s.OnlyChansImage,",", 0,0) > -1)
 			imChans += 1
@@ -3883,64 +3883,64 @@ Function/S twoP_ScanNoter(s)
 		if(WhichListItem("ch2", s.OnlyChansImage,",", 0,0) > -1)
 			imChans += 2
 		endif
-		NoteStr += "ImChans:" + num2str(imChans) + "\r"
+		NoteStr += "ImChans=" + num2str(imChans) + "\r"
 		// channel descriptions, for forwards compatibility
-		NoteStr += "imChanDesc:" + s.OnlyChansImage + "\r"
+		NoteStr += "imChanDesc=" + s.OnlyChansImage + "\r"
 		// image channel descriptions
 		// Image size and Pixel scaling
-		sprintf tempStr, "Xoffset:%.8f\r", s.xScalStart 
+		sprintf tempStr, "Xoffset=%.8f\r", s.xScalStart 
 		noteStr += tempStr
-		sprintf tempStr, "Yoffset:%.8f\r", s.yScalStart 
+		sprintf tempStr, "Yoffset=%.8f\r", s.yScalStart 
 		noteStr += tempStr
-		noteStr += "PixWidth:" + num2str(s.pixWidth) + "\r"
-		noteStr += "XpixSize:" + num2str(s.xPixSize) + "\r"
-		noteStr += "PixHeight:" + num2str(s.pixHeight) + "\r"
-		noteStr += "YpixSize:" + num2str(s.yPixSize) + "\r"
-		noteStr += "NumFrames:" + num2str(s.numFrames) + "\r"
+		noteStr += "PixWidth=" + num2str(s.pixWidth) + "\r"
+		noteStr += "XpixSize=" + num2str(s.xPixSize) + "\r"
+		noteStr += "PixHeight=" + num2str(s.pixHeight) + "\r"
+		noteStr += "YpixSize=" + num2str(s.yPixSize) + "\r"
+		noteStr += "NumFrames=" + num2str(s.numFrames) + "\r"
 		// z stacks 
 		if(scanMode == kZseries)
-			noteStr += "Zavg:" + num2str(s.NumZseriesAvg) + "\r"
-			noteStr += "ZstepSize:" + num2str(s.zStepSize) + "\r"
+			noteStr += "Zavg=" + num2str(s.NumZseriesAvg) + "\r"
+			noteStr += "ZstepSize=" + num2str(s.zStepSize) + "\r"
 		endif
 		// Frame Time and line time
-		sprintf tempStr, "FrameTime:%.6f\r",s.FrameTime
+		sprintf tempStr, "FrameTime=%.6f\r",s.FrameTime
 		noteStr += tempStr
-		sprintf tempStr, "LineTime:%.6f\r", s.LineTime
+		sprintf tempStr, "LineTime=%.6f\r", s.LineTime
 		noteStr +=  tempStr
 		// DutyCycle and flyback mode, and flyback proportion, for non-symetric scans
-		NoteStr += "DutyCycle:" + num2str(s.DutyCycle) + "\r"
-		NoteStr += "FlyBackMode:" + num2str(s.flybackMode) + "\r"
+		NoteStr += "DutyCycle=" + num2str(s.DutyCycle) + "\r"
+		NoteStr += "FlyBackMode=" + num2str(s.flybackMode) + "\r"
 		if(s.flybackMode == 0)
-			noteStr += "FlybackProp:" + num2str(s.flybackProp) + "\r"
+			noteStr += "FlybackProp=" + num2str(s.flybackProp) + "\r"
 		endif
-		sprintf tempStr, "ScanHeadDelay:%.2W1Ps\r", s.scanHeadDelay
+		sprintf tempStr, "ScanHeadDelay=%.2W1Ps\r", s.scanHeadDelay
 		noteStr += tempStr
 		// objective
-		noteStr += "Obj:" + s.obj + "\r"
+		noteStr += "Obj=" + s.obj + "\r"
 		// Voltage ranges and positions - with a little extra precision
-		sprintf tempStr, "XSV:%.8f\r", s.XSV 
+		sprintf tempStr, "XSV=%.8f\r", s.XSV 
 		noteStr += tempStr
-		sprintf tempStr, "XEV:%.8f\r", s.XEV 
+		sprintf tempStr, "XEV=%.8f\r", s.XEV 
 		noteStr += tempStr
 		if(scanMode == kLineScan)
-			sprintf tempStr, "YLSV:%.8f\r", s.YSV 
+			sprintf tempStr, "YLSV=%.8f\r", s.YSV 
 			noteStr += tempStr
 			if((cmpstr(s.LSLinkWave, "Don't Link")) == 0)
-				NoteStr +=  "linkWave:Not Linked\r"
+				NoteStr +=  "linkWave=Not Linked\r"
 			else
-				NoteStr +=  "linkWave:" + s.LSLinkWave + "\r"
+				NoteStr +=  "linkWave=" + s.LSLinkWave + "\r"
 			endif
 		else // not a line scan
-			sprintf tempStr, "YSV:%.8f\r", s.YSV 
+			sprintf tempStr, "YSV=%.8f\r", s.YSV 
 			noteStr += tempStr
-			sprintf tempStr, "YEV:%.8f\r", s.YEV 
+			sprintf tempStr, "YEV=%.8f\r", s.YEV 
 			noteStr += tempStr
 		endif
 	endif
 	// stage position
-	noteStr += "Xpos:" + num2str(s.xPos) + "\r"
-	noteStr += "Ypos:" + num2str(s.yPos) + "\r"
-	noteStr += "Zpos:" + num2str(s.zPos) + "\r"
+	noteStr += "Xpos=" + num2str(s.xPos) + "\r"
+	noteStr += "Ypos=" + num2str(s.yPos) + "\r"
+	noteStr += "Zpos=" + num2str(s.zPos) + "\r"
 	// was ePhys also collected?
 	if((s.scanMode==kTimeSeries) ||(s.ScanMode==kLineScan) ||(s.ScanMode==kEphysOnly))
 		variable ePhysChans=0
@@ -3950,16 +3950,16 @@ Function/S twoP_ScanNoter(s)
 		if(WhichListItem("ep2", s.onlyChansEphys,",", 0,0) > -1)
 			ePhysChans += 2
 		endif
-		notestr += "ephys:" + num2str(ePhysChans) + "\r"
-		NoteStr += "ePhysChanDesc:" + s.onlyChansEphys + "\r"
-		NoteStr += "ePhysFreq:" + num2str(s.ePhysFreq) + "\r"
+		notestr += "ephys=" + num2str(ePhysChans) + "\r"
+		NoteStr += "ePhysChanDesc=" + s.onlyChansEphys + "\r"
+		NoteStr += "ePhysFreq=" + num2str(s.ePhysFreq) + "\r"
 	// Need to add extra info for ePhys?
 	endif
 	// info about multiple acquisitions
 	if (s.isMulti)
-		noteStr += "isMultiAq:" + num2str (s.MultiAqiAq + 1) + "\r"
+		noteStr += "isMultiAq=" + num2str (s.MultiAqiAq + 1) + "\r"
 	else
-		noteStr += "isMultiAq:0\r"
+		noteStr += "isMultiAq=0\r"
 	endif
 	return noteStr
 end
@@ -6683,7 +6683,7 @@ function twoP_EndScan (isAbort)
 		if ((scanMode == kMultiAq) || (wasTriggered))
 			NVAR startTime = root:packages:twoP:acquire:MultiAqStartTime
 			SVAR scanStr = $"root:twoP_Scans:" + newScanName + ":" + newScanName + "_info"
-			scanStr = ReplaceNumberByKey("ExpTime", scanStr, startTime , ":", "\r")
+			scanStr = ReplaceNumberByKey("ExpTime", scanStr, startTime , "=", "\r")
 		endif
 		// save scan?
 		NVAR toDo=root:packages:twoP:acquire:exportAfterScan
@@ -6767,7 +6767,7 @@ function twoP_EndScanMulti()
 		SVAR multiAcqScanNote= root:packages:twoP:acquire:multiAcqScanNote
 		string/G $"root:twoP_Scans:" + s.newScanName + ":" + s.newScanName + "_info" = multiAcqScanNote
 		SVAR noteStr =  $"root:twoP_Scans:" + s.newScanName + ":" + s.newScanName + "_info"
-		noteStr = ReplaceNumberByKey("multiAq_i", noteStr, multiAqiAq , ":", "\r")
+		noteStr = ReplaceNumberByKey("multiAq_i", noteStr, multiAqiAq , "=", "\r")
 		// adjust scanGraph
 		STRUCT WMPopupAction pa
 		pa.eventCode = 2
@@ -6792,13 +6792,13 @@ function twoP_EndScanResize()
 	NVAR scanMode = root:packages:twoP:acquire:scanMode
 	SVAR scanName = root:Packages:twoP:acquire:NewScanName
 	SVAR infoStr= $"root:twoP_Scans:" + scanName +  ":" + scanName + "_info"
-	string aChan, chanList = StringByKey("imChanDesc", infoStr, ":", "\r")
+	string aChan, chanList = StringByKey("imChanDesc", infoStr, "=", "\r")
 	
 	variable iChan, numChans=ItemsInList (chanList, ",")
-	variable pixWidth = NumberByKey("PixWidth", infoStr, ":", "\r")
-	variable pixHeight = NumberByKey("PixHeight", infoStr, ":", "\r")
-	variable flyBackMode = NumberByKey("FlyBackMode", infoStr, ":", "\r")
-	string ePhysChanList = StringByKey("ePhysChanDesc", infoStr, ":", "\r")
+	variable pixWidth = NumberByKey("PixWidth", infoStr, "=", "\r")
+	variable pixHeight = NumberByKey("PixHeight", infoStr, "=", "\r")
+	variable flyBackMode = NumberByKey("FlyBackMode", infoStr, "=", "\r")
+	string ePhysChanList = StringByKey("ePhysChanDesc", infoStr, "=", "\r")
 	variable numEphysChans = ItemsInList (ePhysChanList, ",")
 	variable ePhysTime, ePhysFreq, ePhysPoints, lastPt, wavePts
 	switch (scanMode)
@@ -6815,7 +6815,7 @@ function twoP_EndScanResize()
 				if (lastFrame == 0)
 					GUIPkillWholeDatafolder("root:twoP_Scans:" + scanName)
 				else
-					infoStr  = ReplaceNumberByKey("NumFrames", infoStr, lastFrame, ":", "\r")
+					infoStr  = ReplaceNumberByKey("NumFrames", infoStr, lastFrame, "=", "\r")
 					for(ichan =0; iChan < numChans; iChan +=1)
 						aChan = stringFromList(iChan, chanList, ",")
 						WAVE acq1D = $"root:packages:twoP:acquire:Acq1D_" + aChan
@@ -6847,7 +6847,7 @@ function twoP_EndScanResize()
 			else
 				NVAR lScanChunkSize = root:packages:twoP:acquire:LSChunkSize	// number of lines to acquire at a time
 				variable lastLine = lastChunk * lScanChunkSize
-				infoStr  = ReplaceNumberByKey ("PixHeight", infoStr, lastLine, ":", "\r")
+				infoStr  = ReplaceNumberByKey ("PixHeight", infoStr, lastLine, "=", "\r")
 				for(ichan =0; iChan < numChans; iChan +=1)
 					aChan = stringFromList(iChan, chanList, ",")
 					WAVE scanWave= $"root:twoP_Scans:" + scanName +  ":" + scanName + "_" + aChan
@@ -6856,7 +6856,7 @@ function twoP_EndScanResize()
 				if (numEphysChans > 0)
 					NVAR lineTime = root:packages:twoP:acquire:lineTime
 					ePhysTime = lastLine * lineTime
-					ePhysFreq = numberByKey ("ePhysFreq", infoStr, ":", "\r")
+					ePhysFreq = numberByKey ("ePhysFreq", infoStr, "=", "\r")
 					ePhysPoints = ePhysTime * ePhysFreq
 					for(ichan =0; iChan < numEphysChans; iChan +=1)
 						aChan = stringFromList(iChan, chanList, ",")
@@ -6874,7 +6874,7 @@ function twoP_EndScanResize()
 			else
 				NVAR scanChunkSize = root:packages:twoP:acquire:tSeriesChunkSize	// number of lines to acquire at a time
 				lastFrame = lastChunk * scanChunkSize
-				infoStr  = ReplaceNumberByKey ("NumFrames", infoStr, lastFrame, ":", "\r")
+				infoStr  = ReplaceNumberByKey ("NumFrames", infoStr, lastFrame, "=", "\r")
 				for(ichan =0; iChan < numChans; iChan +=1)
 					aChan = stringFromList(iChan, chanList, ",")
 					WAVE scanWave= $"root:twoP_Scans:" + scanName +  ":" + scanName + "_" + aChan
@@ -6883,7 +6883,7 @@ function twoP_EndScanResize()
 				if (numEphysChans > 0)
 					NVAR frameTime = root:packages:twoP:acquire:frameTime
 					ePhysTime = lastFrame * frameTime
-					ePhysFreq = numberByKey ("ePhysFreq", infoStr, ":", "\r")
+					ePhysFreq = numberByKey ("ePhysFreq", infoStr, "=", "\r")
 					ePhysPoints = ePhysTime * ePhysFreq
 					for(ichan =0; iChan < numEphysChans; iChan +=1)
 						aChan = stringFromList(iChan, chanList, ",")
@@ -6899,7 +6899,7 @@ function twoP_EndScanResize()
 			if (lastZFrame ==0)
 				GUIPkillWholeDatafolder("root:twoP_Scans:" + scanName)
 			else
-				infoStr  = ReplaceNumberByKey ("NumFrames", infoStr, lastZFrame, ":", "\r")
+				infoStr  = ReplaceNumberByKey ("NumFrames", infoStr, lastZFrame, "=", "\r")
 				for(ichan =0; iChan < numChans; iChan +=1)
 					aChan = stringFromList(iChan, chanList, ",")
 					WAVE scanWave= $"root:twoP_Scans:" + scanName +  ":" + scanName + "_" + aChan
