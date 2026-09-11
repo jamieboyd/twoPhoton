@@ -69,7 +69,7 @@ end
 
  //******************************************************************************************************
 // function for adding  the FourD tab.
-Function NQexFourD_add (able)
+Function TwoPexFourD_add (able)
 	variable able
 	
 	// globals for FourD tab

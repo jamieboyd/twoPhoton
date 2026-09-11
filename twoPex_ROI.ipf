@@ -1,11 +1,13 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3
-#pragma version = 3  	// Last Modified: 2026/09/10 by Jamie Boyd.
+#pragma version = 3  	// Last Modified: 2026/09/11 by Jamie Boyd.
 #pragma IgorVersion = 9
 
 //******************************************************************************************************
-//------------------------------- Code for The ROI tab on the 2P Examine TabControl--------------------------------------------
+// ------------------------- Code for doing ROIS from Traces graph control panel -----------------------
+// ---------------------------- and the ROI tab on the 2P Examine TabControl ---------------------------
 //******************************************************************************************************
+
 
 //******************************************************************************************************
 // Graph Marquee functions to do useful ROI things on the scan graph
@@ -16,10 +18,11 @@ Menu "GraphMarquee"
 	end
 end
 
-// Set_Dark_Fluorescence grabs the graph marquee and sets some values a) in the Examine globals folder and B) in the note of the current scan.
-// These values will be used to subtract dark fluorescence in the ROI functions. 
-// Only left and right are saved for line scan, setting the globals for top and bottom in the examine folder to nan, to prevent using line scan dark
-// area for an image scan
+//  ********************************* twoP_Set_Dark_Fluorescence *****************************************
+// Set_Dark_Fluorescence grabs the graph marquee and sets some values a) in the Examine globals folder and
+// B) in the note of the current scan. These values will be used to subtract dark fluorescence in the ROI functions. 
+// Only left and right are saved for line scan, setting the globals for top and bottom in the examine folder to
+// NaN, to prevent using line scan dark area for an image scan
 // Last Modified 2026/09/10 by Jamie Boyd
 Function twoP_Set_Dark_Fluorescence()
 
@@ -37,8 +40,8 @@ Function twoP_Set_Dark_Fluorescence()
 	SVAR scanNote = $"root:twoP_Scans:" + curscan  + ":" + curScan +  "_info"
 	variable scanMode= NumberByKey("mode", scanNote, "=", "\r")
 	if (scanMode == kLineScan)
-		darkB = Nan
-		darkT =Nan
+		darkB = NaN
+		darkT = NaN
 	endif
 	// save in scan note as well as globals
 	if (scanMode != kLiveMode)
@@ -51,10 +54,10 @@ Function twoP_Set_Dark_Fluorescence()
 	endif
 end
 
-// ********************************************************************************************************************
-// function for adding  the ROI tab
+// ***************************** twoPexROI_add *****************************************************
+// adds the controls on the ROI tab
 // Last Modified 2025/07/23 by Jamie Boyd
-Function NQexROI_add (able)
+Function twoPexROI_add (able)
 	variable able
 
 	// Globals for ROI Tab
@@ -76,13 +79,13 @@ Function NQexROI_add (able)
 	make/o/t/n= 0 root:Packages:twoP:examine:ROIListWave
 	make/o/n= 0 root:Packages:twoP:examine:ROIListSelWave
 	// Saving and Loading ROIs to disk
-	Button ROILoadButton win =twoP_Controls,pos={9.00,412.00},size={44.00,20.00},proc=NQ_RoiLoadProc
+	Button ROILoadButton win =twoP_Controls,pos={9.00,412.00},size={44.00,20.00},proc=twoP_RoiLoadProc
 	Button ROILoadButton win =twoP_Controls,title="Load"
 	Button ROILoadButton win =twoP_Controls, disable = able
-	Button ROISaveButton win =twoP_Controls,pos={56.00,412.00},size={44.00,20.00},proc=NQ_ROISaveProc
+	Button ROISaveButton win =twoP_Controls,pos={56.00,412.00},size={44.00,20.00},proc=twoP_ROISaveProc
 	Button ROISaveButton win =twoP_Controls,title="Save"
 	Button ROISaveButton win =twoP_Controls, disable = able
-	Button ROISetFolderButton win =twoP_Controls,pos={103.00,412.00},size={68.00,20.00},proc=NQ_ROIsetPathProc
+	Button ROISetFolderButton win =twoP_Controls,pos={103.00,412.00},size={68.00,20.00},proc=twoP_ROIsetPathProc
 	Button ROISetFolderButton win =twoP_Controls,title="Set Path"
 	Button ROISetFolderButton win=twoP_Controls, disable = able
 	TitleBox ROIImpathtitle win=twoP_Controls,pos={173.00,416.00},size={578.00,15.00},fSize=12
@@ -90,13 +93,13 @@ Function NQexROI_add (able)
 	TitleBox ROIImpathtitle win=twoP_Controls, disable = able
 	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI","Button ROILoadButton 0;Button ROISaveButton 0;Button ROISetFolderButton 0;Titlebox ROIImpathtitle 0;",applyAbleState=0)
 	// List box for displaying existing ROIs
-	ListBox ROIListBox win=twoP_Controls,pos={214.00,439.00},size={125.00,100.00},proc=NQ_ROIListBoxProc
+	ListBox ROIListBox win=twoP_Controls,pos={214.00,439.00},size={125.00,100.00},proc=twoP_ROIListBoxProc
 	ListBox ROIListBox win=twoP_Controls,fSize=12,listWave=root:packages:twoP:examine:ROIListWave
 	ListBox ROIListBox win=twoP_Controls,selWave=root:packages:twoP:examine:ROIListSelWave,mode=4
 	ListBox ROIListBox win=twoP_Controls, disable = able
 	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI","ListBox ROIListBox 0;",applyAbleState=0)
 	// making a new ROI
-	Button RoiNewbutton win=twoP_Controls,pos={8.00,439.00},size={64.00,20.00},proc=NQ_NewRoiButtonProc
+	Button RoiNewbutton win=twoP_Controls,pos={8.00,439.00},size={64.00,20.00},proc=twoP_NewRoiButtonProc
 	Button RoiNewbutton win=twoP_Controls,title="New ROI"
 	Button RoiNewbutton win=twoP_Controls, disable = able
 	SetVariable RoiNameSetVar win=twoP_Controls,pos={80.00,439.00},size={88.00,18.00},title="Name"
@@ -111,22 +114,22 @@ Function NQexROI_add (able)
 	PopupMenu RoiColorPopup win=twoP_Controls, disable = able
 	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "Button RoiNewbutton;SetVariable RoiNameSetVar;PopupMenu ROIDrawPopup;PopupMenu RoiColorPopup",applyAbleState=0)
 	// editing existing ROI
-	Button ROINudgeButton win=twoP_Controls,pos={8.00,488.00},size={50.00,23.00},proc=NQ_RoiNudgeProc
+	Button ROINudgeButton win=twoP_Controls,pos={8.00,488.00},size={50.00,23.00},proc=twoP_RoiNudgeProc
 	Button ROINudgeButton win=twoP_Controls,title="Nudge"
 	Button ROINudgeButton win=twoP_Controls, disable = able
 	PopupMenu ROIonWindowPopup win=twoP_Controls,pos={63.00,491.00},size={147.00,20.00},title="On"
 	PopupMenu ROIonWindowPopup win=twoP_Controls,fSize=12
 	PopupMenu ROIonWindowPopup win=twoP_Controls,mode=1,popvalue="twoPscanGraph",value=#"WinList(\"*\", \";\", \"WIN:1\" )"
 	PopupMenu ROIonWindowPopup win=twoP_Controls,disable=able
-	Button ROIDuplButton win=twoP_Controls,pos={8.00,515.00},size={65.00,20.00},proc=NQ_ROIDuplicateButtonProc
+	Button ROIDuplButton win=twoP_Controls,pos={8.00,515.00},size={65.00,20.00},proc=twoP_ROIDuplicateButtonProc
 	Button ROIDuplButton win=twoP_Controls,title="Duplicate",fSize=12
 	Button ROIDuplButton win=twoP_Controls, disable = able
-	Button RoiDelbutton win=twoP_Controls,pos={90.00,515.00},size={60.00,20.00},proc=NQ_DelRoiButtonProc
+	Button RoiDelbutton win=twoP_Controls,pos={90.00,515.00},size={60.00,20.00},proc=twoP_DelRoiButtonProc
 	Button RoiDelbutton win=twoP_Controls,title="Delete",fSize=12
 	Button RoiDelbutton win=twoP_Controls, disable = able
 	GUIPTabAddCtrls ("twoP_Controls", "ExamineTabCtrl", "ROI", "Button ROINudgeButton;PopupMenu ROIonWindowPopup;Button ROIDuplButton;Button RoiDelbutton",applyAbleState=0)
 	// Do the ROI with options
-	Button ROIAvgButton win=twoP_Controls,pos={8.00,547.00},size={57.00,20.00},proc=NQ_ROIRunButtonProc
+	Button ROIAvgButton win=twoP_Controls,pos={8.00,547.00},size={57.00,20.00},proc=twoP_ROIRunButtonProc
 	Button ROIAvgButton win=twoP_Controls,title="ROI Avg"
 	Button ROIAvgButton win=twoP_Controls, disable =able
 	
@@ -139,7 +142,7 @@ Function NQexROI_add (able)
 	TitleBox ROIchanTitle win=twoP_Controls,variable=root:packages:twoP:examine:ROIselChan
 	TitleBox ROIchanTitle win=twoP_Controls, disable = able
 	
-	PopupMenu ROItopChanPopUp win=twoP_Controls,pos={149.00,547.00},size={45.00,20.00},bodyWidth=45,proc=NQ_ROIPopMenuProc
+	PopupMenu ROItopChanPopUp win=twoP_Controls,pos={149.00,547.00},size={45.00,20.00},bodyWidth=45,proc=twoP_ROIPopMenuProc
 	PopupMenu ROItopChanPopUp win=twoP_Controls,title="top",fSize=12
 	PopupMenu ROItopChanPopUp win=twoP_Controls,mode=0,value=#"twoP_ScanListImChans()"
 	PopupMenu ROItopChanPopUp win=twoP_Controls, disable = able
@@ -148,7 +151,7 @@ Function NQexROI_add (able)
 	TitleBox ROItopChanTitle win=twoP_Controls,variable=root:packages:twoP:examine:ROItopChan
 	TitleBox ROItopChanTitle win=twoP_Controls, disable = able
 	
-	PopupMenu ROIbottomChanPopUp win=twoP_Controls,pos={239.00,547.00},size={45.00,20.00},bodyWidth=45,proc=NQ_ROIPopMenuProc
+	PopupMenu ROIbottomChanPopUp win=twoP_Controls,pos={239.00,547.00},size={45.00,20.00},bodyWidth=45,proc=twoP_ROIPopMenuProc
 	PopupMenu ROIbottomChanPopUp win=twoP_Controls,title="bot",fSize=12
 	PopupMenu ROIbottomChanPopUp win=twoP_Controls,mode=0,value=#"twoP_ScanListImChans()"
 	PopupMenu ROIbottomChanPopUp win=twoP_Controls, disable =able
@@ -225,8 +228,28 @@ Function NQexROI_add (able)
 end
 
 
-function NQexROI_Update()
-	NQ_ListRois ()
+//******************************************************************************************************
+// Loads ROIs from an Igor text file on disk
+// Last Modified Jul 16 2010 by Jamie Boyd
+Function twoP_RoiLoadProc (ba) : ButtonControl
+	STRUCT WMbuttonAction &ba		
+		
+	switch( ba.eventCode )
+		case 2: // mouse up
+			string dfldr = getdatafolder (1)
+			setdatafolder $"root:twoP_ROIs:"
+			LoadWave/T/P=ROIPath ""
+			twoP_ListRois ()
+			setdatafolder dfldr
+			break
+	endSwitch
+End
+
+
+
+
+function twoPexROI_Update()
+	twoP_ListRois ()
 end
 
 
@@ -436,9 +459,9 @@ Function twoP_DoMarqueeRoi()
 	// do the ROI  2^3=8 different ways: Line Scan vs 3D wave, with Dark Subtraction or not, ROI avg vs ROI ratio
 	if (scanMode == kLineScan)
 		if (isRatio)
-			NQ_doLineScanROIRatio(topWave, bottomWave,  curScan + "_R" + num2str (ROINum), ROIavg, darkL, darkR)
+			twoP_doLineScanROIRatio(topWave, bottomWave,  curScan + "_R" + num2str (ROINum), ROIavg, darkL, darkR)
 		else
-			NQ_doLineScanROIavg(chWave,  curScan + "_R" + num2str (ROINum), ROIavg, darkL, darkR)
+			twoP_doLineScanROIavg(chWave,  curScan + "_R" + num2str (ROINum), ROIavg, darkL, darkR)
 		endif
 		// boxCar averaging?
 		if (doBCavg)
@@ -446,9 +469,9 @@ Function twoP_DoMarqueeRoi()
 		endif
 	else // a 3D scan
 		if (isRatio)
-			NQ_doSquareROIRatio(topWave, bottomWave, curScan + "_R" + num2str (ROINum), ROIavg, darkL, darkR, darkT, darkB)
+			twoP_doSquareROIRatio(topWave, bottomWave, curScan + "_R" + num2str (ROINum), ROIavg, darkL, darkR, darkT, darkB)
 		else
-			NQ_doSquareROIavg(chWave, curScan + "_R" + num2str (ROINum), ROIavg, darkL, darkR, darkT, darkB)
+			twoP_doSquareROIavg(chWave, curScan + "_R" + num2str (ROINum), ROIavg, darkL, darkR, darkT, darkB)
 		endif
 	endif
 	// apend roiAvg to TracesGraph
@@ -456,14 +479,14 @@ Function twoP_DoMarqueeRoi()
 	if (V_Flag)	// window exists
 		RemoveFromGraph/Z /W=twoP_tracesGraph $ROIAvgBaseName + "_y"
 		appendtograph /W=twoP_TracesGraph/C=(red, green, blue)/L=ROIL/B=Bottom  ROIavg	
-		NQ_TracesGraphShareAxes ()	
+		twoP_TracesGraphShareAxes ()	
 		Label ROIL "\\Z12Raw 12 bit A/D"  
 		ModifyGraph /W=twoP_TracesGraph freePos(ROIL)={0,bottom}, lblPos(ROIL)=45
 		ModifyGraph /W=twoP_TracesGraph btLen (ROIL)=2
 		ModifyGraph /W=twoP_TracesGraph stLen (ROIL)=1
 		ModifyGraph /W=twoP_TracesGraph ftLen (ROIL)=2
 	else
-		NQ_NewTracesGraph (curScan)
+		twoP_NewTracesGraph (curScan)
 	endif
 	
 end
@@ -471,7 +494,7 @@ end
 //******************************************************************************************************
 // Appends an ROI average to the Traces graph and the associated ROI to the ScanGraph
 // Last Modified 2025/09/15 by Jamie Boyd
-Function NQ_AppendROIandAvg (ROIavg, ROIStr, isDeltaFed)
+Function twoP_AppendROIandAvg (ROIavg, ROIStr, isDeltaFed)
 	WAVE ROIavg
 	string ROIStr
 	variable isDeltaFed
@@ -500,18 +523,18 @@ Function NQ_AppendROIandAvg (ROIavg, ROIStr, isDeltaFed)
 	// Draw ROI average on the traces graph
 	Dowindow/F twoP_tracesGraph
 	if (V_Flag == 0)	// window didn't exist
-		NQ_NewTracesGraph (curScan)
+		twoP_NewTracesGraph (curScan)
 	else
 		traceList = TraceNameList("twoP_TracesGraph", ";", 1 )
 		variable hasROISpace=0, hasROIaxis=0
 		string infoStr, thisAxis, thatAxis
 		if (isDeltaFed) // need ROIR axis
-				thisAxis = "ROIRAxis"
-				thatAxis="ROILAxis"
+				thisAxis = "ROIR"
+				thatAxis="ROIL"
 				appendtograph /W=twoP_TracesGraph/C=(red, green, blue)/R=$thisAxis/B=Bottom  ROIavg
 			else
-				thisAxis = "ROILAxis"
-				thatAxis="ROIRAxis"
+				thisAxis = "ROIL"
+				thatAxis="ROIR"
 				appendtograph /W=twoP_TracesGraph/C=(red, green, blue)/L=$thisAxis/B=Bottom  ROIavg
 			endif
 		variable axStart, axEnd
@@ -527,12 +550,12 @@ Function NQ_AppendROIandAvg (ROIavg, ROIStr, isDeltaFed)
 				endif
 			endif
 			if (isDeltaFed) // need ROIR axis
-				thisAxis = "ROIRAxis"
-				thatAxis="ROILAxis"
+				thisAxis = "ROIR"
+				thatAxis="ROIL"
 				appendtograph /W=twoP_TracesGraph/C=(red, green, blue)/R=$thisAxis/B=Bottom  ROIavg
 			else
-				thisAxis = "ROILAxis"
-				thatAxis="ROIRAxis"
+				thisAxis = "ROIL"
+				thatAxis="ROIR"
 				appendtograph /W=twoP_TracesGraph/C=(red, green, blue)/L=$thisAxis/B=Bottom  ROIavg
 			endif
 		
@@ -542,9 +565,9 @@ Function NQ_AppendROIandAvg (ROIavg, ROIStr, isDeltaFed)
 					sscanf infoStr, "{%f,%f}", axStart, axEnd
 					ModifyGraph /W=twoP_TracesGraph axisEnab($thisAxis)={axStart,axEnd}
 				else
-					NQ_TracesGraphShareAxes ()
+					twoP_TracesGraphShareAxes ()
 				endif
-				if (cmpStr (thisAxis, "ROIRAxis") ==0)
+				if (cmpStr (thisAxis, "ROIR") ==0)
 					ModifyGraph/W=twoP_TracesGraph freePos($thisAxis)={0,kwFraction}, lblPos($thisAxis)=45
 					Label $thisAxis "\\Z12Delta F/F"
 				else
@@ -563,7 +586,7 @@ end
 //******************************************************************************************************
 // Updates the list box of ROIs in the twoP_ROIS folder
 // Last Modified Jul 16 2010 by Jamie Boyd
-Function NQ_ListRois ()
+Function twoP_ListRois ()
 	
 	WAVE/T ROIListWave = root:Packages:twoP:examine:ROIListWave
 	WAVE ROIListSelWave = root:Packages:twoP:examine:ROIListSelWave
@@ -579,7 +602,7 @@ end
 //******************************************************************************************************
 // sets ratio top channel for ROI analysis
 // Last Modified 2025/05/15 by Jamie Boyd
-Function NQ_ROIPopMenuProc(pa) : PopupMenuControl
+Function twoP_ROIPopMenuProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 
 	switch( pa.eventCode )
@@ -598,7 +621,7 @@ End
 //******************************************************************************************************
 // Deletes selected ROIs in ROI list box
 // Last Modified Seo 02 2010 by Jamie Boyd
-Function NQ_DelRoiButtonProc (ba) : ButtonControl
+Function twoP_DelRoiButtonProc (ba) : ButtonControl
 	STRUCT WMbuttonAction &ba		
 		
 	switch( ba.eventCode )
@@ -628,7 +651,7 @@ End
 //******************************************************************************************************
 // Makes a new polygonal freehand or vertex-clicked or rectangular from marquee ROI
 // Last Modified Jul 16 2010 by Jamie Boyd
-Function NQ_NewRoiButtonProc(ba) : ButtonControl
+Function twoP_NewRoiButtonProc(ba) : ButtonControl
 	STRUCT WMbuttonAction &ba
 	
 	switch( ba.eventCode )
@@ -717,7 +740,7 @@ Function NQ_NewRoiButtonProc(ba) : ButtonControl
 			Note roiX, "WaveType:" + roiType + ";Red:" + num2str (Rcolor) + ";green:" + num2str (GColor) + ";Blue:" + num2str (BColor) + ";"
 			// Change title and procedure of new button
 			if (drawMethod != 3)
-				Button RoiNewbutton win=twoP_Controls, title = "Done", proc = NQ_DoneNewRoiButtonProc, fColor=(65535,0,0)
+				Button RoiNewbutton win=twoP_Controls, title = "Done", proc = twoP_DoneNewRoiButtonProc, fColor=(65535,0,0)
 			endif
 			// Add ROI to the ROI list wave
 			//  if it already exits, but don't add the name to the list of ROI's
@@ -739,14 +762,14 @@ end
 //******************************************************************************************************
 // Resets button and graph  after making a new polygonal freehand or vertex-clicked  ROI
 // Last Modified Jul 16 2010 by Jamie Boyd
-Function NQ_DoneNewRoiButtonProc(ba) : ButtonControl
+Function twoP_DoneNewRoiButtonProc(ba) : ButtonControl
 	STRUCT WMbuttonAction &ba		
 		
 	switch( ba.eventCode )
 		case 2: // mouse up
 			controlinfo/w=twoP_Controls ROIonWindowPopup
 			GraphNormal /W=$S_value
-			Button RoiNewbutton win=twoP_Controls, title = "New", proc = NQ_NewRoiButtonProc, fColor=(0,0,0)
+			Button RoiNewbutton win=twoP_Controls, title = "New", proc = twoP_NewRoiButtonProc, fColor=(0,0,0)
 			break
 	endSwitch
 end
@@ -754,7 +777,7 @@ end
 //******************************************************************************************************
 // Lets user choose a folder and saves the path to the folder for subsequent loading and saving of ROIs
 // Last Modified Jul 16 2010 by Jamie Boyd
-Function NQ_ROIsetPathProc (ba) : ButtonControl
+Function twoP_ROIsetPathProc(ba) : ButtonControl
 	STRUCT WMbuttonAction &ba		
 		
 	switch( ba.eventCode )
@@ -772,7 +795,7 @@ end
 //******************************************************************************************************
 // Saves selected ROIs as a single text file
 // Last Modified Jul 16 2010 by Jamie Boyd
-Function NQ_ROISaveProc(ba) : ButtonControl
+Function twoP_ROISaveProc(ba) : ButtonControl
 	STRUCT WMbuttonAction &ba		
 		
 	switch( ba.eventCode )
@@ -795,28 +818,12 @@ Function NQ_ROISaveProc(ba) : ButtonControl
 	endSwitch
 End
 
-//******************************************************************************************************
-// Loads ROIs from an Igor text file on disk
-// Last Modified Jul 16 2010 by Jamie Boyd
-Function NQ_RoiLoadProc (ba) : ButtonControl
-	STRUCT WMbuttonAction &ba		
-		
-	switch( ba.eventCode )
-		case 2: // mouse up
-			string dfldr = getdatafolder (1)
-			setdatafolder $"root:twoP_ROIs:"
-			LoadWave/T/P=ROIPath ""
-			NQ_ListRois ()
-			setdatafolder dfldr
-			break
-	endSwitch
-End
 
 //******************************************************************************************************
 // Deletes selected ROIS when delete key is pressed
 // sets color in popmenu when ROI is selected
 // Last Modified 2025/09/13 by Jamie Boyd
-Function NQ_ROIListBoxProc(lba) : ListBoxControl
+Function twoP_ROIListBoxProc(lba) : ListBoxControl
 	STRUCT WMListboxAction &lba
 
 	Variable row = lba.row
@@ -865,7 +872,7 @@ End
 //******************************************************************************************************
 // Append selected ROIs to selected graph, and sets quickrag options
 // Last Modified Jul 22 2010 by Jamie Boyd
-Function NQ_RoiNudgeProc(ba) : ButtonControl
+Function twoP_RoiNudgeProc(ba) : ButtonControl
 	STRUCT WMbuttonAction &ba		
 		
 	switch( ba.eventCode )
@@ -928,7 +935,7 @@ Function NQ_RoiNudgeProc(ba) : ButtonControl
 			endfor
 			// if not just plotting, set nudge button to new title and new procedure
 			if (!(justPlot))
-				Button ROINudgeButton win=twoP_Controls, title = "Done", proc = NQ_RoiNudgeDoneButtonProc, fColor=(65535,0,0)
+				Button ROINudgeButton win=twoP_Controls, title = "Done", proc = twoP_RoiNudgeDoneButtonProc, fColor=(65535,0,0)
 			endif
 			break
 	endSwitch
@@ -937,12 +944,12 @@ end
 //******************************************************************************************************
 // Translates trace offsets into X/Y offsets on the ROI and resets title and procedure for nudge button
 // Last Modified Jul 22 2010 by Jamie Boyd
-Function NQ_RoiNudgeDoneButtonProc(ba) : ButtonControl
+Function twoP_RoiNudgeDoneButtonProc(ba) : ButtonControl
 	STRUCT WMbuttonAction &ba		
 		
 	switch( ba.eventCode )
 		case 2: // mouse up
-			Button ROINudgeButton, win=twoP_Controls, title = "Nudge", proc = NQ_RoiNudgeProc, fColor=(0,0,0)
+			Button ROINudgeButton, win=twoP_Controls, title = "Nudge", proc = twoP_RoiNudgeProc, fColor=(0,0,0)
 			SVAR onWindow = root:packages:twoP:examine:nudgeOnWindow
 			SVAR ROInudgeList = root:packages:twoP:examine:ROInudgeList 
 			string AllTraces = TraceNameList(onWindow, ";", 1)
@@ -975,7 +982,7 @@ end
 //********************************************************************************************
 // Duplicates  the first ROI selected in the ROI list box, giving it the new ROI name from the setvar
 // Last Modified Jul 26 2010 by Jamie Boyd
-Function NQ_ROIDuplicateButtonProc(ba) : ButtonControl
+Function twoP_ROIDuplicateButtonProc(ba) : ButtonControl
 	STRUCT WMbuttonAction &ba		
 		
 	switch( ba.eventCode )
@@ -1023,7 +1030,7 @@ End
 //******************************************************************************************************
 // does an ROI avg of each selected ROI on the current scan
 // Last Modified 2025/08/05 by Jamie Boyd
-Function NQ_ROIRunButtonProc (ba) : ButtonControl
+Function twoP_ROIRunButtonProc (ba) : ButtonControl
 	STRUCT WMbuttonAction &ba		
 		
 	switch( ba.eventCode )
@@ -1047,7 +1054,7 @@ Function NQ_ROIRunButtonProc (ba) : ButtonControl
 			string aScan
 			for (iScan =0; iScan < nScans; iScan +=1)
 				aScan = stringFromList (iScan, doroiList, ";")
-				NQ_DoRoiFromList (aScan)
+				twoP_DoRoiFromList (aScan)
 			endfor
 			break
 	endSwitch
@@ -1076,7 +1083,7 @@ end
 
 
 
-Function NQ_DoRoiFromList (curScan)
+Function twoP_DoRoiFromList (curScan)
 	string curScan
 			
 	SVAR ScanNote = $"root:twoP_Scans:" + curscan  + ":" + curScan +  "_info"
@@ -1206,22 +1213,22 @@ Function NQ_DoRoiFromList (curScan)
 		// do the ROI
 		if (scanMode == kLineScan)
 			if (cmpStr (roiChan, "ratio") == 0)
-				NQ_doSquareROIRatio (topWave, bottomWave, ROIListWave [iROI], ROIavg, darkL, darkR, darkT, darkB)
+				twoP_doSquareROIRatio (topWave, bottomWave, ROIListWave [iROI], ROIavg, darkL, darkR, darkT, darkB)
 			else
-				NQ_doLineScanROIavg (chWave, ROIListWave [iROI], ROIavg, darkL, darkR)
+				twoP_doLineScanROIavg (chWave, ROIListWave [iROI], ROIavg, darkL, darkR)
 			endif
 		else // a 3D scan
 			if (cmpStr (roiType, "ROISquare") == 0)
 				if (cmpStr (roiChan, "ratio") == 0)
-					NQ_doSquareROIRatio (topWave, bottomWave, ROIListWave [iROI], ROIavg, darkL, darkR, darkT, darkB)
+					twoP_doSquareROIRatio (topWave, bottomWave, ROIListWave [iROI], ROIavg, darkL, darkR, darkT, darkB)
 				else
-					NQ_doSquareROIavg (chWave, ROIListWave [iROI], ROIavg, darkL, darkR, darkT, darkB)
+					twoP_doSquareROIavg (chWave, ROIListWave [iROI], ROIavg, darkL, darkR, darkT, darkB)
 				endif
 			elseif (cmpStr (roiType, "ROIPoly") == 0)
 				if (cmpStr (roiChan, "ratio") == 3)
-					NQ_doPolyROIRatio (topWave, bottomWave, ROIListWave [iROI], ROIavg, darkL, darkR, darkT, darkB)
+					twoP_doPolyROIRatio (topWave, bottomWave, ROIListWave [iROI], ROIavg, darkL, darkR, darkT, darkB)
 				else
-					NQ_doPolyROIavg (chWave, ROIListWave [iROI], ROIavg, darkL, darkR, darkT, darkB)
+					twoP_doPolyROIavg (chWave, ROIListWave [iROI], ROIavg, darkL, darkR, darkT, darkB)
 				endif
 			endif
 		endif
@@ -1233,18 +1240,18 @@ Function NQ_DoRoiFromList (curScan)
 			tempstr = ReplaceStringByKey ( "baseline", tempstr, num2str(baseline))
 			note/K ROIavg
 			note ROIavg, tempstr
-			NQ_AppendROIandAvg (ROIavg, ROIListWave [iROI], 1)
+			twoP_AppendROIandAvg (ROIavg, ROIListWave [iROI], 1)
 		else
-			NQ_AppendROIandAvg (ROIavg, ROIListWave [iROI], 0)
+			twoP_AppendROIandAvg (ROIavg, ROIListWave [iROI], 0)
 		endif
 	endfor
-	//NQ_TracesGraphShareAxes ()
+	//twoP_TracesGraphShareAxes ()
 end
 
 //******************************************************************************************************
 // Processes a LineScan ROI avg, with optional dark subtraction
 // Last Modified Jul 23 2010 by Jamie Boyd
-function NQ_doLineScanROIavg (chWave, ROI, ROIavg, darkL, darkR)
+function twoP_doLineScanROIavg(chWave, ROI, ROIavg, darkL, darkR)
 	WAVE chWave
 	string ROI
 	wave ROIavg
@@ -1276,7 +1283,7 @@ end
 //******************************************************************************************************
 // Processes a LineScan ROI ratio, with optional dark subtraction
 // Last Modified Jul 23 2010 by Jamie Boyd
-function NQ_doLineScanROIRatio (topWave, bottomWave, ROI, ROIratio, darkL, darkR)
+function twoP_doLineScanROIRatio (topWave, bottomWave, ROI, ROIratio, darkL, darkR)
 	WAVE topWave, bottomWave
 	string ROI
 	wave ROIratio
@@ -1317,7 +1324,7 @@ end
 //******************************************************************************************************
 // Processes a Square ROI avg, with optional dark subtraction
 // Last Modified Jul 23 2010 by Jamie Boyd
-Function NQ_doSquareROIavg (chWave, ROI, ROIavg, darkL, darkR, darkT, darkB)
+Function twoP_doSquareROIavg(chWave, ROI, ROIavg, darkL, darkR, darkT, darkB)
 	WAVE chWave
 	string ROI
 	wave ROIavg
@@ -1353,7 +1360,7 @@ end
 //******************************************************************************************************
 // Processes a Square ROI ratio, with optional dark subtraction
 // Last Modified Jul 23 2010 by Jamie Boyd
-Function NQ_doSquareROIRatio(topWave, bottomWave, ROI, ROIratio, darkL, darkR, darkT, darkB)
+Function twoP_doSquareROIRatio(topWave, bottomWave, ROI, ROIratio, darkL, darkR, darkT, darkB)
 	WAVE topWave, bottomWave
 	string ROI
 	wave ROIratio
@@ -1394,7 +1401,7 @@ end
 //******************************************************************************************************
 // Processes a polygonal ROI avg, with optional dark subtraction
 // Last Modified Jul 24 2010 by Jamie Boyd
-Function NQ_doPolyROIavg (chWave, ROI, ROIavg, darkL, darkR, darkT, darkB)
+Function twoP_doPolyROIavg(chWave, ROI, ROIavg, darkL, darkR, darkT, darkB)
 	WAVE chWave
 	string ROI
 	wave ROIavg
@@ -1437,7 +1444,7 @@ end
 //******************************************************************************************************
 // Processes a polygonal ROI ratio, with optional dark subtraction
 // Last Modified Jul 24 2010 by Jamie Boyd
-Function NQ_doPolyROIRatio(topWave, bottomWave, ROI, ROIratio, darkL, darkT, darkR, darkB)
+Function twoP_doPolyROIRatio(topWave, bottomWave, ROI, ROIratio, darkL, darkT, darkR, darkB)
 	WAVE topWave, bottomWave
 	string ROI
 	wave ROIratio
@@ -1541,90 +1548,96 @@ function twoP_ROIgetColorAngle (nROI)
 end
 
 
-
-//******************************************************************************************************
-// Last modified 2025/09/17 by Jamie Boyd
-Function NQ_DoDeltaFProc (pa) : PopupMenuControl
+//******************************************** twoP_DoDeltaFProc ******************************************************
+// Does deltaF/F for an ROI avg wave or list of ROI avg waves
+// Last modified 2026/09/10 by Jamie Boyd
+Function twoP_DoDeltaFProc (pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 
 	switch( pa.eventCode )
 		case 2: // mouse up
 			string RoiList	// Will contain a list of ROIs, if select all is chosen. Otherwise, contains the name of the chosen ROI
 			SVAR curscan = root:Packages:twoP:examine:curscan
-			variable bstart, bend, baseline
+			variable bstart, bend
 			ControlInfo /W=twoP_TracesGraph#controlPanel CursorCheck
 			if (V_Value == 1) // then taking baseline from between cursors
-				bstart = min ((pcsr(A  , "twoP_tracesGraph" )), (pcsr(B  , "twoP_tracesGraph" )))
+				if ((cmpStr (CsrInfo(A, "twoP_tracesGraph"), "") ==0) || (cmpStr (CsrInfo(B, "twoP_tracesGraph"), "") ==0))
+					doAlert 0, "Put the cursors on the graph if using cursors to set baseline"
+					return 1
+				endif
+				bstart = min ((pcsr(A  , "twoP_tracesGraph")), (pcsr(B  , "twoP_tracesGraph" )))
 				bend = max ((pcsr(A  , "twoP_tracesGraph" )), (pcsr(B  , "twoP_tracesGraph" )))
 			else		// taking baseline from first xpoints
 				NVAR ffordeltaf = root:Packages:twoP:examine:ffordeltaf
 				bstart = 0
 				bend = ffordeltaf -1
 			endif
-	
+			// set roi list, or single roi
 			if ((cmpstr (pa.popStr, "All ROI Avgs", 0))==0)
-				RoiList = RemoveFromList("All ROI Avgs", NQ_ListROIAvgs (curScan, 1))
+				RoiList = twoP_ListROIAvgs (curScan, 1, 0)
 			else
-				RoiList = pa.popStr
+				RoiList = pa.popStr + ";"
 			endif
-	
-			variable ii, iii, numRecLines, startp
-			string aRecLine
-			variable numRois = itemsinList (RoiList)
-			string tempstr
-			string traceName
-	
-			variable hasRROI =0
-			if ((cmpstr (AxisInfo("twoP_TracesGraph", "ROIRAxis"), "")) != 0)
-				hasRROI =1
+			// get info for ROI right axis (used for deltaeffed ROIs)
+			variable hasROIR =0
+			variable axStart, axEnd
+			string infoStr
+			if ((cmpstr (AxisInfo("twoP_TracesGraph", "ROIR"), "")) != 0)
+				hasROIR =1
 			else
-				variable axStart, axEnd
-				string infoStr= stringByKey("axisEnab(x)", axisinfo ("twoP_TracesGraph", "ROILAxis"),"=", ";")
+				infoStr= stringByKey("axisEnab(x)", axisinfo ("twoP_TracesGraph", "ROIL"),"=", ";")
 				sscanf infoStr, "{%f,%f}", axStart, axEnd
+				hasROIR =0
 			endif
-		
-			FOR (ii =0; ii < numRois; ii+=1)
-				traceName =  stringfromlist (ii, RoiList)
-				WAVE roiAvgwave = $"root:twoP_Scans:" + curscan + ":" + traceName
-				if (waveExists (roiAvgwave))
-					baseline = mean(roiAvgwave, pnt2x(roiAvgwave,bstart), pnt2x(roiAvgwave,bend))
-					roiAvgwave = (roiAvgwave - baseline)/baseline
-			
-					string RecStr = TraceInfo("twoP_TracesGraph", nameofwave (roiAvgwave), 0)
-					removefromgraph  /W=twoP_TracesGraph traceName
-					appendtograph /W=twoP_TracesGraph/R=ROIRAxis/B=Bottom roiAvgwave
-
-					startp = strsearch (RecStr, "RECREATION", 0)
-					RecStr = RecStr [startp + 11, strlen (recStr) -1]
-					numRecLines = itemsinlist (RecStr)
-			
-					FOR (iii = 0; iii < numRecLines; iii += 1)
-						aRecLine = stringfromlist (iii, RecStr)
-						startp = strsearch (aRecline, "(x)", 0)
-						aRecline = "modifyGraph/W=twoP_TracesGraph " + aRecline [0, startp] + traceName + aRecLine [startp + 2, strlen (arecline) -1]
-						execute arecline
-					ENDFOR
-		
-					tempstr = ReplaceNumberByKey("deltafed", note (roiAvgwave), 1 )
-					tempstr = ReplaceStringByKey ( "baseline", tempstr, num2str(baseline))
-					note/K roiAvgwave
-					note roiAvgwave, tempstr
-				endif
+			// iterate through ROIs (though there may be only 1)
+			variable iROI, nRois = itemsinList (RoiList)
+			string roiName
+			variable baseLine // calculated baseline value
+			string RecStr // recreation string for trace
+			variable startP, iRecLine, nRecLines
+			string aRecLine
+			string tempSTr
+			for (iROI =0 ; iROI < nRois; iROI += 1)
+				// apply deltaF/F to roiAvgwave
+				roiName =  stringfromlist (iROI, RoiList)
+				WAVE roiAvgwave = $"root:twoP_Scans:" + curscan + ":" + roiName
+				baseline = mean(roiAvgwave, pnt2x(roiAvgwave,bstart), pnt2x(roiAvgwave,bend))
+				roiAvgwave = (roiAvgwave - baseline)/baseline
+				// get recreation string for ROI
+				RecStr = TraceInfo("twoP_TracesGraph", roiName, 0)
+				// remove ROI and re-append to ROIR right axis
+				removefromgraph  /W=twoP_TracesGraph $roiName
+				appendtograph /W=twoP_TracesGraph/R=ROIR/B=Bottom roiAvgwave
+				// make roi look like it did using recfreation string
+				startp = strsearch (RecStr, "RECREATION", 0)
+				RecStr = RecStr [startp + 11, strlen (recStr) -1]
+				nRecLines = itemsinlist (RecStr)
+				for (iRecLine = 0; iRecLine < nRecLines; iRecLine += 1)
+					aRecLine = stringfromlist (iRecLine, RecStr)
+					startp = strsearch (aRecline, "(x)", 0)
+					aRecline = "modifyGraph/W=twoP_TracesGraph " + aRecline [0, startp] + roiName + aRecLine [startp + 2, strlen (arecline) -1]
+					execute arecline
+				endfor
+				// update info in wavenote for ROI avg
+				tempstr = ReplaceNumberByKey("deltafed", note (roiAvgwave), 1 )
+				tempstr = ReplaceStringByKey ( "baseline", tempstr, num2str(baseline))
+				Note/K roiAvgwave, tempstr
 			endfor
-			if (!hasRROI)
-				ModifyGraph /W=twoP_TracesGraph axisEnab(ROIRAxis)={axStart,axEnd}
-				ModifyGraph/W=twoP_TracesGraph freePos(ROIRAxis)={0,kwFraction}, lblPos(ROIRAxis)=45
-				Label ROIRAxis "\\Z12Delta F/F"
-			endif
+		if (!hasROIR)
+			ModifyGraph /W=twoP_TracesGraph axisEnab(ROIR)={axStart,axEnd}
+			ModifyGraph/W=twoP_TracesGraph freePos(ROIR)={0,kwFraction}, lblPos(ROIR)=45
+			Label ROIR "\\Z12Delta F/F"
+		endif
 			break
 	endSwitch
 	return 0
 end
 
+			
 //******************************************************************************************************
 // Undo the delta F /F transformation,using the baseline value stored in the ROI's wavenote. Also take ROI off of right axis on traces graph and put it on left axis
 // Last modified 2025/09/03 by Jamie Boyd
-Function NQ_UnDoDeltaFProc(pa) : PopupMenuControl
+Function twoP_UnDoDeltaFProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 
 	switch( pa.eventCode )
@@ -1635,7 +1648,7 @@ Function NQ_UnDoDeltaFProc(pa) : PopupMenuControl
 			variable  baseline
 		
 			if ((cmpstr (pa.popStr, "All ROI Avgs", 0))==0)
-				RoiList = RemoveFromList("All ROI Avgs", NQ_ListROIAvgs (curScan, 2))
+				RoiList = twoP_ListROIAvgs (curScan, 2, 0)
 			else
 				RoiList = pa.popStr
 			endif
@@ -1646,10 +1659,10 @@ Function NQ_UnDoDeltaFProc(pa) : PopupMenuControl
 			string tempstr
 	
 			variable hasRLOI =0
-			if ((cmpstr (AxisInfo("twoP_TracesGraph", "ROILAxis"), "")) != 0)
+			if ((cmpstr (AxisInfo("twoP_TracesGraph", "ROIL"), "")) != 0)
 				hasRLOI =1
 			else
-				string infoStr= stringByKey("axisEnab(x)", axisinfo ("twoP_TracesGraph", "ROIRAxis"),"=", ";")
+				string infoStr= stringByKey("axisEnab(x)", axisinfo ("twoP_TracesGraph", "ROIR"),"=", ";")
 				variable axStart, axEnd
 				sscanf infoStr, "{%f,%f}", axStart, axEnd
 			endif
@@ -1662,7 +1675,7 @@ Function NQ_UnDoDeltaFProc(pa) : PopupMenuControl
 			
 					string RecStr = TraceInfo("twoP_TracesGraph", nameofwave (roiwave), 0)
 					removefromgraph  /W=twoP_TracesGraph $nameofwave (roiwave)
-					appendtograph /W=twoP_TracesGraph/L=ROILAxis/B=Bottom roiwave
+					appendtograph /W=twoP_TracesGraph/L=ROIL/B=Bottom roiwave
 
 					startp = strsearch (RecStr, "RECREATION", 0)
 					RecStr = RecStr [startp + 11, strlen (recStr) -1]
@@ -1683,9 +1696,9 @@ Function NQ_UnDoDeltaFProc(pa) : PopupMenuControl
 			endfor
 			
 			if (!hasRLOI)
-				ModifyGraph /W=twoP_TracesGraph axisEnab(ROILAxis)={axStart,axEnd}
-				ModifyGraph/W=twoP_TracesGraph freePos(ROILAxis)={0,kwFraction}, lblPos(ROILAxis)=45
-				Label ROILAxis "\\Z12Raw 12 bit A/D"  
+				ModifyGraph /W=twoP_TracesGraph axisEnab(ROIL)={axStart,axEnd}
+				ModifyGraph/W=twoP_TracesGraph freePos(ROIL)={0,kwFraction}, lblPos(ROIL)=45
+				Label ROIL "\\Z12Raw 12 bit A/D"  
 			endif
 
 			break
@@ -1696,10 +1709,10 @@ end
 //******************************************************************************************************
 // Lists ROI avgs for the current scan. List can be limited to ROI avgs that have been deltaF/F processed or unprocessed. If all ROI avgs are listed, list includes ROI ratios
 // Last modified 2012/06/13 by Jamie Boyd
-Function/s NQ_ListROIAvgs (ScanName, deltaFed)
+Function/s twoP_ListROIAvgs (ScanName, deltaFed, isForMenu)
 	string ScanName
-	variable deltaFed	// 1 if listing waves that have NOT been detlafed, 2 if listing waves that have been deltafed, 3 if listing all ROIs
-	
+	variable deltaFed		// 1 if listing waves that have NOT been detlafed, 2 if listing waves that have been deltafed, 3 if listing all ROIs
+	variable isForMenu		// set if used in a menu
 	string BaseFolder = "root:twoP_Scans:"
 	string AvgList = GUIPListObjs("root:twoP_Scans:" + ScanName , 1, "*avg*",0, "")
 	variable ii, numAvgs = itemsinlist (AvgList, ";")
@@ -1733,10 +1746,12 @@ Function/s NQ_ListROIAvgs (ScanName, deltaFed)
 			endfor
 		endif
 	endif
-	if (strlen (outlist) > 2)
-		outlist +=  "All ROI Avgs"
-	else
-		outlist = "\\M1(No ROI Avgs"
+	if (isForMenu)
+		if (Itemsinlist (outlist, ";") == 0)
+			outlist = "\\M1(No ROI Avgs"
+		elseif (Itemsinlist (outlist, ";") > 1)
+			outlist +=  "All ROI Avgs"
+		endif
 	endif
 	
 	return outlist
@@ -1744,13 +1759,12 @@ end
 
 //******************************************************************************************************
 // Deletes an ROIavg and optionally its associated ROIwave(s)
-// Last modified Jul 26 2010 by Jamie Boyd
-Function NQ_DeleteRoiProc(pa) : PopupMenuControl
+// Last modified 2026/09/10 by Jamie Boyd
+Function twoP_DeleteRoiProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 
 	switch( pa.eventCode )
 		case 2: // mouse up
-	
 			WAVE/t RoiListWave = root:Packages:twoP:examine:RoiListWave
 			WAVE RoiListSelWave = root:Packages:twoP:examine:RoiListSelWave
 			string RoiList	// Will contain a list of ROIs, if select all is chosen. Otherwise, contains the name of the chosen ROI
@@ -1759,7 +1773,7 @@ Function NQ_DeleteRoiProc(pa) : PopupMenuControl
 			controlinfo /W=twoP_TracesGraph#controlPanel AndROICheck
 			DelRoi = V_Value
 			if ((cmpstr (pa.popStr, "All Roi Avgs"))==0)
-				RoiList = NQ_ListROIAvgs (curScan, 3)
+				RoiList = twoP_ListROIAvgs (curScan, 3, 0)
 			else
 				RoiList = pa.popStr
 			endif
@@ -1793,7 +1807,7 @@ Function NQ_DeleteRoiProc(pa) : PopupMenuControl
 					endif
 				endif
 			endfor
-			NQ_TracesGraphShareAxes ()
+			twoP_TracesGraphShareAxes ()
 			break
 	endSwitch
 End
@@ -1832,15 +1846,14 @@ end
 //******************************************************************************************************
 // Puts cursors on the first ROI avg in the twoP Traces Graph, for the purpose of defining a baseline value
 // Last modified 2026/09/10 by Jamie Boyd
-Function NQ_cursorCheckProc(cba) : CheckBoxControl
+Function twoP_cursorCheckProc(cba) : CheckBoxControl
 	STRUCT WMCheckboxAction &cba
 
 	switch( cba.eventCode )
 		case 2: // mouse up
 			if (cba.checked)
 				//showinfo
-				string firstTrace=twoP_findTraceOnAXis ("twoP_TracesGraph", "ROILAxis")
-				//string firstTrace = stringFromList (0, TraceNameList("twoP_TracesGraph", ";", 1 ), ";")
+				string firstTrace=twoP_findTraceOnAXis ("twoP_TracesGraph", "ROIL")
 				Cursor/P/W= twoP_TracesGraph A, $firstTrace,  0
 				Cursor/P/W= twoP_TracesGraph B, $firstTrace, 5
 			else

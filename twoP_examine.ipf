@@ -1,6 +1,6 @@
 #pragma rtGlobals=3
 #pragma IgorVersion = 6.2
-#pragma version = 2.1  // Last Modified: 2026/07/31 by Jamie Boyd
+#pragma version = 2.1  // Last Modified: 2026/09/11 by Jamie Boyd
 
 #include <SaveRestoreWindowCoords>
 #include "twoP_examineRGBthread"
@@ -9,9 +9,9 @@
 #include "GUIPProtoFuncs"
 #include "GUIPSubWinUtils"
 
-STATIC CONSTANT kNQimageBits = 12 	// defined here as well as in prefs
-											// because prefs are only for acquisition
 
+// bitwidth of images, used for histograms and look up tables
+STATIC CONSTANT kTwoPimageBits = 12 	
 //constants for scanning mode
 Constant kLiveMode = 0
 Constant kTimeSeries = 1
@@ -20,11 +20,10 @@ Constant kLineScan = 3
 Constant kZSeries = 4
 Constant kePhysOnly = 5
 COnstant kMultiAq = 6
-
 // Tabs on examine tab control at startup
-strConstant kNQexTabList = "export;stacks;fourD;ROI;"
+strConstant kTwoPTabList = "export;stacks;fourD;ROI;"
 // path to where we load ipf files for examine Tab, relative to Igor Pro User Files
-StrConstant kNQexTabPathStr = "twoPhoton"
+StrConstant kTwoPexTabPathStr = "twoPhoton"
 
 
 // These include files can be found in the "GUIP" folder in the User Procedures folder in the Igor Pro folder
@@ -47,7 +46,7 @@ End
 Menu "GraphMarquee"
 	Submenu "twoP Examine"
 		"Draw Scale Bar",/Q, twoP_DrawScaleBar()
-		"Measure Object",/Q, NQ_MeasureMarquee()
+		"Measure Object",/Q, twoP_MeasureMarquee()
 	end
 end
 
@@ -82,13 +81,13 @@ Function twoP_ExamineMakeFolder()
 	make/t/n=0 root:Packages:twoP:examine:NoteListWave
 	// Wave for Histogram
 	String/G root:packages:twoP:examine:HistGraphSelChans = "ch1,"
-	make/o/n =(2^kNQimageBits) root:Packages:twoP:Examine:HistWaveCh1
+	make/o/n =(2^kTwoPimageBits) root:Packages:twoP:Examine:HistWaveCh1
 	WAVE HistWaveCh1 = root:Packages:twoP:Examine:HistWaveCh1
 	setscale/p x, 0, 1	, "", HistWaveCh1
 	// Waves for sliders on the histogram
-	make/o root:Packages:twoP:examine:ImRangeLeftxCh1 = {(0.05 * 2^kNQimageBits),(0.05 * 2^kNQimageBits)}
+	make/o root:Packages:twoP:examine:ImRangeLeftxCh1 = {(0.05 * 2^kTwoPimageBits),(0.05 * 2^kTwoPimageBits)}
 	make/o root:Packages:twoP:examine:ImRangeLeftyCh1 = {0.1,inf}
-	make/o root:Packages:twoP:examine:ImRangeRightxCh1 = {(0.95 * 2^kNQimageBits) ,(0.95 * 2^kNQimageBits)}
+	make/o root:Packages:twoP:examine:ImRangeRightxCh1 = {(0.95 * 2^kTwoPimageBits) ,(0.95 * 2^kTwoPimageBits)}
 	make/o root:Packages:twoP:examine:ImRangeRightyCh1 = {0.1,inf}
 	// Values to control which channels to show in the ScanGraph
 	string/G root:packages:twoP:examine:ScanGraphSelChans = "ch1,"
@@ -119,7 +118,7 @@ Function twoP_ExamineMakeFolder()
 	// NB: modified 2016/11/08 to use unsigined integers
 	string/G root:Packages:twoP:examine:LUTChan = "ch1" // image channel we are working with, ch1 is a pretty good guess. Others made as needed
 	variable/G root:Packages:twoP:examine:Ch1FirstLUTColor = 0
-	variable/G root:Packages:twoP:examine:Ch1LastLUTColor = (2^kNQimageBits)-1
+	variable/G root:Packages:twoP:examine:Ch1LastLUTColor = (2^kTwoPimageBits)-1
 	variable/G root:Packages:twoP:examine:Ch1CTable = 1 // Grays
 	string/G  root:Packages:twoP:examine:Ch1CTableStr ="Grays"
 	variable/G root:Packages:twoP:examine:Ch1LUTInvert = 0 //  don't invert
@@ -173,7 +172,7 @@ Function twoP_ExamineMakePanel()
 	// make path to get new tabs for examine tab control
 	PathInfo exTabPath
 	if(V_Flag == 0)
-		string exTabPathStr = SpecialDirPath("Igor Pro User Files", 0, 0, 0 ) + "User Procedures:" + kNQexTabPathStr
+		string exTabPathStr = SpecialDirPath("Igor Pro User Files", 0, 0, 0 ) + "User Procedures:" + kTwoPexTabPathStr
 		NewPath/o/q/z exTabPath, exTabPathStr
 		PathInfo exTabPath
 		if(V_Flag == 0)
@@ -304,16 +303,16 @@ Function twoP_ExamineAddControls(able)
 	CheckBox LUTautoCheck win = twoP_Controls,variable=root:packages:twoP:examine:ch2LUTauto
 	CheckBox LUTautoCheck win = twoP_Controls,disable=able
 	// LUT slider
-	MinMaxSlider_make ("twoP_Controls", "CPLUTslider", 3, 222, 313, 1, ((2^kNQimageBits)-2), 7, 0, "twoP_LUTSliderAction", 3)
+	MinMaxSlider_make ("twoP_Controls", "CPLUTslider", 3, 222, 313, 1, ((2^kTwoPimageBits)-2), 7, 0, "twoP_LUTSliderAction", 3)
 	CustomControl CPLUTslider win = twoP_Controls,frame=0, focusRing=0, disable=able
 	// LUT first/last setvars
 	SetVariable LUTFirstValueSetVar win = twoP_Controls,pos={55.00,197.00},size={86.00,18.00},proc=twoP_LUTValsSetVarProc
 	SetVariable LUTFirstValueSetVar win = twoP_Controls,title="First",fSize=12,format="%d"
-	SetVariable LUTFirstValueSetVar win = twoP_Controls,limits={1,((2^kNQimageBits)-2),1},value=root:Packages:twoP:examine:Ch2FirstLUTColor
+	SetVariable LUTFirstValueSetVar win = twoP_Controls,limits={1,((2^kTwoPimageBits)-2),1},value=root:Packages:twoP:examine:Ch2FirstLUTColor
 	SetVariable LUTFirstValueSetVar win = twoP_Controls,disable=able
 	SetVariable LUTLastValueSetVar win = twoP_Controls,pos={142.00,197.00},size={84.00,18.00},proc=twoP_LUTValsSetVarProc
 	SetVariable LUTLastValueSetVar win = twoP_Controls,title="Last",fSize=12,format="%d"
-	SetVariable LUTLastValueSetVar win = twoP_Controls,limits={1,((2^kNQimageBits)-2),1},value=root:Packages:twoP:examine:Ch2LastLUTColor
+	SetVariable LUTLastValueSetVar win = twoP_Controls,limits={1,((2^kTwoPimageBits)-2),1},value=root:Packages:twoP:examine:Ch2LastLUTColor
 	SetVariable LUTLastValueSetVar win = twoP_Controls,disable=able
 	// adjust first/last to data range
 	Button LUTtoDataButton win = twoP_Controls,pos={229.00,194.00},size={50.00,23.00},proc=twoP_LUTtoDataProc
@@ -373,9 +372,9 @@ Function twoP_ExamineAddControls(able)
 	Slider FramePositionSlider win = twoP_Controls, pos={64,293},size={275,49},proc=twoP_MovieDisplayFrame
 	Slider FramePositionSlider win = twoP_Controls,limits={0,10,1},variable= root:Packages:twoP:examine:CurFramePos,vert= 0
 	Slider FramePositionSlider win = twoP_Controls, disable = able
-	Button PrevFrame win = twoP_Controls, pos={5,318},size={23,18},proc=NQ_MovieNextPrevious,title="<-"
+	Button PrevFrame win = twoP_Controls, pos={5,318},size={23,18},proc=twoP_MovieNextPrevious,title="<-"
 	Button PrevFrame win = twoP_Controls, disable=able
-	Button NextFrame win = twoP_Controls, pos={31,318},size={23,18},proc=NQ_MovieNextPrevious,title="->"
+	Button NextFrame win = twoP_Controls, pos={31,318},size={23,18},proc=twoP_MovieNextPrevious,title="->"
 	Button NextFrame win = twoP_Controls, disable=able
 	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine", "Button MovieButton;Slider FramePositionSlider;Button PrevFrame;Button NextFrame;")
 	// Dynamic ROI
@@ -423,7 +422,7 @@ Function twoP_ExamineAddControls(able)
 	// Show Other windows
 	GroupBox ShowOthersGroupBox win = twoP_Controls,pos={3,664},size={337,40},title="Show Other Windows", frame=0
 	GroupBox ShowOthersGroupBox win = twoP_Controls, disable=able
-	Button ShowTracesButton,win = twoP_Controls, pos={14,679},size={57,20},proc=NQ_showTracesProc,title="Traces"
+	Button ShowTracesButton,win = twoP_Controls, pos={14,679},size={57,20},proc=twoP_showTracesProc,title="Traces"
 	Button ShowTracesButton,win = twoP_Controls, disable=able
 	Button ShowMiscAnalysisButton win = twoP_Controls, pos={96,679},size={99,20},proc=MakeMiscPanel,title="Misc Analysis"
 	Button ShowMiscAnalysisButton win = twoP_Controls, disable=able
@@ -433,7 +432,7 @@ Function twoP_ExamineAddControls(able)
 	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Examine","Button ShowScansButton;")
 	// Examine tabControl
 	// Use String for list of tabs on the examine tab control, use it to start a tabcontrol database 
-	string tabList = kNQexTabList
+	string tabList = kTwoPTabList
 	SVAR/Z gTabList = root:packages:TCD:twoP_Controls:ExamineTabControl:tabList
 	if(SVAR_EXISTS(gTabList))
 		tabList = gTabList
@@ -461,9 +460,9 @@ Function twoP_ExamineAddControls(able)
 	for(iT =0; iT < nTabs; iT += 1)
 		addTab = stringfromList(iT, tabList)
 		if((iT ==curTab) &&(able == 0))
-			Execute/P/Q "NQex" + addTab + "_add(0)"
+			Execute/P/Q "twoPex" + addTab + "_add(0)"
 		else
-			Execute/P/Q "NQex" + addTab + "_add(1)"
+			Execute/P/Q "twoPex" + addTab + "_add(1)"
 		endif
 	endfor
 
@@ -512,7 +511,7 @@ Function twoP_ExamineAddTab()
 	//Make sure the tab's procedure file is loaded and execute the Add tab procedure
 	Execute/P/Q "INSERTINCLUDE \"twoPex_" + addTab + "\""
 	Execute/P/Q "COMPILEPROCEDURES "
-	Execute/P/Q "NQex" + addTab + "_add(0)"
+	Execute/P/Q "twoPex" + addTab + "_add(0)"
 	return 0
 end
 
@@ -543,8 +542,8 @@ Function twoP_ExamineRemoveTab()
 		return 1
 	endif
 	// Call the procedure's remove function , if it exists, to do extra things like kill globals
-	if((Exists("NQex" + removeTab + "_remove")) == 6) // then the procedure exists
-		funcref GUIPprotoFunc RemoveFunc = $"NQex" + removeTab + "_remove"
+	if((Exists("twoPex" + removeTab + "_remove")) == 6) // then the procedure exists
+		funcref GUIPprotoFunc RemoveFunc = $"twoPex" + removeTab + "_remove"
 		removeFunc()
 	endif
 	//Add a deleteinclude of the tabs procedure file to the operations que
@@ -563,7 +562,7 @@ Function twoP_ExamineTabCtrlProc(tca): TabControl
 	if(tca.eventCode == 2)
 		String tabList = GUIPTabGetTabList("twoP_Controls", "ExamineTabCtrl")
 		string theTab = StringFromList(tca.tab, tabList)
-		funcref GUIPprotofunc tabFunc = $"NQex" + theTab + "_Update"
+		funcref GUIPprotofunc tabFunc = $"twoPex" + theTab + "_Update"
 		tabFunc()
 	endif
 end
@@ -741,7 +740,7 @@ Function twoP_ScanPopMenuProc(pa) : PopupMenuControl
 			if((doephys ==0) && (nTraces ==0))
 				DoWindow/K twoP_TracesGraph
 			else
-				NQ_NewTracesGraph(curScan)
+				twoP_NewTracesGraph(curScan)
 			endif
 			// adjust the movie controls and visibility and change display
 			twoP_ScanAdjustExamineControls(curScan)
@@ -1363,17 +1362,17 @@ Function twoP_ImGraphNew(curScan)
 	// first last
 	SetVariable LUTFirstValueSetVar win=twoPscanGraph#controlPanel,pos={100.00,35.00},size={86.00,18.00},proc=twoP_LUTValsSetVarProc
 	SetVariable LUTFirstValueSetVar win=twoPscanGraph#controlPanel,title="First",fSize=12,format="%d"
-	SetVariable LUTFirstValueSetVar win=twoPscanGraph#controlPanel,limits={1,((2^kNQimageBits)-1),1},value=root:Packages:twoP:examine:Ch1FirstLUTColor
+	SetVariable LUTFirstValueSetVar win=twoPscanGraph#controlPanel,limits={1,((2^kTwoPimageBits)-1),1},value=root:Packages:twoP:examine:Ch1FirstLUTColor
 	SetVariable LUTLastValueSetVar win=twoPscanGraph#controlPanel,pos={187.00,35.00},size={84.00,18.00},proc=twoP_LUTValsSetVarProc
 	SetVariable LUTLastValueSetVar win=twoPscanGraph#controlPanel,title="Last",fSize=12,format="%d"
-	SetVariable LUTLastValueSetVar win=twoPscanGraph#controlPanel,limits={1,((2^kNQimageBits)-1),1},value=root:Packages:twoP:examine:Ch1LastLUTColor
+	SetVariable LUTLastValueSetVar win=twoPscanGraph#controlPanel,limits={1,((2^kTwoPimageBits)-1),1},value=root:Packages:twoP:examine:Ch1LastLUTColor
 	Button LUTtoDataButton win=twoPscanGraph#controlPanel,pos={272.00,32.00},size={50.00,23.00},proc=twoP_LUTtoDataProc
 	Button LUTtoDataButton win=twoPscanGraph#controlPanel,title="to Data",fSize=12
 	CheckBox LUT96check win=twoPscanGraph#controlPanel,pos={324.00,36.00},size={38.00,15.00},proc=twoP_LUT96CheckProc
 	CheckBox LUT96check win=twoPscanGraph#controlPanel,title="96%",fSize=12
 	CheckBox LUT96check win=twoPscanGraph#controlPanel,variable=root:Packages:twoP:examine:Ch1LUTto96
 	//LUT slider
-	MinMaxSlider_make ("twoPscanGraph#controlPanel", "SGLUTslider", 3, 59, 336, 1, ((2^kNQimageBits)-2), 7, 0, "twoP_LUTSliderAction", 3)
+	MinMaxSlider_make ("twoPscanGraph#controlPanel", "SGLUTslider", 3, 59, 336, 1, ((2^kTwoPimageBits)-2), 7, 0, "twoP_LUTSliderAction", 3)
 	CustomControl SGLUTslider win=twoPscanGraph#controlPanel,frame=0,focusRing=0
 	// Set window hook function
 	SetWindow twoPscanGraph hook(infoHook)= twoP_imGraphHookProc, hookevents = 3
@@ -1681,7 +1680,7 @@ Function twoP_imGraphHookProc(s)
 					ba.ctrlname = "NextFrame"
 				endif
 				ba.eventCode =2
-				NQ_MovieNextPrevious(ba)
+				twoP_MovieNextPrevious(ba)
 				hookResult =1
 			endif
 			break
@@ -1700,7 +1699,7 @@ End
 // 
 // LIne scans on a separate Y axis, same X axis(cause they have the same time base). When DeltaF/F is applied, the averages are put on a new Y axis on bottom right
 // Last Modified Jul 12 2010 by Jamie Boyd
-Function NQ_NewTracesGraph(curScan)
+Function twoP_NewTracesGraph(curScan)
 	string curScan
 	
 	variable isNew // if making graph from scratch, this will be set to 1, 0 for revamping an existing graph
@@ -1759,20 +1758,20 @@ Function NQ_NewTracesGraph(curScan)
 			green = numberbykey("Green", note(traceWave))
 			blue = numberbykey("Blue", note(traceWave))
 			if((numberbykey("deltafed", note(traceWave))) == 0)
-				appendtograph /W=twoP_TracesGraph/C=((red),(green),(blue))/L=ROILAxis/B=Bottom traceWave
+				appendtograph /W=twoP_TracesGraph/C=((red),(green),(blue))/L=ROIL/B=Bottom traceWave
 			else
-				appendtograph /W=twoP_TracesGraph/C=((red),(green),(blue))/R=ROIRAxis/B=Bottom traceWave
+				appendtograph /W=twoP_TracesGraph/C=((red),(green),(blue))/R=ROIR/B=Bottom traceWave
 			endif
 		endfor
-		if(WhichListItem("ROILAxis", axislist("twoP_TracesGraph"), ";") >-1)
-			ModifyGraph/W=twoP_TracesGraph axisEnab(ROILAxis)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis * .01)}
-			ModifyGraph /W=twoP_TracesGraph freePos(ROILAxis)={0,bottom}, lblPos(ROILAxis)=45, tick(ROILAxis)=0
-			Label ROILAxis "\\Z12Raw 12 bit A/D"
+		if(WhichListItem("ROIL", axislist("twoP_TracesGraph"), ";") >-1)
+			ModifyGraph/W=twoP_TracesGraph axisEnab(ROIL)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis * .01)}
+			ModifyGraph /W=twoP_TracesGraph freePos(ROIL)={0,bottom}, lblPos(ROIL)=45, tick(ROIL)=0
+			Label ROIL "\\Z12Raw 12 bit A/D"
 		endif
-		if(WhichListItem("ROIRAxis", axislist("twoP_TracesGraph"), ";") >-1)
-			ModifyGraph/W=twoP_TracesGraph axisEnab(ROIRAxis)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis * .01)}
-			ModifyGraph/W=twoP_TracesGraph freePos(ROIRAxis)={0,kwFraction}, lblPos(ROIRAxis)=45, tick(ROIRAxis)=0
-			Label ROIrAxis  "\\Z12Delta F/F"
+		if(WhichListItem("ROIR", axislist("twoP_TracesGraph"), ";") >-1)
+			ModifyGraph/W=twoP_TracesGraph axisEnab(ROIR)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis * .01)}
+			ModifyGraph/W=twoP_TracesGraph freePos(ROIR)={0,kwFraction}, lblPos(ROIR)=45, tick(ROIR)=0
+			Label ROIR  "\\Z12Delta F/F"
 		endif
 	endif
 	
@@ -1804,19 +1803,19 @@ Function NQ_NewTracesGraph(curScan)
 		// control bar and controls
 		NewPanel/HOST=#/EXT=3/W=(0,50,460,0) /K=2  as "Controls"
 		SetVariable FSetVar,pos={11.00,3.00},size={202.00,18.00}
-		SetVariable FSetVar,title="Set \"F \" from first n points",fSize=12
+		SetVariable FSetVar,title="Set \"F \" from first n points",fSize=12,format="n=%g"
 		SetVariable FSetVar,limits={1,inf,1},value=root:Packages:twoP:examine:ffordeltaf
-		CheckBox CursorCheck,pos={11.00,26.00},size={132.00,16.00},proc=NQ_cursorCheckProc
+		CheckBox CursorCheck,pos={11.00,26.00},size={132.00,16.00},proc=twoP_cursorCheckProc
 		CheckBox CursorCheck,title="set \"F\" from cursors",fSize=12,value=0
-		PopupMenu ROIPopup,pos={217.00,2.00},size={105.00,20.00},proc=NQ_DoDeltaFProc
+		PopupMenu ROIPopup,pos={217.00,2.00},size={105.00,20.00},proc=twoP_DoDeltaFProc
 		PopupMenu ROIPopup,title="Do Delta F/F",fSize=12
-		PopupMenu ROIPopup,mode=0,value=#"NQ_ListROIAvgs(root:packages:twoP:examine:curScan, 1)"
-		PopupMenu UnDoROIPopup,pos={330.00,2.00},size={120.00,20.00},proc=NQ_UnDoDeltaFProc
+		PopupMenu ROIPopup,mode=0,value=#"twoP_ListROIAvgs(root:packages:twoP:examine:curScan, 1, 1)"
+		PopupMenu UnDoROIPopup,pos={330.00,2.00},size={120.00,20.00},proc=twoP_UnDoDeltaFProc
 		PopupMenu UnDoROIPopup,title="Undo Delta F/F",fSize=12
-		PopupMenu UnDoROIPopup,mode=0,value=#"NQ_ListROIAvgs(root:packages:twoP:examine:curScan, 2)"
-		PopupMenu DeleteROIPopMenu,pos={217.00,24.00},size={121.00,20.00},proc=NQ_DeleteRoiProc
+		PopupMenu UnDoROIPopup,mode=0,value=#"twoP_ListROIAvgs(root:packages:twoP:examine:curScan, 2, 1)"
+		PopupMenu DeleteROIPopMenu,pos={217.00,24.00},size={121.00,20.00},proc=twoP_DeleteRoiProc
 		PopupMenu DeleteROIPopMenu,title="Delete ROI Avg",fSize=12
-		PopupMenu DeleteROIPopMenu,mode=0,value=#"NQ_ListROIAvgs(root:packages:twoP:examine:curScan, 3)"
+		PopupMenu DeleteROIPopMenu,mode=0,value=#"twoP_ListROIAvgs(root:packages:twoP:examine:curScan, 3, 1)"
 		CheckBox AndROICheck,pos={346.00,26.00},size={79.00,16.00},title="and its ROI"
 		CheckBox AndROICheck,fSize=12,value=0
 		RenameWindow #,controlPanel
@@ -1842,30 +1841,30 @@ end
 // Adjust the axes on the Nidaq Traces Graph to share axis space, if necessary
 // call after adding or removing traces
 // Last modified 2025/09/18 by Jamie Boyd
-Function NQ_TracesGraphShareAxes()
+Function twoP_TracesGraphShareAxes()
 	
 	variable hasLeftROI =0
 	variable hasRightROI =0
 	string Axes = removefromList("bottom", axisList("twoP_TracesGraph"))
-	if(whichListItem("ROIRAxis", Axes) > -1)
+	if(whichListItem("ROIR", Axes) > -1)
 		hasRightROI =1
 	endif
-	if(whichListItem("ROILAxis", Axes) > -1)
+	if(whichListItem("ROIL", Axes) > -1)
 		hasLeftROI =1
 	endif
 	variable hasBothROI = hasRightROI && hasLeftROI
 	variable iAxis, nAxes = itemsinList(Axes)
 	if(hasBothROI)
 		nAxes -=1
-		Axes = removefromList("ROIRAxis",Axes)
+		Axes = removefromList("ROIR",Axes)
 	endif
 	variable axisFrac =(1-.02*(nAxes-1))/nAxes
 	string anAxis
 	for(iAxis =0; iAxis < nAxes; iAxis +=1)
 		anAxis = stringfromlist(iAxis, Axes)
 		ModifyGraph/W=twoP_TracesGraph axisEnab($anAxis)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis * .01)}
-		if((cmpStr(anAxis, "ROILAxis") ==0) &&(hasBothROI))
-			ModifyGraph/W=twoP_TracesGraph axisEnab(ROIRAxis)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis * .01)}
+		if((cmpStr(anAxis, "ROIL") ==0) &&(hasBothROI))
+			ModifyGraph/W=twoP_TracesGraph axisEnab(ROIR)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis * .01)}
 		endif
 	endfor
 end
@@ -1874,11 +1873,11 @@ end
 
 //******************************************************************************************************
 // SHows the traces graph, or makes it
-Function NQ_showTracesProc(ctrlName) : ButtonControl
+Function twoP_showTracesProc(ctrlName) : ButtonControl
 	String ctrlName
 	
 	SVAR curScan = root:packages:twoP:examine:curScan
-	NQ_NewTracesGraph(curScan)
+	twoP_NewTracesGraph(curScan)
 End
 
 
@@ -2212,18 +2211,18 @@ function twoP_LUTmakeChanVars(LUTchan)
 	String/G $"root:Packages:twoP:examine:" + LUTchan + "CTableStr"="Grays"								// name of color table, popmenu proc wants the name
 	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "LUTInvert" = 0 								// don't invert the LUT
 	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "FirstLUTColor" = 0							// First color for LUT
-	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "LastLUTColor" =(2^kNQimageBits)-1		// last color for LUT e.g., 4095 for 12 bit images
+	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "LastLUTColor" =(2^kTwoPimageBits)-1		// last color for LUT e.g., 4095 for 12 bit images
 	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "BeforeMode" = 1 								// 0 means first color, 1 means selected color, 2 means transparent
 	String/G $"root:Packages:twoP:examine:" + LUTchan + "BeforeColors" = "0,0,65535" 					// use blue for image values before  first color with before mode 1
 	Variable/G $"root:Packages:twoP:examine:" + LUTchan + "AfterMode" = 1 								// 0 means last color, 1 means selected color, 2 means transparent
 	String/G $"root:Packages:twoP:examine:" + LUTchan + "AfterColors" = "65535,0,0" 					// use red for image values greater tan lest color, with after mode 1
 	// make waves to display LUT on histogram
-	make/o $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan = {(0.05 * 2^kNQimageBits),(0.05 * 2^kNQimageBits)}
+	make/o $"root:Packages:twoP:examine:ImRangeLeftx" + LUTchan = {(0.05 * 2^kTwoPimageBits),(0.05 * 2^kTwoPimageBits)}
 	make/o $"root:Packages:twoP:examine:ImRangeLefty" + LUTchan = {0.1,inf}
-	make/o $"root:Packages:twoP:examine:ImRangeRightx" + LutChan = {(0.95 * 2^kNQimageBits) ,(0.95 * 2^kNQimageBits)}
+	make/o $"root:Packages:twoP:examine:ImRangeRightx" + LutChan = {(0.95 * 2^kTwoPimageBits) ,(0.95 * 2^kTwoPimageBits)}
 	make/o $"root:Packages:twoP:examine:ImRangeRighty" + LutChan = {0.1,inf}
 	// make histogram wave as well
-	make/o/n =(2^kNQimageBits) $"root:Packages:twoP:Examine:HistWave" + LUTchan
+	make/o/n =(2^kTwoPimageBits) $"root:Packages:twoP:Examine:HistWave" + LUTchan
 	WAVE HistWave = $"root:Packages:twoP:Examine:HistWave" + LUTchan
 	setscale/p x, 0, 1	, "", HistWave
 end
@@ -2656,15 +2655,15 @@ Function twoP_LUTtoDataProc(ba) : ButtonControl
 			// check for limiting to 96% - we need a full histogram, else just max and min
 			NVAR LutTo96 =  $"root:packages:twoP:examine:" + LUTchan + "LUTto96"
 			if(LutTo96)
-				make/I/U/n=((2^kNQimageBits)-1)/FREE histWave
-				setscale x 0, ((2^kNQimageBits)-1), "", histWave
+				make/I/U/n=((2^kTwoPimageBits)-1)/FREE histWave
+				setscale x 0, ((2^kTwoPimageBits)-1), "", histWave
 				histogram/B=2 scanWave, histWave
 				variable theSum =  sum(histWave)
 				variable ii, runningSum, val2 = theSum * 0.02, val98 = theSum * 0.98
 				for(ii =0, runningSum = 0; runningSum < val2; ii += 1, runningSum += histWave [ii])
 				endfor
 				FirstColor = max (1, round(pnt2x(histWave, ii)))
-				for(ii =((2^kNQimageBits)-1), runningSum = theSum;  runningSum >val98 ; ii -= 1, runningSum -= histWave [ii])
+				for(ii =((2^kTwoPimageBits)-1), runningSum = theSum;  runningSum >val98 ; ii -= 1, runningSum -= histWave [ii])
 				endfor
 				LastColor = round(pnt2x(histWave, ii))
 			else //NOt 96%,just min and max
@@ -3070,7 +3069,7 @@ end
 // *******************************************************************************************************
 // This procedure shows the different layers of the image, one after the other, in a movie, by starting a background task
 // Last modified Sep 04 2009 by Jamie Boyd - used named background task
-STATIC CONSTANT NQMOVIEFRAMERATE = 20
+STATIC CONSTANT TWOPMOVIEFRAMERATE = 20
 Function twoP_MovieProc(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 	
@@ -3084,7 +3083,7 @@ Function twoP_MovieProc(ba) : ButtonControl
 			string title =  StringByKey("title", S_recreation , "=" , ",")
 			if((cmpstr(title, "\"movie\"\r")) == 0)
 				Button MovieButton  win = twoP_Controls,title="Stop"
-				CtrlNamedBackground DoMovie_Bkg, period=(60/NQMOVIEFRAMERATE), proc=twoP_Movie_Bkg
+				CtrlNamedBackground DoMovie_Bkg, period=(60/TWOPMOVIEFRAMERATE), proc=twoP_Movie_Bkg
 				CtrlNamedBackground DoMovie_Bkg, start
 			else
 				Button MovieButton  win = twoP_Controls,title="movie"
@@ -3125,7 +3124,7 @@ End
 //******************************************************************************************************
 // moves frame position back/forward with each click of the corresponding button
 // Last modified Sep 03 2009 by Jamie Boyd
-Function NQ_MovieNextPrevious(ba) : ButtonControl
+Function twoP_MovieNextPrevious(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 	
 	switch( ba.eventCode )
@@ -3309,25 +3308,31 @@ end
 // *******************************************************************************
 // this function returns a list of scans whose user-entered experiment notes have 
 // an entry for theKey with a value matching requestedValue
-function/S getScansByKeyValue(theKey, requestedValue)
+function/S getScansByKeyValue1(theKey, requestedValue)
 	string theKey
 	string requestedValue
 	
-	string scanList = GUIPListObjs("root:twoP_Scans:" , 4, "*",0, "")
-	string returnList = ""
-	variable iScan,nScans= itemsinlist (scanList, ";")
-	string aScan, expNote, value
-	for (iScan=0; iScan < nScans; iScan +=1)
-		aScan= stringFromlist (iScan, scanList, ";")
-		SVAR noteStr = $"root:twoP_Scans:" + aScan + ":" + aScan + "_info"
+	DFREF dfr = root:twoP_Scans
+	String scanName
+	String expNote
+	String ReturnList = ""
+	String value
+	Variable index = 0
+	do
+		scanName = GetIndexedObjNameDFR(dfr, 4, index)
+		if (strlen (scanName) == 0)
+			break
+		endif
+		SVAR/z noteStr = $"root:twoP_Scans:" + scanName + ":" + scanName + "_info"
 		expNote = StringByKey("ExpNote", noteStr, "=", "\r")
 		value = StringByKey (theKey, expNote, ":", ";")
 		if (StringMatch(value, requestedValue))
-			returnList += aScan + ";"
+			returnList = AddListItem(scanName, returnList)
 		endif
-	endfor
-	return returnList
-End
+		index += 1
+	while (1)
+	return ReturnList
+end
 
 //******************************************************************************************************
 //Draws a nice scale-bar on an image using scaling of bottom axis
@@ -3595,7 +3600,7 @@ end
 //******************************************************************************************************
 // Measures distances from the Maqrquee using left and bottom axes scaling
 // Last Modified May 25 2010 by Jamie Boyd
-Function NQ_MeasureMarquee()
+Function twoP_MeasureMarquee()
 	string vAxis = "left", hAxis = "bottom"
 	string axes = axislist("")
 	if((whichlistItem("left", axes, ";")) == -1)

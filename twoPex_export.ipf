@@ -10,7 +10,7 @@
 
 // function for adding  the Export tab.
 // Last modified 2015/04/12 by Jamie Boyd
-Function NQexExport_add (able)
+Function TwoPexExport_add (able)
 	variable able
 	
 	// Globals For Export Tab

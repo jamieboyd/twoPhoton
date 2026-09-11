@@ -9,7 +9,7 @@
 //******************************************************************************************************
 
 // function for adding  the Stacks tab.
-Function NQexStacks_add (able)
+Function TwoPexStacks_add (able)
 	variable able
 	
 	// Globals for Stacks Tab
