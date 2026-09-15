@@ -1,6 +1,8 @@
-#pragma rtGlobals=3
-#pragma IgorVersion = 6.2
-#pragma version = 2.1  // Last Modified: 2026/09/11 by Jamie Boyd
+#pragma TextEncoding = "UTF-8"
+#pragma rtGlobals=3				// Use modern global access method and strict wave access
+#pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
+#pragma version = 2.1  			// Last Modified: 2026/09/14 by Jamie Boyd.
+#pragma IgorVersion = 7			// Not sure about this. Perhaps some Igor 9isms have slipped in
 
 #include <SaveRestoreWindowCoords>
 #include "twoP_examineRGBthread"
@@ -8,10 +10,18 @@
 #include "GUIPList"
 #include "GUIPProtoFuncs"
 #include "GUIPSubWinUtils"
+#include "GUIPRGB"
 
+
+// **************************************** twoP_examine ****************************************************
+// ------------------ Part of twoPhoton - Scanning Laser Microscopy with Igor Pro and NI-DAQmx --------------
+// ----------------------------------------------------------------------------------------------------------
+// --------- Code for Examining Scans created by twoPhoton. Many features for Analysis and Display ----------
+// **********************************************************************************************************
 
 // bitwidth of images, used for histograms and look up tables
-STATIC CONSTANT kTwoPimageBits = 12 	
+Static Constant kTwoPimageBits = 12
+
 //constants for scanning mode
 Constant kLiveMode = 0
 Constant kTimeSeries = 1
@@ -19,17 +29,21 @@ Constant kSingleImage = 2
 Constant kLineScan = 3
 Constant kZSeries = 4
 Constant kePhysOnly = 5
-COnstant kMultiAq = 6
+Constant kMultiAq = 6
+
 // Tabs on examine tab control at startup
-strConstant kTwoPTabList = "export;stacks;fourD;ROI;"
+StrConstant kTwoPTabList = "export;stacks;fourD;ROI;"
+
 // path to where we load ipf files for examine Tab, relative to Igor Pro User Files
 StrConstant kTwoPexTabPathStr = "twoPhoton"
 
+// width, in characters, of the WaveNote ListBox used for displaying the experiment note
+// If your text is spilling past the end of the line, set kExpNoteCharWid smaller
+Static Constant kExpNoteCharWid = 38
 
-// These include files can be found in the "GUIP" folder in the User Procedures folder in the Igor Pro folder
 
 //******************************************************************************************************
-// Let's put  function to make the  panel in the macros menu.
+// Put function to make the  panel in the macros menu.
 // also functions to add and remove examine tabs
 Menu "Macros"
 	Submenu "twoP"
@@ -41,12 +55,15 @@ Menu "Macros"
 	end
 End 
 
+
 //******************************************************************************************************
 // Graph Marquee functions to do useful things on the scan graph
 Menu "GraphMarquee"
 	Submenu "twoP Examine"
-		"Draw Scale Bar",/Q, twoP_DrawScaleBar()
-		"Measure Object",/Q, twoP_MeasureMarquee()
+		"Set Dark Fluorescence Region",/Q, twoP_ROIsetDarkFluorescence()
+		"Do ROI", /Q,twoP_ROIdoMarquee()
+		"Draw Scale Bar",/Q, twoP_UtilDrawScaleBar()
+		"Measure Object",/Q, twoP_UtilMeasureMarquee()
 	end
 end
 
@@ -57,7 +74,7 @@ end
 //******************************************************************************************************
 
 
-//******************************************************************************************************
+//******************************** twoP_ExamineMakeFolder *********************************************
 // Makes globals for Examine tab functions of the Nidaq Controls panel
 // Last Modified 2025/08/08 by Jamie Boyd
 Function twoP_ExamineMakeFolder()
@@ -149,11 +166,12 @@ Function twoP_ExamineMakeFolder()
 	variable/g root:Packages:twoP:examine:startffordeltaf =0		//The range of points at in the ROI wave used for determining the  "F"  used for calculating "deltaF" is stored in these two variables
 	variable/g root:Packages:twoP:examine:endffordeltaf =5
 	variable/g root:Packages:twoP:examine:ffordeltaf		//This variable is used to set baseline fluorescence from the first x points of the wave
-
+	make/o/t/n= 0 root:Packages:twoP:examine:ROIListWave
+	make/o/n= 0 root:Packages:twoP:examine:ROIListSelWave
 end
 
 
-//******************************************************************************************************
+//******************************** twoP_ExamineMakePanel *********************************************
 // Makes the main control panel. Also makes sure Global Variables and Folders exist, and calls Initializing of Acquire Stuff, if Acquire Procedure is present
 // Last Modified 2025/08/11 by Jamie Boyd
 Function twoP_ExamineMakePanel()
@@ -209,28 +227,10 @@ Function twoP_ExamineMakePanel()
 	// save/apply window position
 	SetWindow twoP_Controls hook(savePosHook)= twoP_UtilSaveWinPosHook, hookevents = 2
 	WC_WindowCoordinatesRestore("twoP_Controls")
-	// start thread for RGB wave   	twoP_examineRGBstart()
 end
 
 
-function twoP_examineRGBstart()
-	WAVE RGBWave= root:packages:twoP:examine:scanGraph_rgb
-	WAVE/WAVE RGBsources =  root:packages:twoP:examine:rgbSources
-	WAVE RGBfirstLasts = root:packages:twoP:examine:rgbfirstLasts
-	NVAR ThreadGroupID = root:packages:twoP:examine:rgbThreadGroupID
-	ThreadGroupID = ThreadGroupCreate(1)
-	ThreadStart ThreadGroupID, 0, RGBthread#twoP_examineRGBthread (RGBWave, RGBsources, RGBfirstLasts)
-end
-
-function twoP_examineRGBstop()
-	NVAR ThreadGroupID = root:packages:twoP:examine:rgbThreadGroupID
-	ThreadGroupID = ThreadGroupRelease(ThreadGroupID)
-end
-
-
-
-
-//******************************************************************************************************
+//********************************* twoP_ExamineAddControls*****************************************
 // Adds controls for the Examine functions to the Nidaq Controls panel
 // Last Modified 2025/08/01 by Jamie Boyd
 Function twoP_ExamineAddControls(able)
@@ -284,7 +284,7 @@ Function twoP_ExamineAddControls(able)
 	// Channel selector
 	PopupMenu LUTchanMenu win = twoP_Controls,pos={7.00,169.00},size={43.00,19.00},proc=twoP_LUTchanPopMenuProc
 	PopupMenu LUTchanMenu win = twoP_Controls,title="LUT",fSize=12
-	PopupMenu LUTchanMenu win = twoP_Controls,mode=0,value=#"twoP_imGraphListDisplayedChans()"
+	PopupMenu LUTchanMenu win = twoP_Controls,mode=0,value=#"twoP_ImGraphListDisplayedChans()"
 	PopupMenu LUTchanMenu win = twoP_Controls, disable=able
 	TitleBox LUTchanTitle win = twoP_Controls,pos={53.00,169.00},size={22.00,19.00},fSize=14,frame=0
 	TitleBox LUTchanTitle win = twoP_Controls,fStyle=0,variable=root:Packages:twoP:examine:LUTChan
@@ -422,7 +422,7 @@ Function twoP_ExamineAddControls(able)
 	// Show Other windows
 	GroupBox ShowOthersGroupBox win = twoP_Controls,pos={3,664},size={337,40},title="Show Other Windows", frame=0
 	GroupBox ShowOthersGroupBox win = twoP_Controls, disable=able
-	Button ShowTracesButton,win = twoP_Controls, pos={14,679},size={57,20},proc=twoP_showTracesProc,title="Traces"
+	Button ShowTracesButton,win = twoP_Controls, pos={14,679},size={57,20},proc=twoP_TracesGraphShowProc,title="Traces"
 	Button ShowTracesButton,win = twoP_Controls, disable=able
 	Button ShowMiscAnalysisButton win = twoP_Controls, pos={96,679},size={99,20},proc=MakeMiscPanel,title="Misc Analysis"
 	Button ShowMiscAnalysisButton win = twoP_Controls, disable=able
@@ -468,9 +468,10 @@ Function twoP_ExamineAddControls(able)
 
 end
 
-//******************************************************************************************************
+
+//******************************** twoP_ExamineAddTab ********************************
 // Adds a tab to the Examine tab control. Each tab  has its own procedure file
-// Last Modified 2015/04/14 by Jamie Boyd
+// Last Modified 2026/09/10 by Jamie Boyd
 Function twoP_ExamineAddTab()
 	// make sure panel is open
 	if((cmpstr("twoP_Controls", WinList( "twoP_Controls", "", "WIN:64"))) != 0)
@@ -515,9 +516,10 @@ Function twoP_ExamineAddTab()
 	return 0
 end
 
-//******************************************************************************************************
-//removes a tab from the Examine tabcontrol of the Two-Photon control panel. Assumes each tab has a procedure "_remove"
-// Last Modified 2013/10/28 by Jamie Boyd
+
+//***************************************** twoP_ExamineRemoveTab ****************************************************
+// Removes a tab from the Examine tabcontrol of the Two-Photon control panel. Assumes each tab has a procedure "_remove"
+// Last Modified 2026/09/10 by Jamie Boyd
 Function twoP_ExamineRemoveTab()
 	//if thePanel window does not exist, exit with error
 	if((cmpstr("twoP_Controls", WinList( "twoP_Controls", "", "WIN:64"))) != 0)
@@ -551,11 +553,12 @@ Function twoP_ExamineRemoveTab()
 	Execute/P/Q "COMPILEPROCEDURES "
 end
 
-// ****************************************************************************************************************
-// This function runs whenever a tab on the examine tabControl is selected, or when a new scan is selected.
+
+// ************************************ twoP_ExamineTabCtrlProc****************************************
+// Runs whenever a tab on the examine tabControl is selected, or when a new scan is selected.
 // It runs whatever update function is provided by the procedure for the current tab
 // All the hiding and showing of controls is done by the tabControl utilities procedure
-// Last Modified 2014/08/13 by Jamie Boyd
+// Last Modified 2026/09/10 by Jamie Boyd
 Function twoP_ExamineTabCtrlProc(tca): TabControl
 	STRUCT WMTabControlAction &tca 
 
@@ -570,12 +573,13 @@ end
 
 
 //******************************************************************************************************
-// -----------------------------code for selecting a new scan for Current Scan ----------------------------
+// ----------------------------- code for selecting a new scan for Current Scan ------------------------
 //******************************************************************************************************
 
-//******************************************************************************************************
+
+//****************************************** twoP_ScanListScans ****************************************************
 // Returns a list of scans in the twoP_Scans folder, sorted by scan mode. Pass a comma separated list of scan types
-// Last Modified 2025/08/02 by Jamie Boyd - made better method to list scans ina text wave
+// Last Modified 2025/08/02 by Jamie Boyd - made better method to list scans in a text wave
 Function/S twoP_ScanListScans(modeList)
 	string modeList // comma separated list of modes to be returned
 	
@@ -643,7 +647,7 @@ Function/S twoP_ScanListScans(modeList)
 	endif
 end	
 
-//******************************************************************************************************
+//******************************************** twoP_ScanNumSetVarProc **************************************************
 // Function for the ScanNum setvar.If your scans are sequentially numbered, you can advance through them one at a time.
 // Last modified Mar 18 2012 by Jamie Boyd
 Function twoP_ScanNumSetVarProc(sva) : SetVariableControl
@@ -677,7 +681,7 @@ Function twoP_ScanNumSetVarProc(sva) : SetVariableControl
 	return 0
 End
 
-//******************************************************************************************************
+//*********************************** twoP_ScanNameInc ************************************************************
 // Checks to see if a string is autoincrement compatable and, optionally, increments it.
 // Used when the autoincrement  wavenames checkbox is on.
 //  Last modified 2026/08/06 by Jamie Boyd - can also decrement now
@@ -699,7 +703,7 @@ Function/s twoP_ScanNameInc(NewWaveName, inc)
 	return NewWaveName
 end
 
-//******************************************************************************************************
+//*********************************** twoP_ScanPopMenuProc *************************************************************
 // Function for the Scan popup menu. This allows you to select a scan to display as the current scan in the ScanGraph window.
 // Once here, you can view it as a movie, save it to disk, etc
 // Last Modified 2026/08/06 by Jamie Boyd
@@ -740,7 +744,7 @@ Function twoP_ScanPopMenuProc(pa) : PopupMenuControl
 			if((doephys ==0) && (nTraces ==0))
 				DoWindow/K twoP_TracesGraph
 			else
-				twoP_NewTracesGraph(curScan)
+				twoP_TracesGraphNew(curScan)
 			endif
 			// adjust the movie controls and visibility and change display
 			twoP_ScanAdjustExamineControls(curScan)
@@ -749,9 +753,9 @@ Function twoP_ScanPopMenuProc(pa) : PopupMenuControl
 	return 0
 End
 
-
-// ******************************************************************************************************
-// When a new scan is selected, either new scangraph or updates the subwindows in scanGraph
+ 
+// ************************************ twoP_ScanUpdateScanGraph ****************************************************************
+//  Updates the subwindows in scanGraph when a new scan is selected
 // Last Modified 2026/08/03 by Jamie Boyd
 Function twoP_ScanUpdateScanGraph(curScan)
 	string curScan
@@ -775,7 +779,7 @@ Function twoP_ScanUpdateScanGraph(curScan)
 		selChans = scanChans
 	endif
 	// resize scanGraph waves for timeSeries and Zseries, plus RGB wave
-	twoP_examineRGBstop() // cause we might resize some waves used by the thread
+	twoP_ImGraphRGBstop() // cause we might resize some waves used by the thread
 	string chansPlusRGB
 	if ((scanMode == kTimeSeries) || (scanMode == kZSeries))
 		chansPlusRGB = AddListItem("RGB", scanChans, ",")
@@ -803,13 +807,13 @@ Function twoP_ScanUpdateScanGraph(curScan)
 			SetScale/P Y yOffset, yPixSize, "m", channelWave
 		endif
 	endfor
-	twoP_examineRGBstart()
+	twoP_ImGraphRGBstart()
 	NVAR RGB_hasRGB = root:packages:twoP:examine:RGB_hasRGB
 	if (RGB_hasRGB)
 		NVAR gThreadGroupID = root:packages:twoP:examine:rgbThreadGroupID
-		newdatafolder/s :tdata
-		variable/G toDoG = 7
-		ThreadGroupPutDF gThreadGroupID, :
+		newdatafolder/o :tdata
+		variable/G :tdata:toDoG = 7
+		ThreadGroupPutDF gThreadGroupID, :tdata
 	endif
 	// remove what don't belong
 	// make sure selected chans are in scan chans
@@ -865,8 +869,8 @@ Function twoP_ScanUpdateScanGraph(curScan)
 end
 
 
-//******************************************************************************************************
-// adjusts the Date and time info and the slider control on the examine scans panel to reflect the time of the current scan.
+//*********************************** twoP_ScanAdjustExamineControls ********************************************************
+// Adjusts the Date and time info and the slider control on the examine scans panel to reflect the time of the current scan.
 // It also disables the movie controls if the current scan is not a stack.
 // Last modified 2025/09/19 by Jamie Boyd 
 Function twoP_ScanAdjustExamineControls(curScan)
@@ -940,14 +944,11 @@ Function twoP_ScanAdjustExamineControls(curScan)
 end
 
 
-
-//******************************************************************************************************
-// Takes the wavenote of the current scan and puts it into the notelist wave, so it will fit nicely in the scrolling textbox on the
-// examine scans panel. The character width is important here depending on your platform. So change it as necessary. Inelegant, but it's the best you get right now
-// Last Modified:
-// 2016/11/24 by Jamie Boyd
-STATIC CONSTANT twoPNOTECHARWID = 38	// Must match the width of our listbox, in characters. If your text is spilling past the end of the line, set CharWid smaller
-
+//****************************************************** twoP_ScanShowNote ************************************************
+// Takes the wavenote of the current scan and puts it into the notelist wave, so it will fit nicely in the scrolling textbox
+// on the examine scans panel. The character width is set by the constant kExpNoteCharWid. The best value can vary dependinig on your
+// Igor version and operating system. So change kExpNoteCharWid as necessary. Inelegant, but it's the best you get right now
+// Last Modified: 2016/11/24 by Jamie Boyd
 function twoP_ScanShowNote(ScanStrName)
 	string ScanStrName
 	
@@ -957,8 +958,8 @@ function twoP_ScanShowNote(ScanStrName)
 	variable notelen = strlen(theNoteStr)
 	variable ii, ie, ni
 	Redimension/N=0 NoteListWave
-	FOR(ii =0, ni =0, ie = twoPNOTECHARWID; ii < noteLen; ii = ie +1, ie += twoPNOTECHARWID + 1, ni += 1)
-		if((ie < notelen) &&(cmpstr(theNoteStr [ii + twoPNOTECHARWID], " ") != 0))
+	FOR(ii =0, ni =0, ie = kExpNoteCharWid; ii < noteLen; ii = ie +1, ie += kExpNoteCharWid + 1, ni += 1)
+		if((ie < notelen) &&(cmpstr(theNoteStr [ii + kExpNoteCharWid], " ") != 0))
 			do
 				ie -= 1
 				if(((cmpstr(theNoteStr [ie], " ")) == 0) ||(cmpstr(theNoteStr [ie], ";") == 0))
@@ -966,7 +967,7 @@ function twoP_ScanShowNote(ScanStrName)
 				endif
 			while(ie > ii)
 			if((ie - ii) < 4)
-				ie = ii + twoPNOTECHARWID
+				ie = ii + kExpNoteCharWid
 			endif
 		endif
 		insertpoints ni, 1, NoteListWave
@@ -974,7 +975,7 @@ function twoP_ScanShowNote(ScanStrName)
 	ENDFOR
 end
 
-//******************************************************************************************************
+//************************************ twoP_ScanEditNoteProc *************************************************
 // Allows you to edit the scan note by double clicking on the wave note textbox in the examine scans list box.
 // Last Modified: 2026/09/09 by Jamie Boyd
 Function twoP_ScanEditNoteProc(lba) : ListBoxControl
@@ -1025,24 +1026,31 @@ Function twoP_ScanEditNoteProc(lba) : ListBoxControl
 End
 
 
-//******************************************************************************************************
-// Scan button procedure. Shows the ScanGraph, or makes it
-// Last Modified: 2025/08/04 by Jamie Boyd
-Function twoP_ScanShowScan(ctrlName) : ButtonControl
-	String ctrlName
-	
-	doWindow/F twoPscanGraph
-	if(V_Flag ==0)
-		SVAR curScan = root:packages:twoP:examine:curScan
-		SVAR scanInfo = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-		if(numberbyKey("mode", scanInfo, ":", "\r") != kEphysOnly)
-			twoP_ImGraphNew(curScan)
-		endif
-	endif
+//******************************* twoP_ScanShowScan *************************************************************
+// Scans button procedure. Shows the ScanGraph, or makes it
+// Last Modified: 2026/09/11 by Jamie Boyd
+Function twoP_ScanShowScan(ba) : ButtonControl
+	STRUCT WMButtonAction &ba
+
+	switch( ba.eventCode )
+		case 2: // mouse up
+			doWindow/F twoPscanGraph
+			if(V_Flag ==0)
+				SVAR curScan = root:packages:twoP:examine:curScan
+				SVAR scanInfo = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
+				if(numberbyKey("mode", scanInfo, ":", "\r") != kEphysOnly)
+					twoP_ImGraphNew(curScan)
+				endif
+			endif
+			break
+		case -1: // control being killed
+			break
+	endswitch
+	return 0
 End
 
 
-//********************************************************************************************
+//*********************************** twoP_ScanListImChans **********************************************
 // Lists Image channels in a scan, as strings from imChanDesc. For use in popMenus to select a single channel
 // Last Modified: 2025/07/23 by Jamie Boyd
 function/S twoP_ScanListImChans()
@@ -1064,7 +1072,7 @@ function/S twoP_ScanListImChans()
 end
 
 
-//********************************************************************************************
+//***************************************** twoP_ScanListEphysChans ********************************************
 // Lists ePhys channels in a scan, as strings from imChanDesc. For use in popMenus to select a single channel
 // Last Modified: 2025/08/04 by Jamie Boyd
 function/S twoP_ScanListEphysChans()
@@ -1091,7 +1099,11 @@ end
 // -----------------------------code for making and altering image scan graph--------------------------
 //******************************************************************************************************
 
-// *************************************************************************
+
+
+// ******************************* twoP_ImGraphFillcs ******************************************
+// fills the structure used for plotting a scan channel in a subwindow on scanGraph
+// Last Modified: 2026/09/11 by Jamie Boyd
 // Struct for plotting an image channel
 // Wave 0 the image, or for a 3D stack a wave made to hold a single image frame
 // variable 0 is for scan Mode
@@ -1188,8 +1200,8 @@ Function twoP_ImGraphFillcs(cs, curScan, aChan)
 	WAVE cs.userWaves[0] = channelWave
 end
 
-// *************************************************************************
-// Does the graphing for a subwindow in a frehly created subwindow
+// ****************************** twoP_ImGraphSubWin *******************************************
+// Does the graphing for an image channel in a frehly created subwindow
 // Last Modified 2025/08/04 by Jamie Boyd
 Function twoP_ImGraphSubWin(cs)
 	STRUCT GUIPSubWin_ContentStruct &cs
@@ -1242,7 +1254,7 @@ Function twoP_ImGraphSubWin(cs)
 end
 
 
-// ***********************************************************************
+// ******************************* twoP_ImGraphNew ****************************************
 // Makes the scangraph of the current scan, starting from scratch
 // Don't call it if scanGraph alreay exists
 // Last Modified 2025/08/04 by Jamie Boyd
@@ -1325,29 +1337,29 @@ Function twoP_ImGraphNew(curScan)
 	PopupMenu SetResizePopMenu win=twoPscanGraph#controlPanel,pos={366.00,50.00},size={111.00,19.00},bodyWidth=76
 	Button fullScaleButton win=twoPscanGraph#controlPanel, pos={418.00,70.00},size={60.00,20.00}
 	// show axes
-	CheckBox showAxesCheck win=twoPscanGraph#controlPanel,pos={371.00,72.00},size={41.00,15.00},proc=twoP_imGraphShowAxesProc
+	CheckBox showAxesCheck win=twoPscanGraph#controlPanel,pos={371.00,72.00},size={41.00,15.00},proc=twoP_ImGraphShowAxesProc
 	CheckBox showAxesCheck win=twoPscanGraph#controlPanel,title="Axes",value=0
 	// select channel
 	GroupBox chanGroup win=twoPscanGraph#controlPanel,pos={1.00,1.00},size={505.00,32.00}
-	PopupMenu ScanChansPopmenu win=twoPscanGraph#controlPanel,pos={4.00,8.00},size={60.00,19.00},bodyWidth=60,proc=twoP_imGraphChansPopMenuProc
+	PopupMenu ScanChansPopmenu win=twoPscanGraph#controlPanel,pos={4.00,8.00},size={60.00,19.00},bodyWidth=60,proc=twoP_ImGraphChansProc
 	PopupMenu ScanChansPopmenu win=twoPscanGraph#controlPanel,title="Display",fSize=12
-	PopupMenu ScanChansPopmenu win=twoPscanGraph#controlPanel,mode=0,value=#"twoP_imGraphListChans()"
+	PopupMenu ScanChansPopmenu win=twoPscanGraph#controlPanel,mode=0,value=#"twoP_ImGraphListChans()"
 	TitleBox SelChansTitle win=twoPscanGraph#controlPanel,pos={68.00,10.00},size={22.00,15.00},fSize=12,frame=0
 	TitleBox SelChansTitle win=twoPscanGraph#controlPanel,variable=root:Packages:twoP:examine:ScanGraphSelChans
 	// RGB
 	CheckBox RGBcheck win=twoPscanGraph#controlPanel,pos={146.00,9.00},size={38.00,15.00},proc=twoP_ImGraphRGBCheckProc
 	CheckBox RGBcheck win=twoPscanGraph#controlPanel,title="RGB",value=0, fSize=12, variable =root:packages:twoP:examine:RGB_hasRGB
-	PopupMenu RedPopMenu win=twoPscanGraph#controlPanel,pos={193.00,7.00},size={32.00,19.00},bodyWidth=32,proc=twoP_imGraphRGBPopMenuProc
+	PopupMenu RedPopMenu win=twoPscanGraph#controlPanel,pos={193.00,7.00},size={32.00,19.00},bodyWidth=32,proc=twoP_ImGraphRGBPopMenuProc
 	PopupMenu RedPopMenu win=twoPscanGraph#controlPanel,title="R",fSize=12,fColor=(65535,0,0)
 	PopupMenu RedPopMenu win=twoPscanGraph#controlPanel,mode=0,value=#"twoP_ScanListImChans()+\";BLACK\""
 	TitleBox RedChanTitle win=twoPscanGraph#controlPanel,pos={227.00,9.00},size={21.00,15.00},frame=0,fSize=12
 	TitleBox RedChanTitle win=twoPscanGraph#controlPanel,variable=root:Packages:twoP:examine:RGB_RedChan
-	PopupMenu GreenPopMenu win=twoPscanGraph#controlPanel,pos={283.00,7.00},size={32.00,19.00},bodyWidth=32,proc=twoP_imGraphRGBPopMenuProc
+	PopupMenu GreenPopMenu win=twoPscanGraph#controlPanel,pos={283.00,7.00},size={32.00,19.00},bodyWidth=32,proc=twoP_ImGraphRGBPopMenuProc
 	PopupMenu GreenPopMenu win=twoPscanGraph#controlPanel,title="G",fSize=12
 	PopupMenu GreenPopMenu win=twoPscanGraph#controlPanel,mode=0,value=#"twoP_ScanListImChans()+\";BLACK\""
 	TitleBox GreenChanTitle win=twoPscanGraph#controlPanel,pos={316.00,9.00},size={36.00,15.00},frame=0,fSize=12
 	TitleBox GreenChanTitle win=twoPscanGraph#controlPanel,variable=root:Packages:twoP:examine:RGB_GreenChan
-	PopupMenu BluePopmenu win=twoPscanGraph#controlPanel,pos={384.00,7.00},size={32.00,19.00},bodyWidth=32,proc=twoP_imGraphRGBPopMenuProc
+	PopupMenu BluePopmenu win=twoPscanGraph#controlPanel,pos={384.00,7.00},size={32.00,19.00},bodyWidth=32,proc=twoP_ImGraphRGBPopMenuProc
 	PopupMenu BluePopmenu win=twoPscanGraph#controlPanel,title="B",fSize=12
 	PopupMenu BluePopmenu win=twoPscanGraph#controlPanel,mode=0,value=#"twoP_ScanListImChans()+\";BLACK\""
 	TitleBox BlueChanTitle win=twoPscanGraph#controlPanel,pos={418.00,9.00},size={27.00,15.00},frame=0,fSize=12
@@ -1356,7 +1368,7 @@ Function twoP_ImGraphNew(curScan)
 	GroupBox LUTGroup win=twoPscanGraph#controlPanel,pos={0.00,30.00},size={364.00,63.00}
 	PopupMenu LUTchanMenu win=twoPscanGraph#controlPanel,pos={4.00,34.00},size={52.00, 20.00},bodyWidth=52, proc=twoP_LUTchanPopMenuProc
 	PopupMenu LUTchanMenu win=twoPscanGraph#controlPanel,title="LUT",fSize=12
-	PopupMenu LUTchanMenu win=twoPscanGraph#controlPanel,mode=0,value=#"twoP_imGraphListDisplayedChans()"
+	PopupMenu LUTchanMenu win=twoPscanGraph#controlPanel,mode=0,value=#"twoP_ImGraphListDisplayedChans()"
 	TitleBox LUTchanTitle win=twoPscanGraph#controlPanel,pos={63.00,34.00},size={23.00,19.00},fSize=14,frame=0
 	TitleBox LUTchanTitle win=twoPscanGraph#controlPanel,fStyle=1,variable=root:Packages:twoP:examine:LUTChan
 	// first last
@@ -1375,19 +1387,19 @@ Function twoP_ImGraphNew(curScan)
 	MinMaxSlider_make ("twoPscanGraph#controlPanel", "SGLUTslider", 3, 59, 336, 1, ((2^kTwoPimageBits)-2), 7, 0, "twoP_LUTSliderAction", 3)
 	CustomControl SGLUTslider win=twoPscanGraph#controlPanel,frame=0,focusRing=0
 	// Set window hook function
-	SetWindow twoPscanGraph hook(infoHook)= twoP_imGraphHookProc, hookevents = 3
+	SetWindow twoPscanGraph hook(infoHook)= twoP_ImGraphHookProc, hookevents = 3
 	WC_WindowCoordinatesRestore(us.graphName)
 end
 
 
 //******************************************************************************************************
-// -----------------------------code for controls on the image scan graph control panel------------------
+// ----------------------------- Code for controls on the image scan graph control panel ------------------
 //******************************************************************************************************
 
-// *************************************************************************
+// ********************************* twoP_ImGraphListChans ****************************************
 // Lists channels for display, with displayed channels checked
 // Last Modified 2025/080/04 by Jamie Boyd
-function/S twoP_imGraphListChans()
+function/S twoP_ImGraphListChans()
 	SVAR curScan = root:packages:twoP:examine:curScan
 	SVAR scanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
 	string chanList = StringByKey("imChanDesc", scanStr, "=", "\r")
@@ -1404,10 +1416,10 @@ function/S twoP_imGraphListChans()
 	return outList
 end
 
-// *************************************************************************
+// ************************ twoP_ImGraphChansProc *************************************************
 // adds or removes a subwindow for a channel from the image scan graph
-// Last Modified 2025/080/04 by Jamie Boyd
-Function twoP_imGraphChansPopMenuProc(pa) : PopupMenuControl
+// Last Modified 2025/08/04 by Jamie Boyd
+Function twoP_ImGraphChansProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 
 	switch( pa.eventCode )
@@ -1433,10 +1445,10 @@ Function twoP_imGraphChansPopMenuProc(pa) : PopupMenuControl
 	return 0
 End
 
-// *************************************************************************
+// ************************** twoP_ImGraphListDisplayedChans **************************************************
 // Lists channels displayed in subwindows, excluding RGB
 // Last Modified 2025/080/13 by Jamie Boyd
-Function/s twoP_imGraphListDisplayedChans()
+Function/s twoP_ImGraphListDisplayedChans()
 	string subwins = removeFromList("GRGB;controlPanel", childwindowList("TwoPScanGraph"))
 	variable iSubWin, nSubWins = itemsinList(subwins)
 	string chanList="", aSubWin
@@ -1447,10 +1459,10 @@ Function/s twoP_imGraphListDisplayedChans()
 	return chanList
 end
 
-//******************************************************************************************************
+//************************************** twoP_ImGraphShowAxesProc ******************************************
 //  Shows/Hides axes for all subwindows
 // Last modified2025/08/04 by Jamie Boyd
-Function twoP_imGraphShowAxesProc(cba) : CheckBoxControl
+Function twoP_ImGraphShowAxesProc(cba) : CheckBoxControl
 	STRUCT WMCheckboxAction &cba
 
 	switch( cba.eventCode )
@@ -1470,7 +1482,7 @@ Function twoP_imGraphShowAxesProc(cba) : CheckBoxControl
 	return 0
 End
 
-// *************************************************************************
+// **************************** twoP_ImGraphRGBCheckProc ******************************************
 // Adds or removes RGB image in a a subwindow
 // Last Modified 2025/080/13 by Jamie Boyd
 Function twoP_ImGraphRGBCheckProc(cba) : CheckBoxControl
@@ -1494,10 +1506,33 @@ Function twoP_ImGraphRGBCheckProc(cba) : CheckBoxControl
 	return 0
 End
 
-// *************************************************************************
+
+//******************************** twoP_ImGraphRGBstart *********************************************
+// Starts threads that work to update the display of the RGB wave on the scanGraph
+//Last Modified: 2026/09/11 by Jamie Boyd
+function twoP_ImGraphRGBstart()
+	WAVE RGBWave= root:packages:twoP:examine:scanGraph_rgb
+	WAVE/WAVE RGBsources =  root:packages:twoP:examine:rgbSources
+	WAVE RGBfirstLasts = root:packages:twoP:examine:rgbfirstLasts
+	NVAR ThreadGroupID = root:packages:twoP:examine:rgbThreadGroupID
+	ThreadGroupID = ThreadGroupCreate(1)
+	ThreadStart ThreadGroupID, 0, RGBthread#twoP_examineRGBthread (RGBWave, RGBsources, RGBfirstLasts)
+end
+
+
+//******************************** twoP_ImGraphRGBstop *********************************************
+// Releases the threadGroup that updates RGB wave. Needed if you want to change wave size, e.g. 
+//Last Modified: 2026/09/11 by Jamie Boyd
+function twoP_ImGraphRGBstop()
+	NVAR ThreadGroupID = root:packages:twoP:examine:rgbThreadGroupID
+	ThreadGroupID = ThreadGroupRelease(ThreadGroupID)
+end
+
+
+// ******************************* twoP_ImGraphRGBPopMenuProc ******************************************
 // sets channels for layers(colours) of RGB wave
 // Last Modified 2026/07/26 by Jamie Boyd
-Function twoP_imGraphRGBPopMenuProc(pa) : PopupMenuControl
+Function twoP_ImGraphRGBPopMenuProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 
 	switch( pa.eventCode )
@@ -1542,9 +1577,9 @@ Function twoP_imGraphRGBPopMenuProc(pa) : PopupMenuControl
 				NVAR RGB_hasRGB = root:packages:twoP:examine:RGB_hasRGB
 				if (RGB_hasRGB)
 					NVAR gThreadGroupID = root:packages:twoP:examine:rgbThreadGroupID
-					newdatafolder/s :tdata
-					variable/G toDoG = toDo
-					ThreadGroupPutDF gThreadGroupID, :
+					newdatafolder/o :tdata
+					variable/G :tdata:toDoG = 7
+					ThreadGroupPutDF gThreadGroupID, :tdata
 				endif
 			endif
 			break
@@ -1555,11 +1590,11 @@ Function twoP_imGraphRGBPopMenuProc(pa) : PopupMenuControl
 	return 0
 End
 
-//******************************************************************************************************
+//********************************************** twoP_ImGraphHookProc(s) ********************************************************
 // This hook function  for the scangraph window shows the value under the mouse pointer when the shift key is held down and the mouse is moved around.
 // Also makes sure that info about where the graph was is saved when closing the graph.
 // Last modified 2026/06/16 by Jamie Boyd
-Function twoP_imGraphHookProc(s)
+Function twoP_ImGraphHookProc(s)
 	STRUCT WMWinHookStruct &s
 
 	Variable hookResult = 0
@@ -1689,17 +1724,48 @@ Function twoP_imGraphHookProc(s)
 End
 
 
+// ******************************** twoP_ImGraphRemoveTrace ******************************************
+// Removes a trace that may be present from all of the subwindow of the scan graph
+// Last modified: 2026/09/10 by Jamie Boyd
+function twoP_ImGraphRemoveTrace(theYtrace)
+	wave theYtrace
+	
+	string subWinList = removeFromList("controlPanel", ChildWindowList("twoPscanGraph"))
+	variable iSubWin, nSubwins=itemsinlist (subWinList)
+	for (iSubwin=0; iSubWin < nSubWins; iSubWin +=1)
+		RemoveFromGraph /W=$"twoPScanGraph#" + stringfromlist (iSubWin, subWinList) /Z $nameofwave (theYtrace)
+	endfor
+end
+
 
 
 //******************************************************************************************************
-// -----------------------------code for making and altering traces graph----------------------------------------------
+// ----------------------------- Code for making and altering traces graph -----------------------------
 //******************************************************************************************************
 
+
+//******************************************* twoP_TracesGraphShowProc ***********************************************************
+// Brings the traces graph to the front, or makes it if it doesn't exist.
+// Last Modified: 2026/09/11 by Jamie Boyd
+Function twoP_TracesGraphShowProc(ba) : ButtonControl
+	STRUCT WMButtonAction &ba
+
+	switch( ba.eventCode )
+		case 2: // mouse up
+			SVAR curScan = root:packages:twoP:examine:curScan
+			twoP_TracesGraphNew(curScan)
+			break
+		case -1: // control being killed
+			break
+	endswitch
+	return 0
+End
+
+
+// ****************************************** twoP_TracesGraphNew *********************************************
 // Makes the Nidaq traces graph, where ephysiology and ROIs/ Linescan averages are displayed. 
-// 
-// LIne scans on a separate Y axis, same X axis(cause they have the same time base). When DeltaF/F is applied, the averages are put on a new Y axis on bottom right
-// Last Modified Jul 12 2010 by Jamie Boyd
-Function twoP_NewTracesGraph(curScan)
+// Last Modified: 2026/09/11 by Jamie Boyd
+Function twoP_TracesGraphNew(curScan)
 	string curScan
 	
 	variable isNew // if making graph from scratch, this will be set to 1, 0 for revamping an existing graph
@@ -1805,17 +1871,17 @@ Function twoP_NewTracesGraph(curScan)
 		SetVariable FSetVar,pos={11.00,3.00},size={202.00,18.00}
 		SetVariable FSetVar,title="Set \"F \" from first n points",fSize=12,format="n=%g"
 		SetVariable FSetVar,limits={1,inf,1},value=root:Packages:twoP:examine:ffordeltaf
-		CheckBox CursorCheck,pos={11.00,26.00},size={132.00,16.00},proc=twoP_cursorCheckProc
+		CheckBox CursorCheck,pos={11.00,26.00},size={132.00,16.00},proc=twoP_ROIcursorCheckProc
 		CheckBox CursorCheck,title="set \"F\" from cursors",fSize=12,value=0
-		PopupMenu ROIPopup,pos={217.00,2.00},size={105.00,20.00},proc=twoP_DoDeltaFProc
+		PopupMenu ROIPopup,pos={217.00,2.00},size={105.00,20.00},proc=twoP_ROIdoDeltaFProc
 		PopupMenu ROIPopup,title="Do Delta F/F",fSize=12
-		PopupMenu ROIPopup,mode=0,value=#"twoP_ListROIAvgs(root:packages:twoP:examine:curScan, 1, 1)"
-		PopupMenu UnDoROIPopup,pos={330.00,2.00},size={120.00,20.00},proc=twoP_UnDoDeltaFProc
+		PopupMenu ROIPopup,mode=0,value=#"twoP_ROIlistAvgs(root:packages:twoP:examine:curScan, 1, 1)"
+		PopupMenu UnDoROIPopup,pos={330.00,2.00},size={120.00,20.00},proc=twoP_ROIunDoDeltaFProc
 		PopupMenu UnDoROIPopup,title="Undo Delta F/F",fSize=12
-		PopupMenu UnDoROIPopup,mode=0,value=#"twoP_ListROIAvgs(root:packages:twoP:examine:curScan, 2, 1)"
-		PopupMenu DeleteROIPopMenu,pos={217.00,24.00},size={121.00,20.00},proc=twoP_DeleteRoiProc
+		PopupMenu UnDoROIPopup,mode=0,value=#"twoP_ROIlistAvgs(root:packages:twoP:examine:curScan, 2, 1)"
+		PopupMenu DeleteROIPopMenu,pos={217.00,24.00},size={121.00,20.00},proc=twoP_ROIdeleteProc
 		PopupMenu DeleteROIPopMenu,title="Delete ROI Avg",fSize=12
-		PopupMenu DeleteROIPopMenu,mode=0,value=#"twoP_ListROIAvgs(root:packages:twoP:examine:curScan, 3, 1)"
+		PopupMenu DeleteROIPopMenu,mode=0,value=#"twoP_ROIlistAvgs(root:packages:twoP:examine:curScan, 3, 1)"
 		CheckBox AndROICheck,pos={346.00,26.00},size={79.00,16.00},title="and its ROI"
 		CheckBox AndROICheck,fSize=12,value=0
 		RenameWindow #,controlPanel
@@ -1837,10 +1903,10 @@ Function twoP_NewTracesGraph(curScan)
 
 end
 	
-//******************************************************************************************************
-// Adjust the axes on the Nidaq Traces Graph to share axis space, if necessary
+//************************************** twoP_TracesGraphShareAxes ****************************************************************
+// Adjust the axes on the twoP Traces Graph to share axis space, if necessary
 // call after adding or removing traces
-// Last modified 2025/09/18 by Jamie Boyd
+// Last modified 2026/09/10 by Jamie Boyd
 Function twoP_TracesGraphShareAxes()
 	
 	variable hasLeftROI =0
@@ -1871,38 +1937,693 @@ end
 
 
 
-//******************************************************************************************************
-// SHows the traces graph, or makes it
-Function twoP_showTracesProc(ctrlName) : ButtonControl
-	String ctrlName
-	
-	SVAR curScan = root:packages:twoP:examine:curScan
-	twoP_NewTracesGraph(curScan)
-End
+//***************************************************************************************************************
+// ----------------------  Code for the Traces Graph Control Panel for working with ROIs ------------------------
+//***************************************************************************************************************
 
 
-//******************************************************************************************************
-// Edit this function to call user-supplied analysis code
-// Last midified 2025/09/19 by Jamie Boyd
-Function MakeMiscPanel(ba) : ButtonControl
-	STRUCT WMButtonAction &ba
+//******************************************* twoP_ROIcursorCheckProc ***********************************************************
+// Puts cursors on the first ROI avg in the twoP Traces Graph, for the purpose of defining a baseline time
+// Last modified 2026/09/10 by Jamie Boyd
+Function twoP_ROIcursorCheckProc(cba) : CheckBoxControl
+	STRUCT WMCheckboxAction &cba
 
-	switch( ba.eventCode )
+	switch( cba.eventCode )
 		case 2: // mouse up
-			doalert 0, "This button exists so you can call your own special-purpose code from it by editing the \"MakeMiscPanel\" function."
+			if (cba.checked)
+				string firstTrace=twoP_TraceFindOnAxis ("twoP_TracesGraph", "ROIL")
+				Cursor/P/W= twoP_TracesGraph A, $firstTrace,  0
+				Cursor/P/W= twoP_TracesGraph B, $firstTrace, 5
+			else
+				cursor/K A
+				cursor/K B
+			endif
 			break
-		case -1: // control being killed
-			break
-	endswitch
-
-	return 0
+	endSwitch
 End
+
+
+//******************************************************************************************************
+// Lists ROI avgs for the current scan. List can be limited to ROI avgs that have been deltaF/F processed or unprocessed. If all ROI avgs are listed, list includes ROI ratios
+// Last modified 2026/09/111 by Jamie Boyd
+Function/s twoP_ROIlistAvgs(ScanName, deltaFed, isForMenu)
+	string ScanName
+	variable deltaFed		// 1 if listing waves that have NOT been detlafed, 2 if listing waves that have been deltafed, 3 if listing all ROIs
+	variable isForMenu		// set if used in a menu
+	string BaseFolder = "root:twoP_Scans:"
+	string AvgList = GUIPListObjs("root:twoP_Scans:" + ScanName , 1, "*avg*",0, "")
+	variable ii, numAvgs = itemsinlist (AvgList, ";")
+	string outlist = ""
+	variable beenDeltafed
+	if ((cmpstr (AvgList [0,3], "\M1(")) == 0)
+		return AvgList
+	endif
+	for (ii =0; ii < numAvgs; ii+=1)
+		Wave theAvg = $"root:twoP_Scans:" + ScanName + ":"  + stringfromlist (ii, AvgList)
+		beenDeltafed = numberbykey ("DeltaFed", note  (theAvg))
+		if (deltafed&1)
+			if (beenDeltafed == 0)
+				outlist += nameofwave (theAvg) + ";"
+			endif
+		endif
+		if (deltafed&2)
+			if (beenDeltafed == 1)
+				outlist += nameofwave (theAvg) + ";"
+			endif
+		endif
+	endfor
+	// if listing all ROIs avgs, also list 2-channel ratios
+	if (deltaFed == 3)
+		AvgList= GUIPListObjs("root:twoP_Scans:" + ScanName , 1, "*ratio*", 0, "")
+		if (cmpstr (AvgList [0,3], "\M1(") != 0)
+			numAvgs = itemsinlist (AvgList, ";")
+			for (ii=0; ii<numAvgs; ii+=1)
+				WAVE theAvg= $"root:twoP_Scans:" + ScanName + ":" + stringfromlist (ii, AvgList)
+				outlist += nameofwave (theAvg) + ";"
+			endfor
+		endif
+	endif
+	if (isForMenu)
+		if (Itemsinlist (outlist, ";") == 0)
+			outlist = "\\M1(No ROI Avgs"
+		elseif (Itemsinlist (outlist, ";") > 1)
+			outlist +=  "All ROI Avgs"
+		endif
+	endif
+	return outlist
+end
+
+
+//******************************************** twoP_ROIdoDeltaFProc ******************************************************
+// Does deltaF/F for an ROI avg wave or list of ROI avg waves
+// Last modified 2026/09/11 by Jamie Boyd
+Function twoP_ROIdoDeltaFProc (pa) : PopupMenuControl
+	STRUCT WMPopupAction &pa
+
+	switch( pa.eventCode )
+		case 2: // mouse up
+			string RoiList	// Will contain a list of ROIs, if select all is chosen. Otherwise, contains the name of the chosen ROI
+			SVAR curscan = root:Packages:twoP:examine:curscan
+			variable bstart, bend
+			ControlInfo /W=twoP_TracesGraph#controlPanel CursorCheck
+			if (V_Value == 1) // then taking baseline from between cursors
+				if ((cmpStr (CsrInfo(A, "twoP_tracesGraph"), "") ==0) || (cmpStr (CsrInfo(B, "twoP_tracesGraph"), "") ==0))
+					doAlert 0, "Put the cursors on the graph if using cursors to set baseline"
+					return 1
+				endif
+				bstart = min ((pcsr(A  , "twoP_tracesGraph")), (pcsr(B  , "twoP_tracesGraph" )))
+				bend = max ((pcsr(A  , "twoP_tracesGraph" )), (pcsr(B  , "twoP_tracesGraph" )))
+			else		// taking baseline from first xpoints
+				NVAR ffordeltaf = root:Packages:twoP:examine:ffordeltaf
+				bstart = 0
+				bend = ffordeltaf -1
+			endif
+			// set roi list, or single roi
+			if ((cmpstr (pa.popStr, "All ROI Avgs", 0))==0)
+				RoiList = twoP_ROIlistAvgs (curScan, 1, 0)
+			else
+				RoiList = pa.popStr + ";"
+			endif
+			// get info for ROI right axis (used for deltaeffed ROIs)
+			variable hasROIR =0
+			variable axStart, axEnd
+			string tempInfostr
+			if ((cmpstr (AxisInfo("twoP_TracesGraph", "ROIR"), "")) != 0)
+				hasROIR =1
+			else
+				tempInfostr= stringByKey("axisEnab(x)", axisinfo ("twoP_TracesGraph", "ROIL"),"=", ";")
+				sscanf tempInfostr, "{%f,%f}", axStart, axEnd
+				hasROIR =0
+			endif
+			// iterate through ROIs (though there may be only 1)
+			variable iROI, nRois = itemsinList (RoiList)
+			string roiName
+			variable baseLine // calculated baseline value
+			string RecStr // recreation string for trace
+			for (iROI =0 ; iROI < nRois; iROI += 1)
+				// apply deltaF/F to roiAvgwave
+				roiName =  stringfromlist (iROI, RoiList)
+				WAVE roiAvgwave = $"root:twoP_Scans:" + curscan + ":" + roiName
+				baseline = mean(roiAvgwave, pnt2x(roiAvgwave,bstart), pnt2x(roiAvgwave,bend))
+				roiAvgwave = (roiAvgwave - baseline)/baseline
+				// get recreation string for ROI appearance
+				RecStr = TraceInfo("twoP_TracesGraph", roiName, 0)
+				// remove ROI and re-append to ROIR right axis
+				removefromgraph  /W=twoP_TracesGraph $roiName
+				appendtograph /W=twoP_TracesGraph/R=ROIR/B=Bottom roiAvgwave
+				// make roi look like it did using recreation string
+				twoP_TraceCopyAppearance (RecStr, "twoP_TracesGraph", roiName)
+				// update info in wavenote for ROI avg
+				tempInfostr = ReplaceNumberByKey("deltafed", note (roiAvgwave), 1 )
+				tempInfostr = ReplaceStringByKey ( "baseline", tempInfostr, num2str(baseline))
+				Note/K roiAvgwave, tempInfostr
+			endfor
+		if (!hasROIR)
+			ModifyGraph /W=twoP_TracesGraph axisEnab(ROIR)={axStart,axEnd}
+			ModifyGraph/W=twoP_TracesGraph freePos(ROIR)={0,kwFraction}, lblPos(ROIR)=45
+			Label ROIR "\\Z12Delta F/F"
+		endif
+			break
+	endSwitch
+	return 0
+end
+
+
+//************************************************************ twoP_ROIunDoDeltaFProc ******************************************
+// Undo the delta F /F transformation,using the baseline value stored in the ROI's wavenote. Also take ROI off of right axis on traces graph and put it on left axis
+// Last modified 2026/09/11 by Jamie Boyd
+Function twoP_ROIunDoDeltaFProc(pa) : PopupMenuControl
+	STRUCT WMPopupAction &pa
+
+	switch( pa.eventCode )
+		case 2: // mouse up
+			SVAR curscan = root:Packages:twoP:examine:curscan
+			string RoiList	// Will contain a list of ROIs, if select all is chosen. Otherwise, contains the name of the chosen ROI
+			if ((cmpstr (pa.popStr, "All ROI Avgs", 0))==0)
+				RoiList = twoP_ROIlistAvgs (curScan, 2, 0)
+			else
+				RoiList = pa.popStr + ";"
+			endif
+			// see if Left axis for un-deltaEffed ROIs is present
+			variable hasRLOI
+			string tempInfoStr
+			variable axStart, axEnd
+			if ((cmpstr (AxisInfo("twoP_TracesGraph", "ROIL"), "")) != 0)
+				hasRLOI =1
+			else
+				hasRLOI = 0	// get axis position from Right to use with new Left axis
+				tempInfoStr = stringByKey("axisEnab(x)", axisinfo ("twoP_TracesGraph", "ROIR"),"=", ";")
+				sscanf tempInfoStr, "{%f,%f}", axStart, axEnd
+			endif
+			// iterate through ROI averages
+			variable iROI, nROIS = itemsInList(RoiList, ";")
+			variable  baseline
+			String roiName
+			string RecStr
+			for (iROI =0; iROI < nROIs; iROI +=1)
+				roiName = stringfromlist (iROI, RoiList)
+				WAVE roiwave = $"root:twoP_Scans:" + curscan + ":" + roiName
+				// get saved baseline value and use it to undo deltaEffOverEff
+				baseline = numberbykey ("baseline", note (roiwave))
+				roiwave = (roiwave * baseline) + baseline
+				// remove ROIavg and re-add it to Left Axis
+				RecStr = TraceInfo("twoP_TracesGraph", nameofwave (roiwave), 0)
+				removefromgraph  /W=twoP_TracesGraph $nameofwave (roiwave)
+				appendtograph /W=twoP_TracesGraph/L=ROIL/B=Bottom roiwave
+				// make roi look like it did using recreation string
+				twoP_TraceCopyAppearance (RecStr, "twoP_TracesGraph", roiName)
+				// update info in wavenote for roi
+				tempInfoStr = ReplaceNumberByKey("deltafed", note (roiwave), 0) + "baseline:" + num2str (baseline) + ";"
+				tempInfoStr = RemoveByKey("baseline", tempInfoStr)
+				note/K roiwave, tempInfoStr
+			endfor
+			if (!(hasRLOI))
+				ModifyGraph /W=twoP_TracesGraph axisEnab(ROIL)={axStart,axEnd}
+				ModifyGraph/W=twoP_TracesGraph freePos(ROIL)={0,kwFraction}, lblPos(ROIL)=45
+				Label ROIL "\\Z12Raw 12 bit A/D"  
+			endif
+			break
+	endSwitch
+	return 0
+end
+
+
+//**************************************** twoP_ROIdeleteProc *************************************************************
+// Deletes an ROIavg and optionally its associated ROIwave(s)
+// Last modified 2026/09/10 by Jamie Boyd
+Function twoP_ROIdeleteProc(pa) : PopupMenuControl
+	STRUCT WMPopupAction &pa
+
+	switch( pa.eventCode )
+		case 2: // mouse up
+			WAVE/t RoiListWave = root:Packages:twoP:examine:RoiListWave
+			WAVE RoiListSelWave = root:Packages:twoP:examine:RoiListSelWave
+			string RoiList	// Will contain a list of ROIs, if select all is chosen. Otherwise, contains the name of the chosen ROI
+			SVAR curscan = root:Packages:twoP:examine:curscan
+			variable DelROI
+			controlinfo /W=twoP_TracesGraph#controlPanel AndROICheck
+			DelRoi = V_Value
+			if ((cmpstr (pa.popStr, "All Roi Avgs"))==0)
+				RoiList = twoP_ROIlistAvgs (curScan, 3, 0)
+			else
+				RoiList = pa.popStr
+			endif
+			variable ii, numRois = itemsinList (RoiList)
+			variable iR, nR = dimsize (RoiListWave, 0), foundROI
+			string ROIBase
+			FOR (ii =0; ii < numRois; ii+=1)
+				WAVE/Z roiAvgwave = $"root:twoP_Scans:" + curscan + ":" + stringfromlist (ii, RoiList)
+				if (waveExists (roiAvgwave))	
+					// remove average from traces graph
+					removefromgraph /W=twoP_TracesGraph/Z $nameofwave (roiAvgwave)
+					// Get ROI from wave note before killing wave
+					ROIBase = stringbykey ("ROI", note (roiAvgwave))
+					GUIPKillDisplayedWave (roiAvgwave)
+					// Delete ROI if requested by user
+					if (DelRoi)
+						WAVE/z ROIYWave = $"root:twoP_ROIS:" + ROIBase + "_y"
+						WAVE/z ROIXWave = $"root:twoP_ROIS:" + ROIBase + "_x"
+						if (waveExists(ROIYWave) || WaveExists (ROIXWave))
+							twoP_ImGraphRemoveTrace(ROIYWave)
+							GUIPKillDisplayedWave (ROIYWave)
+							GUIPKillDisplayedWave (ROIXWave)
+							// remove ROI from list
+							for (foundROI =0, iR =0; iR < nR && foundROI ==0; iR += 1)
+								if (cmpStr (ROIBase,  RoiListWave [iR]) == 0)
+									deletepoints (iR), 1, RoiListWave, RoiListSelWave
+									foundROI =1
+								endif
+							endfor
+						endif
+					endif
+				endif
+			endfor
+			twoP_TracesGraphShareAxes ()
+			break
+	endSwitch
+End
+
+
+//***************************************************************************************************************
+// ------------------------------------  Marquee Functions to do Square ROIs ---------------------------------------
+//***************************************************************************************************************
+
+
+//  ********************************* twoP_Set_Dark_Fluorescence *****************************************
+// Set_Dark_Fluorescence grabs the graph marquee and sets some values a) in the Examine globals folder and
+// B) in the note of the current scan. These values will be used to subtract dark fluorescence in the ROI functions. 
+// Only left and right are saved for line scan, setting the globals for top and bottom in the examine folder to
+// NaN, to prevent using line scan dark area for an image scan
+// Last Modified 2026/09/10 by Jamie Boyd
+Function twoP_ROIsetDarkFluorescence()
+
+	GetMarquee/k left,bottom
+	variable/G root:packages:twoP:examine:darkL = min (v_left, v_right)
+	variable/G root:packages:twoP:examine:darkR = max (v_left, v_right)
+	variable/G root:packages:twoP:examine:darkB = min (v_Bottom, V_top)
+	variable/G root:packages:twoP:examine:darkT = max (V_Bottom, v_top)
+	NVAR darkL = root:packages:twoP:examine:darkL
+	NVAR darkR = root:packages:twoP:examine:darkR
+	NVAR darkB = root:packages:twoP:examine:darkB
+	NVAR darkT =  root:packages:twoP:examine:darkT
+	// set darkT and darkB to NaN for linescan
+	SVAR curscan = root:Packages:twoP:examine:CurScan
+	SVAR scanNote = $"root:twoP_Scans:" + curscan  + ":" + curScan +  "_info"
+	variable scanMode= NumberByKey("mode", scanNote, "=", "\r")
+	if (scanMode == kLineScan)
+		darkB = NaN
+		darkT = NaN
+	endif
+	// save in scan note as well as globals
+	if (scanMode != kLiveMode)
+		ScanNote = ReplaceNumberByKey("darkL", ScanNote, darkL, "=", "\r")
+		ScanNote = ReplaceNumberByKey("darkR", ScanNote, darkR, "=", "\r")
+		if (scanMode != kLineScan)
+			ScanNote = ReplaceNumberByKey("darkT", ScanNote, darkT, "=", "\r")
+			ScanNote = ReplaceNumberByKey("darkB", ScanNote, darkB, "=", "\r")
+		endif
+	endif
+end
+
+
+//********************************************* twoP_ROIdoMarquee *********************************************************
+// Graph marquee function to make a square ROI from the graph marquee coordinates and make an ROI avg from the current scan.
+// Last modified 2026/09/10 by Jamie Boyd
+Function twoP_ROIdoMarquee()
+	
+	// Get dark values if shift key is held down
+	variable getDark = ((getkeystate(0) & 4) == 4)
+	// for linescans, command/ctrl key for boxCar averaging
+	variable doBCavg = ((getKeyState (0) & 1) == 1)
+	// get marquee values for left and bottom axes
+	GetMarquee/K left, bottom
+	// check that marquee is on the scan Graph
+	if (cmpStr (stringfromlist (0, S_marqueeWin, "#"), "twoPScanGraph") != 0)
+		doalert 0, "This function only works with the current scan displayed on twoPhoton Scan Graph."
+		return 1
+	endif
+	// Get current scan and get scan note
+	SVAR curscan = root:Packages:twoP:examine:CurScan
+	SVAR ScanNote = $"root:twoP_Scans:" + curscan  + ":" + curScan +  "_info"
+	// check scan mode
+	variable scanMode = numberByKey ("Mode", scanNote, "=", "\r")
+	if (!(((scanMode == kLineScan) || (scanMode == kTimeSeries)) || (scanMode == kZseries)))
+		doalert 0, "This function only works with a time series, a Z- series,  or a Line Scan."
+		return 1
+	endif
+	// put marquee coordinates in local variables, checking max and min in cases axes are inverted
+	variable roi_left, roi_right, roi_bottom, roi_top
+	roi_left = min (V_left, V_right)
+	roi_right = max (V_left, V_right)
+	roi_bottom = min (V_Top, V_bottom)
+	roi_top = max (V_Top, V_bottom)
+	// check dark fluorescence, first check scan info and then check global variables
+	STRUCT RectF darkRect
+	darkRect.top = Nan
+	darkRect.left = Nan
+	darkRect.bottom = Nan
+	darkRect.right = Nan
+	if (getDark)
+		darkRect.left = numberbykey ("DarkL", scanNote, "=", "\r")
+		darkRect.right = numberbykey ("DarkR", scanNote, "=", "\r")
+		if (scanMode != kLineScan)
+			darkRect.top = numberbykey ("DarkT", scanNote, "=", "\r")
+			darkRect.bottom = numberbykey ("DarkB", scanNote, "=", "\r")
+		endif
+		if (((numtype (darkRect.bottom) ==2) || (numtype (darkRect.top) ==2)) || ((scanMode != kLineScan) && ((numtype (darkRect.left) ==2) || (numtype (darkRect.right) ==2))))  // dark not set for this scan, so set it from globals
+			NVAR/Z darkLG = root:packages:twoP:examine:darkL
+			NVAR/Z darkRG = root:packages:twoP:examine:darkR
+			if (scanMode != kLineScan)
+				NVAR/Z darkBG = root:packages:twoP:examine:darkB
+				NVAR/Z darkTG = root:packages:twoP:examine:darkT
+			endif
+			if	((!NVAR_Exists(darkTG)) || (!NVAR_Exists(darkBG)) || ((scanMode != kLineScan) && ((!NVAR_Exists(darkLG)) || (!NVAR_Exists(darkRG)))))
+				doAlert 0, "No dark region has been set."
+				return 1
+			endif
+			darkRect.bottom = darkBG
+			darkRect.top = darkTG
+			ScanNote = ReplaceNumberByKey("darkB", scanNote, darkRect.bottom, "=", "\r")
+			ScanNote = ReplaceNumberByKey("darkT", scanNote, darkRect.top, "=", "\r")
+			if (scanMode != kLineScan)
+				darkRect.left = darkLG
+				darkRect.right = darkRG
+				ScanNote = ReplaceNumberByKey("darkL", scanNote, darkRect.left, "=", "\r")
+				ScanNote = ReplaceNumberByKey("darkR", scanNote, darkRect.right, "=", "\r")
+			endif
+		endif
+	endif
+	// check box car averaging for line scans
+	variable BCwidth=0
+	if ((scanMode == kLineScan) && (doBCavg))
+		BCwidth = round ((ROI_Top - ROI_bottom)/ numberbykey ("LineTime", scanNote, "=", "\r"))
+		if (BCWidth == 0)
+			doBCavg = 0
+		elseif (mod (BCWIdth,2) ==0)
+			BCWidth += 1
+		endif
+	endif
+	// get which channel to use based on which subWindow marquee was drawn on
+	// subwin is named G + channel name
+	string subwin, chStr
+	subwin = stringfromlist (1, S_marqueeWin, "#")
+	chStr = "_" + subwin [1,strlen (subwin) -1]	// the [1, gets rid of the G at the beginning
+	// reference channel waves -  if on the RGB subwin, then  do ratio
+	variable isRatio
+	if (cmpStr (chStr, "_RGB") == 0)
+		SVAR topChan = root:packages:twoP:examine:ROITopChan
+		SVAR bottomChan = root:Packages:twoP:examine:ROIbottomChan
+		Wave/z topWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + topChan
+		Wave/z bottomWave = $"root:twoP_Scans:" + curScan + ":" + curScan + "_" + bottomChan
+		if (!(WaveExists (topWave) && (waveExists (bottomWave))))
+			doAlert 0, "Top or bottom waves for ratio imaging were not found."
+			return 1
+		endif
+		isRatio =1
+	else
+		WAVE chWave = $"root:twoP_Scans:" + curScan + ":" + curScan + chStr
+		if (!(WaveExists (chWave)))
+			doAlert 0, "Could not find wave for the channel, " + curScan + chStr
+			return 1
+		endif
+		isRatio = 0
+	endif
+	//Find the first free name for the ROI and make the ROI wave
+	if (!(dataFolderExists ("root:twoP_ROIs")))
+		newdatafolder root:twoP_ROIs
+	endif
+	variable ii
+	For (ii=0; WaveExists($"root:twoP_ROIs:"  + curScan +  "_R" + num2str (ii) + "_y"); ii += 1)
+	Endfor
+	variable ROINum = ii
+	String ROIBaseName =  "root:twoP_ROIs:"  + curScan + "_R" + num2str (ROINum)
+	variable red, green, blue
+	variable NumFrames
+	GUIPrgbGetter (ROINum, red, green, blue)	// automatically sets color for the ROI based on ROI number
+	make/n= 5 $ ROIBaseName + "_x", $ROIBaseName + "_y"
+	WAVE RoiXWave = $ROIBaseName + "_x"
+	WAVE RoiYWave = $ROIBaseName + "_y"
+	if (scanMode == kLineScan)
+		numFrames =  numberbykey ("PixHeight", ScanNote, "=", "\r")
+		Note RoiXWave, "WaveType:ROIlinescan;" + "Red:" + num2str (red) + ";Green:" + num2str (green) + ";Blue:" + num2str (blue) + ";"
+		variable bottomMost = numberbykey ("yPos", scanNote, ":", "\r")
+		variable TopMost = BottomMost + (numberbykey ("PixHeight", scanNote, ":", "\r")-2) * numberbykey ("LineTime", scanNote, ":", "\r")
+		ROIxWave [0,1] = roi_left
+		ROIxWave [2] = Nan
+		ROIxWave [3,4] = roi_right
+		ROIyWave [0] = bottomMost
+		ROIyWave [1] = topMost
+		ROIyWave [2] = Nan
+		ROIYWave [3] = bottomMost
+		ROIyWave [4] = topMost
+	else
+		NumFrames = numberbykey ("NumFrames", ScanNote, "=", "\r")
+		Note RoiXWave, "WaveType:ROIsquare;" + "Red:" + num2str (red) + ";Green:" + num2str (green) + ";Blue:" + num2str (blue) + ";"
+		ROIxWave [0,1] = roi_left
+		ROIxWave [2,3] = roi_right
+		ROIxWave [4] = roi_left
+		ROIyWave [0] = roi_bottom
+		ROIyWave [1,2] = roi_top
+		ROIYWave [3,4] = roi_bottom
+	endif
+	// add ROI to list of ROIS 
+	WAVE/t RoiListWave = root:Packages:twoP:examine:RoiListWave
+	WAVE RoiListSelWave = root:Packages:twoP:examine:RoiListSelWave
+	insertpoints (numpnts (ROIListWave)), 1, RoiListWave, RoiListSelWave
+	RoiListWave [numpnts (ROIListWave) -1] = curScan + "_R" + num2str (ROINum)
+	// Draw ROI on twoP ScanGraph, if not there already
+	doWindow/F twoPScanGraph
+	if (V_Flag)	// window is there
+		string subWinTraces = TraceNameList(S_marqueeWin, ";", 1)
+		if (whichListItem(ROIBaseName + "_y", subWinTraces, ";") == -1)	// trace is not there
+			appendtograph/W=$S_marqueeWin/C =(red,green,blue) ROIyWave vs ROIxWave
+		endif
+	else	// window is not open (maybe user set marquee on a different window)
+		twoP_ImGraphNew (curScan)
+	endif
+	//Find the first free name for the ROIavg and make the ROIavg wave
+	string ROIAvgBaseName
+	if (cmpStr (chStr, "_RGB") ==0)
+		ROIAvgBaseName = "root:twoP_Scans:" + curScan + ":" + curScan + "_R" + num2str (ROINum) + "_ratio"
+	else
+		ROIAvgBaseName = "root:twoP_Scans:" + curScan + ":" +curScan +  "_R" + num2str (ROINum) + chStr + "avg"
+	endif
+	if (waveExists ($ROIAvgBaseName))
+		For (ii =1; WaveExists($ROIAvgBaseName + num2str (ii)); ii += 1)
+		endfor
+		make/o/n= (NumFrames)$ROIAvgBaseName + num2str (ii)
+		WAVE Roiavg = $ROIAvgBaseName + num2str (ii)
+	else
+		make/o/n= (NumFrames)$ROIAvgBaseName
+		WAVE Roiavg = $ROIAvgBaseName
+	endif
+	if (scanMode == kTimeSeries)
+		setscale/P x 0,(numberbykey ("FrameTime",ScanNote, "=", "\r")),"s", RoiAvg
+	elseif (scanMode == kLineScan)
+		setscale/P x 0,(numberbykey ("LineTime",ScanNote, "=", "\r")),"s", RoiAvg
+	elseif (scanMode == kZseries)
+		setscale/P x (numberbykey ("ZPos",ScanNote, "=", "\r")),(numberbykey ("ZstepSize",ScanNote, "=", "\r")),"m", RoiAvg
+	endif
+	note RoiAvg, "ImWave:" + CurScan + ";ROI:" +stringfromlist (2, ROIBaseName, ":") + ";Red:" + num2str (red) + ";Green:" + num2str (green) + ";Blue:" + num2str (blue) + ";deltafed:0;"
+	// do the ROI one of 2^3=8 different ways: Line Scan vs 3D wave, with Dark Subtraction or not, ROI avg vs ROI ratio
+	if (scanMode == kLineScan)
+		if (isRatio)
+			if (getDark)
+				twoP_ROIdoLineScanRatio(topWave, bottomWave,  curScan + "_R" + num2str (ROINum), ROIavg, darkRect=darkRect)
+			else
+				twoP_ROIdoLineScanRatio(topWave, bottomWave,  curScan + "_R" + num2str (ROINum), ROIavg)
+			endif
+		else
+			if (getDark)
+				twoP_ROIdoLineScanAvg(chWave,  curScan + "_R" + num2str (ROINum), ROIavg, darkRect=darkRect)
+			else
+				twoP_ROIdoLineScanAvg(chWave,  curScan + "_R" + num2str (ROINum), ROIavg)
+			endif
+		endif
+		// boxCar averaging?
+		if (doBCavg)
+			Smooth/B (BCwidth), RoiAvg
+		endif
+	else // a 3D scan
+		if (isRatio)
+			if	(getDark)
+				twoP_ROIdoSquareRatio(topWave, bottomWave, curScan + "_R" + num2str (ROINum), ROIavg, darkRect=darkRect)
+			else
+				twoP_ROIdoSquareRatio(topWave, bottomWave, curScan + "_R" + num2str (ROINum), ROIavg)
+			endif
+		else
+			if (getDark)
+				twoP_ROIdoSquareAvg(chWave, curScan + "_R" + num2str (ROINum), ROIavg, darkRect=darkRect)
+			else
+				twoP_ROIdoSquareAvg(chWave, curScan + "_R" + num2str (ROINum), ROIavg)
+			endif
+		endif
+	endif
+	// apend roiAvg to TracesGraph
+	Dowindow/F twoP_tracesGraph
+	if (V_Flag)	// window exists
+		RemoveFromGraph/Z /W=twoP_tracesGraph $ROIAvgBaseName + "_y"
+		appendtograph /W=twoP_TracesGraph/C=(red, green, blue)/L=ROIL/B=Bottom  ROIavg	
+		twoP_TracesGraphShareAxes ()	
+		Label ROIL "\\Z12Raw 12 bit A/D"  
+		ModifyGraph /W=twoP_TracesGraph freePos(ROIL)={0,bottom}, lblPos(ROIL)=45
+		ModifyGraph /W=twoP_TracesGraph btLen (ROIL)=2
+		ModifyGraph /W=twoP_TracesGraph stLen (ROIL)=1
+		ModifyGraph /W=twoP_TracesGraph ftLen (ROIL)=2
+	else
+		twoP_TracesGraphNew (curScan)
+	endif
+end
+
+//******************************************************************************************************
+// Processes a Square ROI avg, with optional dark subtraction
+// Last Modified 2026/09/13 by Jamie Boyd
+Function twoP_ROIdoSquareAvg(chWave, ROI, ROIavg, [darkRect])
+	WAVE chWave
+	string ROI
+	wave ROIavg
+	Struct rectf &darkRect
+		
+	WAVE roix = $"root:twoP_ROIs:" + ROI  + "_x"
+	WAVE roiy = $"root:twoP_ROIs:" + ROI  + "_y"
+	variable left =roix [0]
+	variable right =roix [2]
+	variable bottom = roiy[0]
+	variable top = roiy [1]
+	
+	// look at each frame in the scan
+	variable ii, numFrames = dimsize (chWave, 2)
+	FOR (ii=0; ii < NumFrames; ii += 1)
+		imagestats/GS={left, right, bottom, top}/P=(ii) chwave
+		RoiAvg [ii] = V_avg
+	ENDFOR
+	// calculate dark values ?
+	if (!(paramisdefault (darkRect)))  // calculate dark value
+		variable darkAvg
+		for (darkAvg =0, ii=0; ii < NumFrames; ii += 1)
+			imagestats/GS={darkRect.left ,darkRect.right, darkRect.bottom, darkRect.top}/P=(ii) chwave
+			darkAvg += V_avg
+		endfor
+		darkAvg /= NumFrames
+		RoiAvg -= darkAvg
+	endif
+end
+
+//******************************************************************************************************
+// Processes a Square ROI ratio, with optional dark subtraction
+// Last Modified 2026/09/13 by Jamie Boyd
+Function twoP_ROIdoSquareRatio(topWave, bottomWave, ROI, ROIratio, [darkRect])
+	WAVE topWave, bottomWave
+	string ROI
+	wave ROIratio
+	Struct rectf &darkRect
+		
+	WAVE roix = $"root:twoP_ROIs:" + ROI  + "_x"
+	WAVE roiy = $"root:twoP_ROIs:" + ROI  + "_y"
+	variable left = roix [0]
+	variable right = roix [2]
+	variable top = roiy [1]
+	variable bottom = roiy [0]
+	// look at each frame in the scan
+	variable ii, numFrames = dimsize (topWave, 2), topAvg
+	// calculate dark values ?
+	variable darkAvgTop, darkAvgBottom
+	
+	if (!(paramIsDefault(darkRect)))  // calculate dark value
+		FOR (darkAvgTop =0, darkAvgBottom=0, ii=0; ii < NumFrames; ii += 1)
+			imagestats/GS={darkRect.left ,darkRect.right, darkRect.bottom, darkRect.top}/P=(ii) topWave
+			darkAvgTop += V_avg
+			imagestats/GS={darkRect.left ,darkRect.right, darkRect.bottom, darkRect.top}/P=(ii) bottomWave
+			darkAvgBottom += v_avg
+		endfor
+		darkAvgTop/=NumFrames
+		darkAvgBottom/=NumFrames
+	else
+		darkAvgTop =0
+		darkAvgBottom =0
+	endif
+	for (ii=0; ii < NumFrames; ii += 1)
+		imagestats/GS={left ,right, bottom ,top}/P=(ii) topWave
+		topAvg = v_avg
+		imagestats/GS={left ,right, bottom ,top}/P=(ii) bottomWave
+		ROIratio [ii] = (topAvg - darkAvgTop)/(V_avg - darkAvgBottom)
+	endfor
+end
+
+//******************************************************************************************************
+// Processes a LineScan ROI avg, with optional dark subtraction
+// Last Modified Jul 23 2010 by Jamie Boyd
+function twoP_ROIdoLineScanAvg(chWave, ROI, ROIavg, [darkRect])
+	WAVE chWave
+	string ROI
+	wave ROIavg
+	Struct rectf &darkRect
+	
+	WAVE roix = $"root:twoP_ROIs:" + ROI  + "_x"
+	WAVE roiy = $"root:twoP_ROIs:" + ROI  + "_y"
+	string scan = nameofWave (chWave) 
+	scan = removeEnding (removeEnding (scan, "_ch1"), "_ch2")
+	SVAR scanNote = $"root:twoP_Scans:" + scan + ":" + scan + "_info"
+	
+	variable startP = (roix [0] - numberbykey ("XPos", scanNote, "=", "\r"))/numberbykey ("XpixSize", scanNote, "=", "\r")
+	variable endP = (roix [3] - numberbykey ("XPos", scanNote, "=", "\r"))/numberbykey ("XpixSize", scanNote, "=", "\r")
+	variable ii, numLines = dimsize (chWave, 1)
+	// look at each line in the lineScan
+	for (ii=0; ii < numLines; ii += 1)
+		imagetransform/G=(ii) getCol chwave
+		WAVE W_ExtractedCol
+		wavestats/Q/M=1/R=[startP, endP] W_ExtractedCol
+		RoiAvg [ii] = V_avg
+	endfor
+	if (!(paramisDefault(darkRect))) // calculate dark value
+		imagestats/GS={darkRect.left ,darkRect.right, roiy [0] ,roiy [1]} chwave
+		ROIAvg -= V_avg
+	endif
+end
+
+//******************************************************************************************************
+// Processes a LineScan ROI ratio, with optional dark subtraction
+// Last Modified Jul 23 2010 by Jamie Boyd
+function twoP_ROIdoLineScanRatio(topWave, bottomWave, ROI, ROIratio, [darkRect])
+	WAVE topWave, bottomWave
+	string ROI
+	wave ROIratio
+	Struct rectf &darkRect
+	
+	WAVE roix = $"root:twoP_ROIs:" + ROI  + "_x"
+	WAVE roiy = $"root:twoP_ROIs:" + ROI  + "_y"
+	string scan = nameofWave (topWave) 
+	scan = removeEnding (removeEnding (scan, "_ch1"), "_ch2")
+	SVAR scanNote = $"root:twoP_Scans:" + scan + ":" + scan + "_info"
+	variable startP = (roix [0] - numberbykey ("XPos", scanNote, "=", "\r"))/numberbykey ("XpixSize", scanNote, "=", "\r")
+	variable endP = (roix [3] - numberbykey ("XPos", scanNote, "=", "\r"))/numberbykey ("XpixSize", scanNote, "=", "\r")
+	// calculate dark values ?
+	variable darkAvgTop =0, darkAvgBottom =0
+	if (!(paramIsDefault (darkRect)))// calculate dark value
+		imagestats/GS={darkRect.left ,darkRect.right, roiy [0] ,roiy [1]} topWave
+		darkAvgTop = V_avg
+		imagestats/GS={darkRect.left ,darkRect.right, roiy [0] ,roiy [1]} bottomWave
+		darkAvgBottom = V_avg
+	endif
+	// look at each line in the lineScan
+	variable ii, numLines = dimsize (topWave, 1), topAVg
+	for (ii=0; ii < NumLines; ii += 1)
+		imagetransform/G=(ii) getCol topWave
+		WAVE W_ExtractedCol
+		wavestats/Q/M=1/R=[startP, endP] W_ExtractedCol
+		topAvg = V_avg
+		imagetransform/G=(ii) getCol bottomWave
+		wavestats/Q/M=1/R=[startP, endP] W_ExtractedCol
+		ROIratio [ii] = (topAvg - darkAvgTop)/(V_avg - darkAvgBottom)
+	endfor	
+end
 
 
 
 //******************************************************************************************************
 // ---------------------------Functions for image histogram ------------------------------------------
 //******************************************************************************************************
+
 
 // **********************************************************************************
 // Makes histogram display and/or adjusts channels displayed on histogram graph
@@ -2011,21 +2732,6 @@ Function twoP_HistAddChannel(aChan)
 	return 0
 end
 
-// **********************************************************************************
-// shares left axis space for all the channels - run after adding or removing a channel
-// Last Modified: 2025/08/02 by Jamie Boyd
-Function twoP_ShareAxisSpace(graphName)
-	string graphName
-	
-	string LeftAxes = removefromlist("bottom", axisList(graphName), ";")
-	variable iAxis, nAxes = itemsinList(LeftAxes, ";")
-	variable axisFrac =(1-.02*(nAxes-1))/nAxes
-	string anAixs
-	for(iAxis  =0; iAxis < nAxes; iAxis +=1)
-		anAixs = stringFromList(iAxis, LeftAxes, ";")
-		ModifyGraph/W= $graphName axisEnab($anAixs)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis * .01)}
-	endfor
-end
 
 
 //****************************************************************************************************
@@ -2070,7 +2776,7 @@ Function twoP_HistGraphChansPopMenuProc(pa) : PopupMenuControl
 					string leftName = "ImRangeLefty" + pa.popStr
 					string rightName = "ImRangerighty" + pa.popStr
 					removefromGraph/W=twoP_HistGraph $histName, $leftName, $rightName
-					twoP_ShareAxisSpace("twoP_HistGraph")
+					twoP_TraceShareYAxisSpace("twoP_HistGraph")
 				endif
 			else
 				selChans = sortList(addlistItem(pa.popStr, selChans, ","), ",") // adding a channel
@@ -2079,7 +2785,7 @@ Function twoP_HistGraphChansPopMenuProc(pa) : PopupMenuControl
 				twoP_HistDoChannel(pa.popStr)
 				if(V_Flag) // window was found
 					twoP_HistAddChannel(pa.popStr)
-					twoP_ShareAxisSpace("twoP_HistGraph")
+					twoP_TraceShareYAxisSpace("twoP_HistGraph")
 				endif
 			endif
 			break
@@ -2167,8 +2873,7 @@ Function twoP_HistTypeCheckProc(cba) : CheckBoxControl
 End
 
 //********************************************************************************************
-// CheckBox on histGraph sets left axes to log or linear scaling when corresponding checkboxes are activated
-// Last Modified 2025/08/02 by Jamie Boyd
+// CheckBox on histGraph sets left axes to log scaling when checked, linear scaling when un-checked
 Function twoP_HistAxisCheckProc(cba) : CheckBoxControl
 	STRUCT WMCheckboxAction &cba
 
@@ -2193,6 +2898,23 @@ Function twoP_HistAxisCheckProc(cba) : CheckBoxControl
 	return 0
 End
 
+
+//******************************************************************************************************
+// Edit this function to call user-supplied analysis code
+// Last midified 2025/09/19 by Jamie Boyd
+Function MakeMiscPanel(ba) : ButtonControl
+	STRUCT WMButtonAction &ba
+
+	switch( ba.eventCode )
+		case 2: // mouse up
+			doalert 0, "This button exists so you can call your own special-purpose code from it by editing the \"MakeMiscPanel\" function."
+			break
+		case -1: // control being killed
+			break
+	endswitch
+
+	return 0
+End
 
 
 // ***********************************************************************************************************************************
@@ -2463,7 +3185,7 @@ Function twoP_LUTInvertCheckProc(cba) : CheckBoxControl
 
 	switch( cba.eventCode )
 		case 2: // mouse up
-			//Update image settings for selected channel. checkbox is already hooked up to correctvariable for channel
+			//Update image settings for selected channel. checkbox is already hooked up to correct variable for channel
 			SVAR LUTChan = root:Packages:twoP:examine:LUTChan
 			if(WhichListItem("G" + LUTchan, childwindowlist("twoPscanGraph"), ";", 0, 0) > -1)
 				twoP_LUTApplysettings(LUTChan)
@@ -2597,9 +3319,9 @@ Function twoP_LUTSliderAction(ctrlName, leftThumb, rightThumb, event, thumb, eve
 	endif
 	if ((RGB_hasRGB) && toDo)
 		NVAR gThreadGroupID = root:packages:twoP:examine:rgbThreadGroupID
-		newdatafolder/s :tdata
-		variable/G toDoG = toDo
-		ThreadGroupPutDF gThreadGroupID, :
+		newdatafolder/o :tdata
+		variable/G :tdata:toDoG = 7
+		ThreadGroupPutDF gThreadGroupID, :tdata
 	endif
 	
 	// LUT slider control is duplicated on man control panel and scanGraph control panel, call control on other WITHOUT updating it
@@ -2923,7 +3645,7 @@ Function twoP_DROIChansPopMenuProc(pa) : PopupMenuControl
 				doWindow/F twoP_DroiGraph
 				if(V_Flag) // window was found
 					removefromGraph/W=twoP_DroiGraph $"Droi_" + pa.popStr
-					twoP_DROIShareAxisSpace()
+					twoP_TraceShareYAxisSpace("twoP_DroiGraph")
 				endif
 			else
 				selChans = sortList(addlistItem(pa.popStr, selChans, ","), ",") // adding a channel
@@ -2934,7 +3656,7 @@ Function twoP_DROIChansPopMenuProc(pa) : PopupMenuControl
 					ModifyGraph/w=twoP_DroiGraph  freePos($"L_" + pa.popStr)={dimoffset(dROIWave, 0),bottom}
 					label/w=twoP_DroiGraph  $"L_" + pa.popStr "DROI " + pa.popStr
 					ModifyGraph/w=twoP_DroiGraph  lblPos( $"L_" + pa.popStr)=60
-					twoP_DROIShareAxisSpace()
+					twoP_TraceShareYAxisSpace("twoP_DroiGraph")
 				endif
 			endif
 			break
@@ -2949,7 +3671,7 @@ End
 // ***********************************************************************************
 // Sets top channel or bottom channel for doing a ratio for dynamic ROI
 // Last Modified: 2026/06/16 by Jamie Boyd
-Function twoP_dROIRatioPopMenuProc(pa) : PopupMenuControl
+Function twoP_DROIRatioPopMenuProc(pa) : PopupMenuControl
 	STRUCT WMPopupAction &pa
 
 	switch( pa.eventCode )
@@ -2964,20 +3686,6 @@ Function twoP_dROIRatioPopMenuProc(pa) : PopupMenuControl
 	endswitch
 	return 0
 End
-
-// **********************************************************************************
-// shares left axis space for all the channels - run after adding or removing a channel
-// Last Modified: 2025/08/02 by Jamie Boyd
-Function twoP_DROIShareAxisSpace()
-	string LeftAxes = removefromlist("bottom", axisList("twoP_DroiGraph"), ";")
-	variable iAxis, nAxes = itemsinList(LeftAxes, ";")
-	variable axisFrac =(1-.02*(nAxes-1))/nAxes
-	string anAixs
-	for(iAxis  =0; iAxis < nAxes; iAxis +=1)
-		anAixs = stringFromList(iAxis, LeftAxes, ";")
-		ModifyGraph axisEnab($anAixs)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis * .01)}
-	endfor
-end
 
 
 // **************************************************************************************
@@ -3063,7 +3771,7 @@ end
 
 
 // ***************************************************************************************************
-// --------------------------------- Controls for Stack Movies
+// --------------------------------- Controls for Showing 3D Stacks as Movies -------------------------
 //******************************************************************************************************
 
 // *******************************************************************************************************
@@ -3247,9 +3955,9 @@ Function twoP_MovieDisplayFrame(sa) : SliderControl
 			NVAR RGB_hasRGB = root:packages:twoP:examine:RGB_hasRGB
 			if (doRGB && RGB_hasRGB)
 				NVAR gThreadGroupID = root:packages:twoP:examine:rgbThreadGroupID
-				newdatafolder/s :tdata
-				variable/G toDoG = 7
-				ThreadGroupPutDF gThreadGroupID, :
+				newdatafolder/o :tdata
+				variable/G :tdata:toDoG = 7
+				ThreadGroupPutDF gThreadGroupID, :tdata
 			endif
 			break
 	endswitch
@@ -3258,7 +3966,7 @@ End
 
 
 //******************************************************************************************************
-// ------------Utility functions useful for working  with twoP data-----------------------------------------------
+// ------------------------------- Various Utility functions ------------------------------------------
 //******************************************************************************************************
 
 
@@ -3274,70 +3982,75 @@ Function twoP_UtilSaveWinPosHook(s)
 	return 0
 end
 
-
-// This little function returns the full path to the current scan for channel 1
-Function/S sc1()
-	SVAR curScan = root:packages:twoP:examine:curScan
-	return "root:twoP_Scans:" + curScan + ":" + curScan + "_ch1"
-end
-
-//******************************************************************************************************
-// This little function returns the full path to the current scan for channel 2
-Function/S sc2()
-	SVAR curScan = root:packages:twoP:examine:curScan
-	return "root:twoP_Scans:" + curScan + ":" + curScan + "_ch2"
-end
-
-
-//******************************************************************************************************
-// This little function returns the full path to the current scan for given channel
-Function/S sChan(chan)
-	string chan
-	SVAR curScan = root:packages:twoP:examine:curScan
-	return "root:twoP_Scans:" + curScan + ":" + curScan + "_" + chan
-end
-
-//******************************************************************************************************
-// this little function returns the note for the current scan
-Function/S sInfo()
-	SVAR curScan = root:packages:twoP:examine:curScan
-	SVAR curScanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
-	return curScanStr
-end
-
-// *******************************************************************************
-// this function returns a list of scans whose user-entered experiment notes have 
-// an entry for theKey with a value matching requestedValue
-function/S getScansByKeyValue1(theKey, requestedValue)
-	string theKey
-	string requestedValue
+// *********************************** twoP_TraceFindOnAxis **********************************************************
+// Returns the name of a trace, any trace, displayed on the given Y-axis of the graph.
+// Useful for putting a cursor on a trace when you have multiple axes
+// Last modified: 2026/09/10 by Jamie Boyd
+function/S twoP_TraceFindOnAxis(theGraph, theAxis)
+	string theGraph
+	string theAxis
 	
-	DFREF dfr = root:twoP_Scans
-	String scanName
-	String expNote
-	String ReturnList = ""
-	String value
-	Variable index = 0
-	do
-		scanName = GetIndexedObjNameDFR(dfr, 4, index)
-		if (strlen (scanName) == 0)
-			break
+	string traceList = TraceNameList(theGraph, ";", 1 )
+	string aTrace, infoStr
+	variable iTrace, nTraces= itemsinlist (traceList)
+	for (iTrace =0; iTrace < nTraces; iTrace +=1)
+		aTrace = stringFromList(iTrace, traceList)
+		infoStr = traceInfo (theGraph, aTrace, 0)
+		if (CmpStr (theAxis,  stringbykey ("YAXIS", infoStr)) ==0)
+			return aTrace
 		endif
-		SVAR/z noteStr = $"root:twoP_Scans:" + scanName + ":" + scanName + "_info"
-		expNote = StringByKey("ExpNote", noteStr, "=", "\r")
-		value = StringByKey (theKey, expNote, ":", ";")
-		if (StringMatch(value, requestedValue))
-			returnList = AddListItem(scanName, returnList)
-		endif
-		index += 1
-	while (1)
-	return ReturnList
+	endfor
+	return ""
 end
 
+// **************************************** twoP_TraceCopyAppearance ****************************
+// Copies trace appearance from a traceInfo recreation string (RecStringP) and applies it
+// to a trace (traceName) displayed on the graph graphName. Get a recreation string like so:
+// string RecStringP = TraceInfo("twoP_TracesGraph", "Scan_001_R1_ch2avg", 0)
+// Last Modified: 2026/09/11 by Jamie Boyd
+function twoP_TraceCopyAppearance(RecStringP, graphName, traceName)
+	string RecStringP
+	string graphName
+	string traceName
+	
+	// Copy just the recreation part of the input string, skipping the first part of the string
+	// which is not trace appearance related. The recreation part is a semicolon-separated list
+	// of modifyGraph commands where "x" stands in for the trace name, e.g. zmrkSize(x)=0
+	string RecStr = RecStringP [strsearch (RecStringP, "RECREATION", 0) + 11, strlen (RecStringP) -1]
+	// replace the "x" in all the commands with the tracename.
+	// use "(x)" instead of plain "x" to avoid "x" as part of a command, e.g., zColorMax
+	RecStr =  replaceString("(x)", RecStr, "(" + traceName + ")")
+	// iterate through the list of commands, generating a modifyGraph command and executing it
+	variable iRecCommand, nRecCommands = itemsinlist (RecStr)
+	string aCommand
+	for (iRecCommand = 0; iRecCommand < nRecCommands; iRecCommand += 1)
+		sprintf aCommand, "modifyGraph/W=%s %s", graphName, stringfromlist (iRecCommand, RecStr)
+		execute aCommand
+	endfor
+end
+
+
+// **********************************************************************************
+// shares left axis space for all the channels - run after adding or removing a channel
+// Last Modified: 2026/09/13 by Jamie Boyd
+Function twoP_TraceShareYAxisSpace(graphName)
+	string graphName
+	
+	string LeftAxes = removefromlist("bottom", axisList(graphName), ";")
+	variable iAxis, nAxes = itemsinList(LeftAxes, ";")
+	variable axisFrac =(1-.02*(nAxes-1))/nAxes
+	string anAixs
+	for(iAxis  =0; iAxis < nAxes; iAxis +=1)
+		anAixs = stringFromList(iAxis, LeftAxes, ";")
+		ModifyGraph/W= $graphName axisEnab($anAixs)={(iAxis * axisFrac) +(iAxis * .01) ,((iAxis + 1) * axisFrac) +(iAxis * .01)}
+	endfor
+end
+
+
 //******************************************************************************************************
-//Draws a nice scale-bar on an image using scaling of bottom axis
+// Draws a nice scale-bar on an image using scaling of bottom axis
 // Last modified Aug 31 2011 by Jamie Boyd
-Function twoP_DrawScaleBar()
+Function twoP_UtilDrawScaleBar()
 	
 	//Get the marquee coordinates and calculate xsize as distance between left and right
 	string vAxis = "left", hAxis = "bottom"
@@ -3598,9 +4311,9 @@ Function twoP_DrawScaleBar()
 end
 
 //******************************************************************************************************
-// Measures distances from the Maqrquee using left and bottom axes scaling
+// Measures distances corresponding to the width and height of the marquee using left and bottom axes scaling
 // Last Modified May 25 2010 by Jamie Boyd
-Function twoP_MeasureMarquee()
+Function twoP_UtilMeasureMarquee()
 	string vAxis = "left", hAxis = "bottom"
 	string axes = axislist("")
 	if((whichlistItem("left", axes, ";")) == -1)
@@ -3633,6 +4346,105 @@ Function twoP_MeasureMarquee()
 		printf "Velocity(rise/run) = %.2W1P%s/%s\r", xSize/ysize, bottomAxisUnits, leftAxisUnits
 	endif
 end
+
+
+// ************************** twoP_getScansByKeyValue *******************************************
+// this function returns a list of scans whose user-entered experiment notes have 
+// an entry for theKey with a value matching requestedValues
+// Last Modified: 2026/09/10 by Jamie Boyd
+function/S twoP_getScansByKeyValue(theKey, requestedValues)
+	String theKey			// the key to look for
+	String requestedValues	// the value we need to match
+
+	// make a datafolder reference to the folder where the scans are
+	DFREF twoPscansDFR = root:twoP_Scans
+	String scanName
+	String expNote
+	String ReturnList = ""
+	String value
+	Variable index = 0	// incremented each time we get a folder
+	// iterate through all the data folders in root:twoP_Scans:
+	// Each data folder corresponds to a single scan
+	do
+		// get the name of the next data folder, the 4 selects
+		// data folders instead of other Igor objects like
+		// Strings or Waves
+		scanName = GetIndexedObjNameDFR(twoPscansDFR, 4, index)
+		// if length of string scanName is 0, there are no more folders
+		// so we break out of the loop and return the list
+		if (strlen (scanName) == 0)
+			break
+		endif
+		// make a reference to the Info String for this scan
+		SVAR infoStr = $"root:twoP_Scans:" + scanName + ":" + scanName + "_info"
+		// Get the experiment note from the Info String
+		// with StringByKey, using "=" as key separator
+		// and "\r" (return) as list separator.
+		expNote = StringByKey("ExpNote", infoStr, "=", "\r")
+		// Get the value associated with theKey from the experiment
+		// using StringByKey with ":" as key separator and ";" as
+		// list separator. Because these are the defaults, we could
+		// omit them from the arguments.
+		// StringByKey with
+		value = StringByKey (theKey, expNote, ":", ";")
+		// if the value matches the requestedValue, add ScanName to
+		// the list we will return.
+		//if (StringMatch(value, requestedValue))
+		if (WhichListItem(value, requestedValues, ";", 0,0) >= 0)
+			returnList = AddListItem(scanName, returnList)
+			// or modify the code to do your analysis on this scan.
+		endif
+		// increment the index so we get the next scan next time
+		index += 1
+		// while (1) for infinite loop, we increment counter and break
+		// from within the loop itself
+	while (1)
+	return ReturnList
+end
+
+
+
+//******************************************************************************************************
+// This little function returns the full path to the wave for the given channel of the currenrt scan
+Function/S sChan(chan)
+	string chan
+	
+	SVAR curScan = root:packages:twoP:examine:curScan
+	String chanWavePath =  "root:twoP_Scans:" + curScan + ":" + curScan + "_" + chan
+	WAVE/Z chanWave = $chanWavePath
+	if (!(WaveExists (chanWave)))
+		chanWavePath = ""
+	endif
+	return chanWavePath
+end
+
+
+// This little function returns the full path to the current scan for channel 1
+Function/S sc1()
+	return sChan("ch1")
+end
+
+//******************************************************************************************************
+// This little function returns the full path to the current scan for channel 2
+Function/S sc2()
+	return sChan("ch2")
+end
+
+
+//******************************************************************************************************
+// this little function returns the note for the current scan
+Function/S sInfo()
+	SVAR curScan = root:packages:twoP:examine:curScan
+	SVAR curScanStr = $"root:twoP_Scans:" + curScan + ":" + curScan + "_info"
+	return curScanStr
+end
+
+
+
+
+
+
+
 
 
 

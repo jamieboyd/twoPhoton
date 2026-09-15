@@ -2,7 +2,7 @@
 #pragma IgorVersion =6.2
 #pragma version =2.0	// modification date: 2025/09/19 by Jamie Boyd.
 #include "GUIPControls"
-#include "TIFFwriter" 
+#include "GUIPTIFFwriter" 
 #include "GUIPKillDisplayedWave"
 //******************************************************************************************************
 //------------------------------- Code for The Export tab on the twoP Examine TabControl--------------------------------------------

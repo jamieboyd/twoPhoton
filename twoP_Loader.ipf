@@ -1,11 +1,14 @@
 #pragma rtGlobals=3		// Use modern global access method.
 #pragma IgorVersion=6.2
 #pragma version =2
-// Last Modified 2026/09/07 by Jamie Boyd - added menu item to load just the preferences editor
+// Last Modified 2026/09/10 by Jamie Boyd - added menu item to load just the preferences editor
 
-//**********************************************************************************************************************************************************
+//*********************************************  twoP_Loader **********************************************************************************************
 // Light weight loader procedure for twoP code. This can be placed in Igor Procedures folder so it loads every time Igor launches, but
-// only loads whole twoP program if user wants it. One-click access to twoP, no baggage.
+// only launches the whole twoP program if user wants it. One-click access to twoP, no baggage.
+//*********************************************  twoP_Loader **********************************************************************************************
+
+
 Menu "Data", dynamic
 	Submenu "Packages"
 		SelectString ((exists("twoP_ExamineMakeFolder") == 0), "",  "Load twoP LSM"),/Q, TwoPloader(hasXOPs())
@@ -26,7 +29,7 @@ end
 
 
 //**********************************************************************************************************************************************************
-// unloads twoP_acuire procedures, keeping the examine proceudres
+// unloads twoP_acuire procedures, keeping the examine proceudres. Kills the control panel so when it re-opens it can be made with only examine tab
 Function TwoPAqUnloader()
 	dowindow/K twoP_Controls
 	string stageProc = removefromlist ("StageUpdate_Template", FunctionList ("StageUpDate_*", ";", "KIND:2;NPARAMS:4;"), ";")
@@ -36,14 +39,14 @@ Function TwoPAqUnloader()
 	Execute/P/Q/Z "DELETEINCLUDE \"twoP_acquire\""
 	Execute/P/Q/Z "INSERTINCLUDE \"twoP_examine\""
 	Execute/P/Q/Z "COMPILEPROCEDURES "
-	Execute/P/Q/Z "twoP_ExamineMakePanel() "
+	Execute/P/Q/Z "GUIPKillWholeDataFolder (\"root:Packages:WindowCoordinates:\")" // needed because panel size measurements are device-dependent
 end
 
 
 //**********************************************************************************************************************************************************
 // Inserts or deletes include specifications for acquire or examine depending on presence of needed XOPs
 // Last modified:
-// 2026/01/07 by Jamie Boyd - removed lines for make panel when hasXOPs and moved it to twoP_PrefsTest
+// 2026/01/07 by Jamie Boyd - removed lines for make panel when hasXOPs. moved that code to twoP_PrefsTest
 // 2016/11/04 by Jamie Boyd - added code to include stage proc as well
 // 2016/11/04 by Jamie Boyd - added switch for loading/unloading code
 Function TwoPLoader (hasXOPs)
@@ -51,12 +54,10 @@ Function TwoPLoader (hasXOPs)
 	
 	if (hasXOPs)
 		Execute/P/Q/Z "INSERTINCLUDE \"twoP_Prefs\""
-		//Execute/P/Q/Z "INSERTINCLUDE \"twoP_acquire\""
 		Execute/P/Q/Z "COMPILEPROCEDURES "
 		newPath/O/Q twoPPrefsPath SpecialDirPath("Igor Pro User Files" , 0, 0, 0) + "User Procedures:twoPhoton"
 		Execute/P/Q/Z "twoP_PrefsLoad (\"twoPPrefs_default\") "
 		Execute/P/Q/Z "twoP_PrefsTest(1)"
-		//Execute/P/Q/Z "twoP_ExamineMakePanel ()"
 	else  //Just load  examine
 		Execute/P/Q/Z "INSERTINCLUDE \"twoP_examine\""
 		Execute/P/Q/Z "COMPILEPROCEDURES "
@@ -66,11 +67,9 @@ end
 
 
 //**********************************************************************************************************************************************************
-// Inserts or deletes include specifications for acquire or examine depending on presence of needed XOPs
+// Inserts include spec for twoP_Prefs. So you can make a test a preferences file without starting up the whole twoP program
 // Last modified:
-// 2026/01/07 by Jamie Boyd - removed lines for make panel when hasXOPs and moved it to twoP_PrefsTest
-// 2016/11/04 by Jamie Boyd - added code to include stage proc as well
-// 2016/11/04 by Jamie Boyd - added switch for loading/unloading code
+// 2026/09/10 by Jamie Boyd - first version
 Function twoP_OnlyPrefs()
 	Execute/P/Q/Z "INSERTINCLUDE \"twoP_Prefs\""
 	Execute/P/Q/Z "COMPILEPROCEDURES "

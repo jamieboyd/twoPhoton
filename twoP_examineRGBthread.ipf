@@ -4,7 +4,13 @@
 
 #pragma IndependentModule = RGBthread
 
-//**************************************************************************************************
+// *********************************** twoP_examineRGBthread ************************************************
+// ------------------ Part of twoPhoton - Scanning Laser Microscopy with Igor Pro and NI-DAQmx --------------
+// ----------------------------------------------------------------------------------------------------------
+// ------ Independent Module containing function for thread that updates the RGB wave on the ScanGraph ------
+// **********************************************************************************************************
+
+//************************************* twoP_examineRGBthread ***********************************************
 // Thread function for copying and scaling data from scanWave or scanGraphWave to 3 color RGB wave
 // put in this independent module to avoid warnings every time code is compiled 
 // Last modified 2026/07/31 by Jamie Boyd
@@ -23,14 +29,12 @@ threadsafe Function twoP_examineRGBthread(RGBWave, RGBsources, RGBfirstLasts)
 			slope = 255/(rgbfirstLasts[%lastRed] - rgbfirstLasts[%firstRed]) 
 			rgbwave [*] [*] [0] = min (255, max (0, (redwave [p][q] - rgbfirstLasts[%firstRed]) * slope))
 		endif
-
 		// green layer
 		WAVE greenWave = rgbSources[1]
 		if ((toDo & 2) && (waveexists(greenWave)))
 			slope = 255/(rgbfirstLasts [%lastGreen] - rgbfirstLasts [%firstGreen])
 			rgbwave [*] [*] [1] = min (255, max (0, (greenwave [p][q] - rgbfirstLasts[%firstGreen]) * slope))
 		endif
-
 		// blue layer
 		WAVE blueWave = rgbSources[2]
 		if ((toDo & 4) && (waveexists(blueWave)))

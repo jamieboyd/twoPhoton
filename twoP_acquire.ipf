@@ -1,14 +1,33 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2026/08/17 by Jamie Boyd.
-#pragma IgorVersion = 7			//Not sure about this. Perhaps some Igor 9isms have slipped in
+#pragma version = 2.1  			// Last Modified: 2026/09/11 by Jamie Boyd.
+#pragma IgorVersion = 7			// Not sure about this. Perhaps some Igor 9isms have slipped in
 
 #include "twoP_Prefs"
 #include "twoP_examine"
 #include "twoPex_export"
-
 #include "Stages"
+
+// **************************************** twoP_acquire ****************************************************
+// ----------------- Part of twoPhoton - Scanning Laser Microscopy with Igor Pro and NI-DAQmx ---------------
+// ----------------------------------------------------------------------------------------------------------
+// ------------- Code for controlling NI hardware to scan a laser and collect images and ePhys --------------
+// **********************************************************************************************************
+
+
+//****************************** Note on National Instruments Boards *************************************
+// One NI Board(referred to as the imageBoard) is used to generate the X and Y rasters that 
+// drive the galvos, collect the image data, and open and close the shutter
+// An -S or X-series board with at least 1M Samples/second per input channel, 2 output channels that update
+// at 1MHz, 2 counter\timers, and at least 1 DIO port
+  
+// The other, optional, board (referred to as the ePhysBoard) is used to collect the ephys trace(s), 
+// output TTL triggers, and output voltage control waves. Slower sampling rates are acceptable here, 
+// but 2 counter/timers and 2 analog outputs are still expected. E-series boards are fine
+// **********************************************************************************************************
+
+
 
 // define for workaround for jamie's development environment without 6110, where /ai and /ao counts disagree by one
 #define ENV_IS_DEVELOP
@@ -18,16 +37,6 @@ CONSTANT kMultiUsePeriod = 0
 CONSTANT kMultiUseWave = 1
 CONSTANT kMultiUseTrigger =2 
 
-//******************************************************************************************************
-//************************** Notes on National Instruments Boards ******************************
-// One NI Board(referred to as the imageBoard) is used to generate the X and Y rasters that 
-// drive the galvos, collect the image data, and open and close the shutter
-// An -S or X-series board with at least 1M Samples/second per input channel, 2 output channels that update
-// at 1MHz, 2 counter\timers, and at least 1 DIO port
-  
-// The other, optional, board(referred to as the ePhysBoard) is used to collect the ephys trace(s), 
-// output TTL triggers, and output clamp waves. Slower sampling rates are acceptable here, 
-// but 2 counter/timers and 2 analog outputs are still expected. E-series boards are fine
 
 
 //******************************************************************************************************
@@ -386,7 +395,7 @@ Function twoP_AcquireAddControls()
 	// Buttons to Open other windows
 	Button aqShowScansButton,pos={7.00,547.00},size={49.00,18.00},proc=twoP_ScanShowScan
 	Button aqShowScansButton,title="Scans"
-	Button aqShowTracesButton,pos={73.00,547.00},size={57.00,18.00},proc=twoP_showTracesProc
+	Button aqShowTracesButton,pos={73.00,547.00},size={57.00,18.00},proc=twoP_TracesGraphShowProc
 	Button aqShowTracesButton,title="Traces"
 	Button ShowScanSettingsButton,pos={142.00,547.00},size={98.00,18.00},proc=twoP_OpenPanelPrefsProc
 	Button ShowScanSettingsButton,title="More Settings"
@@ -1426,11 +1435,12 @@ Function twoP_ImScaleSetMarquee(type)
 	// calculate appropriate voltages based on scaling
 	XSV = max(xStartVoltsFS, WaveXSV +(V_left - waveXOffset)/ WaveXScal)
 	XEV= min(xEndVoltsFS, WaveXSV +(V_right - waveXOffset)/ WaveXScal)
-	YSV = max(yStartVoltsFS, WaveYSV +(V_bottom - waveYOffset)/WaveYScal)
-	YEV= min(yEndVoltsFS, WaveYSV +(V_top - waveYOffset)/WaveYScal)
 	// For linescan, set Y to average of starting and ending voltage
 	if(type == 2)
 		YSV =(YSV +  WaveYSV +(V_top - waveYOffset)/WaveYScal)/2
+	else
+		YSV = max(yStartVoltsFS, WaveYSV +(V_bottom - waveYOffset)/WaveYScal)
+		YEV= min(yEndVoltsFS, WaveYSV +(V_top - waveYOffset)/WaveYScal)
 	endif
 	// for crop scan, adjust pixel number to keep scaling constant
 	// to keep marquee functions to a minimum, there is no crop for linescans, but holding shift key will work
