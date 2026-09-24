@@ -2526,7 +2526,7 @@ Function twoP_VoltagePulseSelectProc(pa) : PopupMenuControl
 			if((Cmpstr(pa.popStr, "New Voltage Wave")) == 0) // prompt user to make a new wave
 				string newname = "Voltage_Wave"
 				Prompt newname, "Name for New Voltage Wave" 
-				Prompt length, "Length(in seconds) of New Voltage Wave"
+				Prompt length, "Length (in seconds) of New Voltage Wave"
 				Prompt freq, "Frequency (in Hz) of New Voltage Wave"
 				do
 					DoPrompt "Make New Voltage wave", newname, length, freq
@@ -3303,9 +3303,9 @@ Structure twoP_ScanStruct
 	string onlyChansEphys
 	string ePhysPath  // string containing paths to ePhys waves to scan and channels on which to scan them, in NIDAQ format
 	string stageProc
-		string vOutWave1
+	string vOutWave1
 	string vOutWave2
-// general scan/run settings
+	// general scan/run settings
 	variable scanMode			// one of 0=live mode, 1=time series, etc
 	
 	variable overWriteWarn		// set if overwrite warning checkbox is on
