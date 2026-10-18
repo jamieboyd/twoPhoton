@@ -796,9 +796,21 @@ Function twoP_ScanUpdateScanGraph(curScan)
 	variable Yoffset = NumberByKey("Yoffset", ScanInfo, "=", "\r")
 	for (iChan =0; iChan < nChans; iChan +=1)
 		aChan = stringFromList(iChan, chansPlusRGB, ",")
-		WAVE channelWave = $"root:packages:twoP:examine:scanGraph_" + aChan
-		if (!((DimSize(channelWave, 0) == xSize) && (DimSize(channelWave, 1) == ySize)))
-			redimension/n=((xSize),(ySize), -1) channelWave
+		WAVE/Z channelWave = $"root:packages:twoP:examine:scanGraph_" + aChan
+		if (!(waveExists (channelWave)))
+			if (cmpStr (aChan, "RGB") ==0)
+				make/n=((xSize),(ySize), 3) channelWave
+			else
+				make/n=((xSize),(ySize)) channelWave
+			endif
+		else
+			if (!((DimSize(channelWave, 0) == xSize) && (DimSize(channelWave, 1) == ySize)))
+				if (cmpStr (aChan, "RGB") ==0)
+					redimension/n=((xSize),(ySize), 3) channelWave
+				else
+					redimension/n=((xSize),(ySize)) channelWave
+				endif
+			endif
 		endif
 		SetScale/P X, xOffset, xPixSize, "m", channelWave
 		if(scanMode == kLineScan)
@@ -1295,8 +1307,8 @@ Function twoP_ImGraphNew(curScan)
 	variable ySize = NumberByKey("PixHeight", ScanStr, "=", "\r")
 	variable xPixSize =  NumberByKey("xPixSize", ScanStr, "=", "\r")
 	variable yPixSize =  NumberByKey("yPixSize", ScanStr, "=", "\r")
-	variable xOffset =  NumberByKey("xPos", ScanStr, "=", "\r")
-	variable yOffset =  NumberByKey("yPos", ScanStr, "=", "\r")
+	variable xOffset =  NumberByKey("xOffset", ScanStr, "=", "\r")
+	variable yOffset =  NumberByKey("yOffset", ScanStr, "=", "\r")
 	// subwin plot structures
 	STRUCT GUIPSubWin_UtilStruct us
 	us.graphName = "twoPscanGraph"
@@ -2823,7 +2835,7 @@ Function twoP_HistDoChannel(aChan)
 		NVAR curVal = root:packages:twoP:examine:curFramePos
 		ProjectZSlice(scanwave, chWave, curval)
 	else // whole stack
-		WAVE chWave =$"root:twoP_Scans:" + curScan + ":" + curScan + "_ch1"
+		WAVE chWave =$"root:twoP_Scans:" + curScan + ":" + curScan + "_" + aChan
 	endif
 	Histogram /B=2 chWave, HistWave
 End
@@ -4460,5 +4472,7 @@ function changeNoteSeps()
 		aScan= stringFromlist (iScan, scanList, ";")
 		SVAR noteStr = $"root:twoP_Scans:" + aScan + ":" + aScan + "_info"
 		noteStr = replaceString (":", noteStr, "=")
+		noteStr = replaceString ("Xpos", noteStr, "Xoffset")
+		noteStr = replaceString ("Ypos", noteStr, "Yoffset")
 	endfor
 end

@@ -2200,12 +2200,13 @@ Function twoP_zStackSetVarProc(sva) : SetVariableControl
 			variable toMod = V_Value
 			switch(toMod)
 				case 1: // number of Z SLices
-					NumZFrames =  round(((LastZ-FirstZ ) / ZStepSize) + 1)
+					NumZFrames =  round(((LastZ-FirstZ ) / ZStepSize))
 					// numFrames can not be negative, but stepsize can
 					if(NumZFrames < 0)
 						ZStepSize *= -1
 						NumZFrames *= -1
 					endif
+					NumZFrames += 1
 					break
 				case 2: //Step Size
 					SVAR stageProc = root:packages:twoP:Acquire:stageProc
