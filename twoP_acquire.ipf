@@ -6021,7 +6021,7 @@ Function twoP_LineScanBkg(s)
 	if(s.WMS.started)
 		s.WMS.started = 0
 		s.iChunk = 0
-		s.nChans = ItemsInList(selImageChanList, ",")
+		s.nChans = ItemsInList(selImageChanList, ";")
 		NVAR gThreadGroupID = root:Packages:twoP:Acquire:gThreadGroupID
 		s.threadGroupID = gThreadGroupID
 		NVAR lScanChunkSize = root:packages:twoP:acquire:LSChunkSize // number of lines to acquire at once
@@ -6295,7 +6295,7 @@ Function twoP_timeSeriesBkg(s)
 	if(s.WMS.started)
 		s.WMS.started = 0
 		s.iChunk = 0
-		s.nChans = ItemsInList(selImageChanList, ",")
+		s.nChans = ItemsInList(selImageChanList, ";")
 		NVAR chunkSize = root:packages:twoP:acquire:tSeriesChunkSize
 		s.chunkSize = chunkSize
 		NVAR nChunks= root:packages:twoP:acquire:tSeriesNumChunks
