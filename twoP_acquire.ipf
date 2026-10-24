@@ -30,7 +30,7 @@
 
 
 // define for workaround for jamie's development environment without 6110, where /ai and /ao counts disagree by one
-#define ENV_IS_DEVELOP
+ #define ENV_IS_DEVELOP
 
 //Defined constants for multiacquisition mode
 CONSTANT kMultiUsePeriod = 0
@@ -5523,7 +5523,7 @@ Function twoP_InitImageScan(s)
 		// mnake lineGate on ctr0, source is RTSI_5, where we will put ao signal of the waveform generator, direct the output to RTSI_6 where it is used to gate analog input
 		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ctr0InternalOutput", "/" + s.ImageBoard + "/RTSI6", 0), 6
 #ifdef ENV_IS_DEVELOP
-		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={ s.PixWidth, (s.PixWidthTotal - s.PixWidth)} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
+		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={ s.PixWidth -1, (s.PixWidthTotal - s.PixWidth)+2} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
 #else
 		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={, s.PixWidth -1, (s.PixWidthTotal - s.PixWidth + 1)} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
 #endif
@@ -7125,7 +7125,7 @@ function scantest(boardName)
 	string boardName
 	
 	
-	variable pixHz = 2500		// clock frequency in Hz
+	variable pixHz = 50000		// clock frequency in Hz
 	variable pixtime=1/pixHz	// time between scanning individual pixels, in seconds
 	// make wave for voltage output, as for output to galvos, but only 8 points used here for testing
 	make/o/s/n=8 wout = {-4, -3, -2, -1, 1, 2, 3, 4}
@@ -7142,13 +7142,13 @@ function scantest(boardName)
 	// export pause trigger to RTSI6
 	DAQmx_CTR_OutputPulse /DEV=boardName/TICK={5, 3} /IDLE=0 /NPLS=0/TBAS="/" + boardName + "/RTSI5"/Rate=(pixHz) 0
 	fDAQmx_ConnectTerminals("/" + boardName + "/ctr0InternalOutput", "/" + boardName + "/RTSI6", 0) 
-	DAQmx_CTR_OutputPulse /DEV=boardName/TICK={3, 5} /IDLE=1 /NPLS=0/TBAS="/" + boardName + "/RTSI5"/Rate=(pixHz) 1
+	//DAQmx_CTR_OutputPulse /DEV=boardName/TICK={3, 5} /IDLE=1 /NPLS=0/TBAS="/" + boardName + "/RTSI5"/Rate=(pixHz) 1
 	
 	// the waveform generator will do repeated output with wave wout on channel 0
 	// send the sample clock to RTSI5, where it is used to generate pause trigger (line clock)
 	fDAQmx_ConnectTerminals("/" + boardName + "/ao/SampleClock", "/" + boardName + "/RTSI5", 0)
 	// start repeated input scanning with RTSI 5 (ao/Sample clock) as input clock and RTSI 6 (line gate) as pause trigger.
-	DAQmx_Scan /DEV=boardName/BKG=1/CLK={"/" + boardName + "/RTSI5", 1}/PAUS={ "/" + boardName + "/RTSI6", 1,0} /RPTC WAVES = "win, 3/RSE,-10, 10;"
+	DAQmx_Scan /DEV=boardName/BKG=1/CLK={"/" + boardName + "/RTSI5", 1}/PAUS={ "/" + boardName + "/RTSI6", 1,0} /RPTC WAVES = "win, 0/PDIFF,-10, 10;"
 	DAQmx_WaveformGen /DEV=boardName /BKG=0/NPRD=0/Strt=1   "wout, 0;"
 	// optonally, connect ao/Sample clock and ai/SampleClock to output pins for verification
 	fDAQmx_ConnectTerminals("/" + boardName + "/ao/SampleClock", "/" + boardName + "/PFI5", 0)  // high-to-lo pulses
@@ -7159,8 +7159,8 @@ function scanEnd(boardName)
 	string boardName
 	fDAQmx_CTR_Finished(boardName, 0)	// stops the line gate counter
 	fDAQmx_CTR_Finished(boardName, 1)	// stops the un-line gate counter
-	DAQmx_CTR_OutputPulse /DEV=boardname/SEC={1e-6, 1e-6} /IDLE=0 /NPLS=1/STRT=0 1
-	fDAQmx_CTR_Finished(boardName, 1)
+	//DAQmx_CTR_OutputPulse /DEV=boardname/SEC={1e-6, 1e-6} /IDLE=0 /NPLS=1/STRT=0 1
+	//fDAQmx_CTR_Finished(boardName, 1)
 	fDAQmx_WaveformStop(boardName)		// stops repeated waveform output
 	fDAQmx_ScanStop(boardName)			// stops repeated data acquisition
 end

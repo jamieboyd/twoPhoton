@@ -215,7 +215,7 @@ Function twoP_SaveAndOrDeleteButtonProc(ba) : ButtonControl
 							STRUCT WMPopupAction pa
 							pa.popStr = newScan
 							pa.eventcode =2
-							twoP_ScanPopMenuProc(pa)
+							//twoP_ScanPopMenuProc(pa)
 						else
 							doWindow/K twoPscanGraph
 							doWindow/K twoP_TracesGraph
