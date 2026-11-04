@@ -1,14 +1,14 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2026/09/11 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2026/11/03 by Jamie Boyd.
 #pragma IgorVersion = 7			// Not sure about this. Perhaps some Igor 9isms have slipped in
 
 #include "twoP_Prefs"
 #include "twoP_examine"
 #include "twoPex_export"
 #include "Stages"
-
+fv
 // **************************************** twoP_acquire ****************************************************
 // ----------------- Part of twoPhoton - Scanning Laser Microscopy with Igor Pro and NI-DAQmx ---------------
 // ----------------------------------------------------------------------------------------------------------
@@ -27,10 +27,6 @@
 // but 2 counter/timers and 2 analog outputs are still expected. E-series boards are fine
 // **********************************************************************************************************
 
-
-
-// define for workaround for jamie's development environment without 6110, where /ai and /ao counts disagree by one
- #define ENV_IS_DEVELOP
 
 //Defined constants for multiacquisition mode
 CONSTANT kMultiUsePeriod = 0
@@ -175,7 +171,7 @@ Function twoP_AcquireMakeFolder()
 	variable/G root:Packages:twoP:Acquire:ScanStopOrAbort = 0	// set by STOP button to stop or abort a scan
 	variable/G root:packages:twoP:Acquire:iFrame = 0
 	// Live mode
-	variable/G root:Packages:twoP:Acquire:LiveNumAvgFrames = 3	// number of frames averaged in scanGraphWave
+	variable/G root:Packages:twoP:Acquire:LiveNumAvgFrames = 1	// number of frames averaged in scanGraphWave
 	variable/G root:Packages:twoP:Acquire:LiveiAvgFrame = 0		// used to count frames being averaged
 	variable/G root:Packages:twoP:Acquire:LiveStackAtOnce = 0	// set by setTimes if frameTime < minLiveFrameTime
 	// Average
@@ -207,7 +203,7 @@ Function twoP_AcquireMakeFolder()
 	// Z stack
 	variable/G root:packages:twoP:acquire:zStepSize=1e-06
 	variable/G root:Packages:twoP:Acquire:NumZseriesFrames = 10		// Stores Number of frames to collect in the Z dimension for Z Series Exp.
-	variable/G root:Packages:twoP:Acquire:NumZseriesAvg = 3			// Number of frames to average for each z-position, i.e, Kalman averaging
+	variable/G root:Packages:twoP:Acquire:NumZseriesAvg = 1		// Number of frames to average for each z-position, i.e, Kalman averaging
 	variable/G root:Packages:twoP:Acquire:ZFirstZ =0
 	variable/G root:Packages:twoP:Acquire:ZLastZ =10e-6
 	variable/G root:Packages:twoP:Acquire:zAvgStackAtOnce = 1 		// if frames are small, we collect Zavg frames at a time, else one frame at a time
@@ -350,7 +346,7 @@ Function twoP_AcquireAddControls()
 	SetVariable AspRatSetVar,limits={0,inf,0.1},value=root:Packages:twoP:Acquire:AspectRatio
 	PopupMenu AspRatPopUp,pos={258.00,96.00},size={77.00,19.00},proc=twoP_AspectRatioPopProc
 	PopupMenu AspRatPopUp,fSize=12
-	PopupMenu AspRatPopUp,mode=5,popvalue="Vary Y End",value=#"\"Vary X Start;Vary X  End;Vary X Pix;Vary Y Start;Vary Y End;Vary Y Pix;Free\""
+	PopupMenu AspRatPopUp,mode=6,popvalue="Vary Y End",value=#"\"Vary X Start;Vary X  End;Vary X Pix;Vary Y Start;Vary Y End;Vary Y Pix;Free\""
 	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Acquire", "Button FullScaleButton;Button RevertScaleButton;PopupMenu RevertScalePopMenu;SetVariable AspRatSetVar;PopupMenu AspRatPopUp;")
 	// Objective Selection
 	PopupMenu ObjPopUp,pos={8.00,121.00},size={44.00,19.00},proc=twoP_ObjPopProc
@@ -453,7 +449,7 @@ Function twoP_AcquireAddControls()
 	TitleBox imChanListTitle,pos={107.00,180.00},size={62.00,15.00},frame=0
 	TitleBox imChanListTitle,variable=root:Packages:twoP:Acquire:selImageChanList
 	SVAR selImageChans = root:Packages:twoP:Acquire:selImageChanList
-	selImageChans = ""
+	selImageChans = stringfromlist (0, twoP_ChansListActive(1), ";")
 	GUIPTabAddCtrlToTabs("twoP_Controls", "SmodeTabControl", "PopupMenu ImageChansPopMenu", "Live;Tser;Lines;Avg;Zser;Multi")
 	GUIPTabAddCtrlToTabs("twoP_Controls", "SmodeTabControl", "TitleBox imChanListTitle", "Live;Tser;Lines;Avg;Zser;Multi")
 	// ephys chans - TSer;Lines;ePhys;Multi
@@ -4087,7 +4083,7 @@ Function twoP_ScanMakeGalvoWaves(s)
 			make/o/n =(Scanpnts_total) root:packages:twoP:acquire:VerWave
 			WAVE VerWave = root:packages:twoP:acquire:VerWave
 			verwave=0
-			SetScale/p x 0,(s.pixtime) ,"", verWave
+			SetScale/p x 0,(s.pixtime) ,"s", verWave
 			if (s.flybackMode < 2)
 			// make vertical flyback
 				if(s.flybackMode)
@@ -4114,7 +4110,7 @@ Function twoP_ScanMakeGalvoWaves(s)
 			variable voltDiv =(s.YEV - s.YSV)/(s.PixHeight-1)  // calculate voltage step size
 			// fill in subsequent levels
 			variable iPnt
-			for(voltOut += voltDiv, iPnt = s.pixWidth ; voltOut < s.YEV ; voltOut += voltDiv, iPnt += VerCyclePoints)
+			for(voltOut += voltDiv, iPnt = s.pixWidth ; voltOut < s.YEV+1.0e-4 ; voltOut += voltDiv, iPnt += VerCyclePoints)
 				VerWave [iPnt, iPnt + VerCyclePoints-1]=voltOut
 			endfor
 			
@@ -5522,11 +5518,7 @@ Function twoP_InitImageScan(s)
 		
 		// mnake lineGate on ctr0, source is RTSI_5, where we will put ao signal of the waveform generator, direct the output to RTSI_6 where it is used to gate analog input
 		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ctr0InternalOutput", "/" + s.ImageBoard + "/RTSI6", 0), 6
-#ifdef ENV_IS_DEVELOP
-		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={ s.PixWidth -1, (s.PixWidthTotal - s.PixWidth)+2} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
-#else
-		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={, s.PixWidth -1, (s.PixWidthTotal - s.PixWidth + 1)} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
-#endif
+		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={ s.PixWidth -1, (s.PixWidthTotal - s.PixWidth)+1} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
 		// start A/D scanning
 		Switch(s.ScanMode)
 			variable taskPeriod
