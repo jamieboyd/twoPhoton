@@ -1,7 +1,7 @@
 #pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2026/09/11 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2026/11/03 by Jamie Boyd.
 #pragma IgorVersion = 7			// Not sure about this. Perhaps some Igor 9isms have slipped in
 
 #include "twoP_Prefs"
@@ -27,10 +27,6 @@
 // but 2 counter/timers and 2 analog outputs are still expected. E-series boards are fine
 // **********************************************************************************************************
 
-
-
-// define for workaround for jamie's development environment without 6110, where /ai and /ao counts disagree by one
- #define ENV_IS_DEVELOP
 
 //Defined constants for multiacquisition mode
 CONSTANT kMultiUsePeriod = 0
@@ -175,7 +171,7 @@ Function twoP_AcquireMakeFolder()
 	variable/G root:Packages:twoP:Acquire:ScanStopOrAbort = 0	// set by STOP button to stop or abort a scan
 	variable/G root:packages:twoP:Acquire:iFrame = 0
 	// Live mode
-	variable/G root:Packages:twoP:Acquire:LiveNumAvgFrames = 3	// number of frames averaged in scanGraphWave
+	variable/G root:Packages:twoP:Acquire:LiveNumAvgFrames = 1	// number of frames averaged in scanGraphWave
 	variable/G root:Packages:twoP:Acquire:LiveiAvgFrame = 0		// used to count frames being averaged
 	variable/G root:Packages:twoP:Acquire:LiveStackAtOnce = 0	// set by setTimes if frameTime < minLiveFrameTime
 	// Average
@@ -207,7 +203,7 @@ Function twoP_AcquireMakeFolder()
 	// Z stack
 	variable/G root:packages:twoP:acquire:zStepSize=1e-06
 	variable/G root:Packages:twoP:Acquire:NumZseriesFrames = 10		// Stores Number of frames to collect in the Z dimension for Z Series Exp.
-	variable/G root:Packages:twoP:Acquire:NumZseriesAvg = 3			// Number of frames to average for each z-position, i.e, Kalman averaging
+	variable/G root:Packages:twoP:Acquire:NumZseriesAvg = 1		// Number of frames to average for each z-position, i.e, Kalman averaging
 	variable/G root:Packages:twoP:Acquire:ZFirstZ =0
 	variable/G root:Packages:twoP:Acquire:ZLastZ =10e-6
 	variable/G root:Packages:twoP:Acquire:zAvgStackAtOnce = 1 		// if frames are small, we collect Zavg frames at a time, else one frame at a time
@@ -350,7 +346,7 @@ Function twoP_AcquireAddControls()
 	SetVariable AspRatSetVar,limits={0,inf,0.1},value=root:Packages:twoP:Acquire:AspectRatio
 	PopupMenu AspRatPopUp,pos={258.00,96.00},size={77.00,19.00},proc=twoP_AspectRatioPopProc
 	PopupMenu AspRatPopUp,fSize=12
-	PopupMenu AspRatPopUp,mode=5,popvalue="Vary Y End",value=#"\"Vary X Start;Vary X  End;Vary X Pix;Vary Y Start;Vary Y End;Vary Y Pix;Free\""
+	PopupMenu AspRatPopUp,mode=6,popvalue="Vary Y End",value=#"\"Vary X Start;Vary X  End;Vary X Pix;Vary Y Start;Vary Y End;Vary Y Pix;Free\""
 	GUIPTabAddCtrls("twoP_Controls", "AcquireExamineTab", "Acquire", "Button FullScaleButton;Button RevertScaleButton;PopupMenu RevertScalePopMenu;SetVariable AspRatSetVar;PopupMenu AspRatPopUp;")
 	// Objective Selection
 	PopupMenu ObjPopUp,pos={8.00,121.00},size={44.00,19.00},proc=twoP_ObjPopProc
@@ -453,7 +449,7 @@ Function twoP_AcquireAddControls()
 	TitleBox imChanListTitle,pos={107.00,180.00},size={62.00,15.00},frame=0
 	TitleBox imChanListTitle,variable=root:Packages:twoP:Acquire:selImageChanList
 	SVAR selImageChans = root:Packages:twoP:Acquire:selImageChanList
-	selImageChans = ""
+	selImageChans = stringfromlist (0, twoP_ChansListActive(1), ";")
 	GUIPTabAddCtrlToTabs("twoP_Controls", "SmodeTabControl", "PopupMenu ImageChansPopMenu", "Live;Tser;Lines;Avg;Zser;Multi")
 	GUIPTabAddCtrlToTabs("twoP_Controls", "SmodeTabControl", "TitleBox imChanListTitle", "Live;Tser;Lines;Avg;Zser;Multi")
 	// ephys chans - TSer;Lines;ePhys;Multi
@@ -672,7 +668,7 @@ Function twoP_AcquireAddControls()
 	// Z step SIze
 	SetVariable zStepSizeSetvar,pos={38.00,280.00},size={132.00,18.00},title="Step Size ",fSize=12
 	SetVariable zStepSizeSetvar value=root:Packages:twoP:Acquire:zStepSize
-	GUIPSIsetVarEnable("TwoP_Controls", "zStepSizeSetvar", "twoP_zStackSetVarProc", minZStepSize, INF, minZStepSize, 0, minZStepSize, 2, "m")
+	GUIPSIsetVarEnable("TwoP_Controls", "zStepSizeSetvar", "twoP_zStackSetVarProc", -INF, INF, minZStepSize, 0, minZStepSize, 2, "m")
 	SetVariable zStepSizeSetvar, disable =1
 	// number of frames 
 	SetVariable NumZframesSetvar,pos={9.00,304.00},size={148.00,22.00},proc=twoP_zStackSetVarProc
@@ -1348,7 +1344,7 @@ Function twoP_ImScaleLSrevertToScanProc(pa) : PopupMenuControl
 			// Set current values to those read from wave and from waveNote
 			LSStartVoltage = NumberByKey("XSV", scanStr, "=", "\r")
 			LSEndVoltage = NumberByKey("XEV", scanStr, "=", "\r")
-			LSYVoltage = NumberByKey("YSV", scanStr, "=", "\r")
+			LSYVoltage = NumberByKey("YLSV", scanStr, "=", "\r")
 			LSHeight =  NumberByKey("pixHeight", scanStr, "=", "\r")
 			LSWidth = NumberByKey("pixWidth", scanStr, "=", "\r")
 			// Run Set Times Proc
@@ -1437,7 +1433,8 @@ Function twoP_ImScaleSetMarquee(type)
 	XEV= min(xEndVoltsFS, WaveXSV +(V_right - waveXOffset)/ WaveXScal)
 	// For linescan, set Y to average of starting and ending voltage
 	if(type == 2)
-		YSV =(YSV +  WaveYSV +(V_top - waveYOffset)/WaveYScal)/2
+		//YSV =(YSV +  WaveYSV +(V_top - waveYOffset)/WaveYScal)/2
+		YSV = ((WaveYSV +(V_bottom - waveYOffset)/WaveYScal) + (WaveYSV +(V_top - waveYOffset)/WaveYScal))/2
 	else
 		YSV = max(yStartVoltsFS, WaveYSV +(V_bottom - waveYOffset)/WaveYScal)
 		YEV= min(yEndVoltsFS, WaveYSV +(V_top - waveYOffset)/WaveYScal)
@@ -3169,7 +3166,9 @@ Function twoP_MultiPrepProc(ba) : ButtonControl
 					NVAR zFirstZ = root:Packages:twoP:Acquire:ZFirstZ
 					NVAR zstepSize = root:Packages:twoP:Acquire:ZStepSize
 					StagesSetAbsAxis(stageProc, "Z", zFirstZ, kStagesReturnAfter)
+					sleep/S 0.1
 					StageSetIncrement(stageProc, "Z", abs(zStepSize), 1)
+					sleep/S 0.1
 				endif
 				StageUpdate(stageProc,(kXbit + kYbit + kZbit), 1)
 				// load the scan struct with data from constants - other things we will add later
@@ -3413,7 +3412,9 @@ Function  twoP_ScanStartSingleProc(ba) : ButtonControl
 				NVAR zFirstZ = root:Packages:twoP:Acquire:ZFirstZ
 				NVAR zstepSize = root:Packages:twoP:Acquire:ZStepSize
 				StagesSetAbsAxis(stageProc, "Z", zFirstZ, kStagesReturnAfter)
+				sleep/S 0.1
 				StageSetIncrement(stageProc, "Z", abs(zStepSize), 1)
+				sleep/S 0.1
 			endif
 			// update stage position for all scan modes.
 			StageUpdate(stageProc,(kXbit + kYbit + kZbit), 1)
@@ -3433,8 +3434,7 @@ Function  twoP_ScanStartSingleProc(ba) : ButtonControl
 					AbortOnValue (twoP_ScanMakeGalvoWaves(s)), 3
 					// set Horizontal galvo to start of X galvo waves
 					WAVE HorWave=root:Packages:twoP:acquire:HorWave
-					//fDAQmx_WriteChan(s.ImageBoard, 0, HorWave [0], -10, 10)
-					fDAQmx_WriteChan(s.ImageBoard, 0, 0, -10, 10)
+					fDAQmx_WriteChan(s.ImageBoard, 0, HorWave [0], -10, 10)
 					//  Set Vertical galvo to right Y position for line scan, or to start of Y galvo wave
 					if(ScanStartMode == kLineScan)
 						fDAQmx_WriteChan(s.ImageBoard, 1, s.YSV, -10, 10)
@@ -4088,7 +4088,7 @@ Function twoP_ScanMakeGalvoWaves(s)
 			make/o/n =(Scanpnts_total) root:packages:twoP:acquire:VerWave
 			WAVE VerWave = root:packages:twoP:acquire:VerWave
 			verwave=0
-			SetScale/p x 0,(s.pixtime) ,"", verWave
+			SetScale/p x 0,(s.pixtime) ,"s", verWave
 			if (s.flybackMode < 2)
 			// make vertical flyback
 				if(s.flybackMode)
@@ -4115,7 +4115,7 @@ Function twoP_ScanMakeGalvoWaves(s)
 			variable voltDiv =(s.YEV - s.YSV)/(s.PixHeight-1)  // calculate voltage step size
 			// fill in subsequent levels
 			variable iPnt
-			for(voltOut += voltDiv, iPnt = s.pixWidth ; voltOut < s.YEV ; voltOut += voltDiv, iPnt += VerCyclePoints)
+			for(voltOut += voltDiv, iPnt = s.pixWidth ; voltOut < s.YEV+1.0e-4 ; voltOut += voltDiv, iPnt += VerCyclePoints)
 				VerWave [iPnt, iPnt + VerCyclePoints-1]=voltOut
 			endfor
 			
@@ -5528,16 +5528,7 @@ Function twoP_InitImageScan(s)
 				
 		// connect internal output of counter 0 (line gate) to RTSI 6, where it can be used as the pause trigger (line gate) for acquistion
 		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ctr0InternalOutput", "/" + s.ImageBoard + "/RTSI6", 0), 6
-		
-		// connect ao sample clock (wave form generator) to RTSI_5, where it can be used as input for counter 0 to male pause trigger (line gate)
-		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ao/SampleClock", "/" + s.ImageBoard + "/RTSI5", 0), 7
-		
-		// set up counter 0 to make pause trigger (line gate) source is RTSI 5, the ao sample clock. it idles low. pause trigger will pause on low
-#ifdef ENV_IS_DEVELOP
-		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={ s.PixWidth, (s.PixWidthTotal - s.PixWidth)} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
-#else
-		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={s.PixWidth -1, (s.PixWidthTotal - s.PixWidth + 1)} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
-#endif
+		DAQmx_CTR_OutputPulse /DEV=s.ImageBoard/TICK={ s.PixWidth -1, (s.PixWidthTotal - s.PixWidth)+1} /IDLE=0 /NPLS=0/TBAS="/" + s.ImageBoard + "/RTSI5" /Rate=(pixHz) 0; ABORTONRTE
 		// start A/D scanning
 		Switch(s.ScanMode)
 			variable taskPeriod
@@ -5588,7 +5579,8 @@ Function twoP_InitImageScan(s)
 				DAQmx_Scan /DEV=s.ImageBoard/BKG=1/CLK={"/" + s.imageBoard + "/RTSI5", 0}/PAUS={ "/" + s.ImageBoard + "/RTSI6", 1,0}/STRT=1 /RPTC/RPTH=RPTChook/ERRH= ScanErrhook WAVES = s.scanWavePath;ABORTONRTE
 				break
 		endSwitch		
-		
+		// wave form generator, send sample clock output to RTSI_5
+		AbortOnValue fDAQmx_ConnectTerminals("/" + s.ImageBoard + "/ao/SampleClock", "/" + s.ImageBoard + "/RTSI5", 0), 7
 		string scanWavesList
 		If(s.ScanMode == kLineScan)
 			scanWavesList = "root:packages:twoP:acquire:HorWave, 0;"
@@ -6487,7 +6479,7 @@ Function twoP_zSeriesAtOnceHook (selImageChanList, numChans, gThreadGroupID, num
 	if((iFrame == numFrames) ||(wasAbort))
 		sleep /S 10e-03		// gives some time for threads to grab the last frame of data and insert it
 		twoP_EndScanning()
-		twoP_EndScan (wasAbort)
+		twoP_EndScan(wasAbort)
 		wasAbort = 0
 	endif
 End
@@ -6718,7 +6710,11 @@ function twoP_EndScan (isAbort)
 			NewScanName = twoP_ScanNameInc(NewScanName, 1)
 		endif
 	endif
-
+//	if (scanMode == kZSeries)
+//		SVAR theStageEncoder = root:packages:twoP:acquire:StageProc
+//		SVAR thePort = root:packages:twoP:acquire:StagePort
+//		StagePortProc(theStageEncoder, thePort)
+//	endif
 	// if multi, get ready for next scan
 	// turnaround for multiAcq
 	if (scanMode == kMultiAq)
