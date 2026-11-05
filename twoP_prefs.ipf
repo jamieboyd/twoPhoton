@@ -1,7 +1,7 @@
 ﻿#pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3				// Use modern global access method and strict wave access
 #pragma DefaultTab={3,20,4}		// Set default tab width in Igor Pro 9 and later
-#pragma version = 2.1  			// Last Modified: 2026/06/10 by Jamie Boyd.
+#pragma version = 2.1  			// Last Modified: 2026/10/24 by Jamie Boyd.
 #pragma IgorVersion = 7
 
 #include "GUIPControls"
@@ -508,6 +508,7 @@ Function twoP_PrefsMakeGlobals ()
 end
 
 
+// ************************************************************
 // sets longest acquire time for ephys based on counter size
 function twoP_PrefsSetEphysMax (sva) : SetVariableControl
 	STRUCT WMSetVariableAction &sva
@@ -530,7 +531,6 @@ function twoP_PrefsSetEphysMax (sva) : SetVariableControl
 End
 
 
-
 // **************************************************************************************************************
 // Calls twoP_PrefsLoad with chosen file
 // Last modified 2025/07/09 by Jamie Boyd 
@@ -550,7 +550,7 @@ End
 
 // **************************************************************************************************************
 // loads a preferences file and sets global variables for stage procedure
-// Last modified 2025/07/09 by Jamie Boyd 
+// Last modified 2026/10/24 by Jamie Boyd 
 Function twoP_PrefsLoad (prefsFileName)
 	string prefsFileName
 	// make sure path exists
@@ -690,6 +690,9 @@ Function twoP_PrefsLoad (prefsFileName)
 		popUPmenu Trigger2PolarityPopMenu mode = (Trig2Polarity + 1)
 		popUPmenu ShutterPolarityPopMenu mode = (shutterOpenLevel +1)
 	endif
+	// set prefs name to loaded prefs so it will bethere if we want to save it
+	SVAR newPrefsName = root:packages:twoP:acquire:newPrefsName
+	newPrefsName = prefsFileName
 	return 0
 end
 
@@ -954,7 +957,7 @@ End
 
 //******************************************************************************************************
 //Makescontrol panel for settings and preferences
-// last modified 2025/07/09 by Jamie Boyd
+// last modified 2026/10/24 by Jamie Boyd
 Function twoP_PrefsMakePanel()
 	// make sure path exists
 	twoP_PrefsMakePath ()
@@ -1077,7 +1080,7 @@ Function twoP_PrefsMakePanel()
 	SetVariable minLiveFrameTimeSetVar win=Scan_Settings_Prefs,title="Minimum Live Frame Time"
 	SetVariable minLiveFrameTimeSetVar win=Scan_Settings_Prefs,help={"If frame time is shorter than this, additional frames are collected and averaged "}
 	SetVariable minLiveFrameTimeSetVar win=Scan_Settings_Prefs,format="%.3f Sec"
-	SetVariable minLiveFrameTimeSetVar win=Scan_Settings_Prefs,limits={0.25,1,0.05},value=root:Packages:twoP:Acquire:minLiveFrameTime
+	SetVariable minLiveFrameTimeSetVar win=Scan_Settings_Prefs,limits={0.1,1,0.05},value=root:Packages:twoP:Acquire:minLiveFrameTime
 	GUIPTabAddCtrls ("Scan_Settings_Prefs", "PrefsTabCtrl",  "Image_Scaling", "SetVariable minLiveFrameTimeSetVar 0;")
 	// Image Channels
 	GroupBox ImageChansGrp,pos={6.00,403.00},size={305.00,112.00}
