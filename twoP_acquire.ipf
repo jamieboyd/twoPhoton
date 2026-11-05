@@ -668,7 +668,7 @@ Function twoP_AcquireAddControls()
 	// Z step SIze
 	SetVariable zStepSizeSetvar,pos={38.00,280.00},size={132.00,18.00},title="Step Size ",fSize=12
 	SetVariable zStepSizeSetvar value=root:Packages:twoP:Acquire:zStepSize
-	GUIPSIsetVarEnable("TwoP_Controls", "zStepSizeSetvar", "twoP_zStackSetVarProc", minZStepSize, INF, minZStepSize, 0, minZStepSize, 2, "m")
+	GUIPSIsetVarEnable("TwoP_Controls", "zStepSizeSetvar", "twoP_zStackSetVarProc", -INF, INF, minZStepSize, 0, minZStepSize, 2, "m")
 	SetVariable zStepSizeSetvar, disable =1
 	// number of frames 
 	SetVariable NumZframesSetvar,pos={9.00,304.00},size={148.00,22.00},proc=twoP_zStackSetVarProc
@@ -1344,7 +1344,7 @@ Function twoP_ImScaleLSrevertToScanProc(pa) : PopupMenuControl
 			// Set current values to those read from wave and from waveNote
 			LSStartVoltage = NumberByKey("XSV", scanStr, "=", "\r")
 			LSEndVoltage = NumberByKey("XEV", scanStr, "=", "\r")
-			LSYVoltage = NumberByKey("YSV", scanStr, "=", "\r")
+			LSYVoltage = NumberByKey("YLSV", scanStr, "=", "\r")
 			LSHeight =  NumberByKey("pixHeight", scanStr, "=", "\r")
 			LSWidth = NumberByKey("pixWidth", scanStr, "=", "\r")
 			// Run Set Times Proc
@@ -1433,7 +1433,8 @@ Function twoP_ImScaleSetMarquee(type)
 	XEV= min(xEndVoltsFS, WaveXSV +(V_right - waveXOffset)/ WaveXScal)
 	// For linescan, set Y to average of starting and ending voltage
 	if(type == 2)
-		YSV =(YSV +  WaveYSV +(V_top - waveYOffset)/WaveYScal)/2
+		//YSV =(YSV +  WaveYSV +(V_top - waveYOffset)/WaveYScal)/2
+		YSV = ((WaveYSV +(V_bottom - waveYOffset)/WaveYScal) + (WaveYSV +(V_top - waveYOffset)/WaveYScal))/2
 	else
 		YSV = max(yStartVoltsFS, WaveYSV +(V_bottom - waveYOffset)/WaveYScal)
 		YEV= min(yEndVoltsFS, WaveYSV +(V_top - waveYOffset)/WaveYScal)
@@ -3165,7 +3166,9 @@ Function twoP_MultiPrepProc(ba) : ButtonControl
 					NVAR zFirstZ = root:Packages:twoP:Acquire:ZFirstZ
 					NVAR zstepSize = root:Packages:twoP:Acquire:ZStepSize
 					StagesSetAbsAxis(stageProc, "Z", zFirstZ, kStagesReturnAfter)
+					sleep/S 0.1
 					StageSetIncrement(stageProc, "Z", abs(zStepSize), 1)
+					sleep/S 0.1
 				endif
 				StageUpdate(stageProc,(kXbit + kYbit + kZbit), 1)
 				// load the scan struct with data from constants - other things we will add later
@@ -3409,7 +3412,9 @@ Function  twoP_ScanStartSingleProc(ba) : ButtonControl
 				NVAR zFirstZ = root:Packages:twoP:Acquire:ZFirstZ
 				NVAR zstepSize = root:Packages:twoP:Acquire:ZStepSize
 				StagesSetAbsAxis(stageProc, "Z", zFirstZ, kStagesReturnAfter)
+				sleep/S 0.1
 				StageSetIncrement(stageProc, "Z", abs(zStepSize), 1)
+				sleep/S 0.1
 			endif
 			// update stage position for all scan modes.
 			StageUpdate(stageProc,(kXbit + kYbit + kZbit), 1)
@@ -6469,7 +6474,7 @@ Function twoP_zSeriesAtOnceHook (selImageChanList, numChans, gThreadGroupID, num
 	if((iFrame == numFrames) ||(wasAbort))
 		sleep /S 10e-03		// gives some time for threads to grab the last frame of data and insert it
 		twoP_EndScanning()
-		twoP_EndScan (wasAbort)
+		twoP_EndScan(wasAbort)
 		wasAbort = 0
 	endif
 End
@@ -6700,7 +6705,11 @@ function twoP_EndScan (isAbort)
 			NewScanName = twoP_ScanNameInc(NewScanName, 1)
 		endif
 	endif
-
+//	if (scanMode == kZSeries)
+//		SVAR theStageEncoder = root:packages:twoP:acquire:StageProc
+//		SVAR thePort = root:packages:twoP:acquire:StagePort
+//		StagePortProc(theStageEncoder, thePort)
+//	endif
 	// if multi, get ready for next scan
 	// turnaround for multiAcq
 	if (scanMode == kMultiAq)
